@@ -1,58 +1,168 @@
-// app/api/customers/today-bookings/route.js
+// app/api/customers/route.js
 import { NextResponse } from 'next/server';
-import { getConnection } from '../../../../lib/db';
+import { getConnection } from '../../../lib/db';
 
+// 顧客一覧取得
 export async function GET(request) {
   try {
     const pool = await getConnection();
-    const today = new Date().toISOString().split('T')[0];
+    const { searchParams } = new URL(request.url);
+    const includeStats = searchParams.get('includeStats') === 'true';
 
-    // ★★★ SELECT文に customer_ticket_id と limited_offer_id を追加 ★★★
-    const [rows] = await pool.execute(
-      `SELECT 
-        b.booking_id,
-        b.customer_id,
-        b.start_time,
-        b.end_time,
-        b.service_id,
-        b.customer_ticket_id,
-        b.limited_offer_id,
-        b.status,
+    let query = `
+      SELECT 
+        c.customer_id,
+        c.line_user_id,
         c.last_name,
         c.first_name,
-        s.name as service_name,
-        st.name as staff_name,
-        CASE 
-          WHEN EXISTS (
-            SELECT 1 FROM payments p 
-            WHERE p.booking_id = b.booking_id AND p.is_cancelled = FALSE
-          ) THEN 1
-          ELSE 0
-        END as is_paid
-      FROM bookings b
-      JOIN customers c ON b.customer_id = c.customer_id
-      LEFT JOIN services s ON b.service_id = s.service_id
-      LEFT JOIN staff st ON b.staff_id = st.staff_id
-      WHERE b.date = ? 
-        AND b.status IN ('pending', 'confirmed', 'completed')
-        AND b.type = 'booking'
-      ORDER BY b.start_time ASC`,
-      [today]
-    );
+        c.last_name_kana,
+        c.first_name_kana,
+        c.phone_number,
+        c.email,
+        c.birth_date,
+        c.gender,
+        c.notes,
+        c.base_visit_count,
+        c.created_at,
+        c.updated_at
+    `;
 
-    const bookingsWithPaidStatus = rows.map(row => ({
-      ...row,
-      is_paid: Boolean(row.is_paid)
+    // 統計情報を含める場合
+    if (includeStats) {
+      query += `,
+        COUNT(DISTINCT CASE 
+          WHEN p.is_cancelled = FALSE 
+            AND (p.related_payment_id IS NULL OR p.related_payment_id = '') 
+          THEN DATE(p.payment_date)
+        END) as actual_visit_count,
+        MAX(CASE 
+          WHEN p.is_cancelled = FALSE 
+          THEN DATE(p.payment_date)
+        END) as last_visit_date,
+        COALESCE(SUM(CASE 
+          WHEN p.is_cancelled = FALSE 
+          THEN p.total_amount 
+        END), 0) as total_spent
+      FROM customers c
+      LEFT JOIN payments p ON c.customer_id = p.customer_id
+      GROUP BY c.customer_id
+      `;
+    } else {
+      query += `
+      FROM customers c
+      `;
+    }
+
+    query += `ORDER BY c.created_at DESC`;
+
+    const [rows] = await pool.execute(query);
+
+    // visit_countを計算
+    const customersWithVisitCount = rows.map(customer => ({
+      ...customer,
+      visit_count: (customer.base_visit_count || 0) + (customer.actual_visit_count || 0)
     }));
 
     return NextResponse.json({
       success: true,
-      data: bookingsWithPaidStatus
+      data: customersWithVisitCount
     });
   } catch (error) {
-    console.error('今日の予約者取得エラー:', error);
+    console.error('顧客一覧取得エラー:', error);
     return NextResponse.json(
       { success: false, error: 'データベースエラー' },
+      { status: 500 }
+    );
+  }
+}
+
+// 顧客新規登録
+export async function POST(request) {
+  try {
+    const pool = await getConnection();
+    const body = await request.json();
+
+    const {
+      last_name,
+      first_name,
+      last_name_kana,
+      first_name_kana,
+      phone_number,
+      email,
+      birth_date,
+      gender,
+      notes,
+      base_visit_count,
+      line_user_id
+    } = body;
+
+    // バリデーション
+    if (!last_name || !first_name || !phone_number) {
+      return NextResponse.json(
+        { success: false, error: '姓名と電話番号は必須です' },
+        { status: 400 }
+      );
+    }
+
+    // 電話番号の重複チェック
+    const [existingCustomers] = await pool.execute(
+      'SELECT customer_id FROM customers WHERE phone_number = ?',
+      [phone_number]
+    );
+
+    if (existingCustomers.length > 0) {
+      return NextResponse.json(
+        { success: false, error: 'この電話番号は既に登録されています' },
+        { status: 400 }
+      );
+    }
+
+    // 新規登録
+    const [result] = await pool.execute(
+      `INSERT INTO customers (
+        customer_id,
+        last_name,
+        first_name,
+        last_name_kana,
+        first_name_kana,
+        phone_number,
+        email,
+        birth_date,
+        gender,
+        notes,
+        base_visit_count,
+        line_user_id
+      ) VALUES (UUID(), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        last_name,
+        first_name,
+        last_name_kana || '',
+        first_name_kana || '',
+        phone_number,
+        email || '',
+        birth_date || null,
+        gender || 'not_specified',
+        notes || '',
+        base_visit_count || 0,
+        line_user_id || null
+      ]
+    );
+
+    // 登録した顧客のIDを取得
+    const [newCustomer] = await pool.execute(
+      'SELECT customer_id, last_name, first_name FROM customers WHERE phone_number = ? ORDER BY created_at DESC LIMIT 1',
+      [phone_number]
+    );
+
+    return NextResponse.json({
+      success: true,
+      message: '顧客を登録しました',
+      data: newCustomer[0]
+    });
+  } catch (error) {
+    console.error('顧客登録エラー:', error);
+    return NextResponse.json(
+      { success: false, error: 'データベースエラー: ' + error.message },
       { status: 500 }
     );
   }

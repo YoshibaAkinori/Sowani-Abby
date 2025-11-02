@@ -1,75 +1,30 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-予約情報をExcelに追記するスクリプト（本番環境用）
+予約情報をExcelに追記するスクリプト（テンプレート使用版・罫線修正）
 """
 
 import sys
 import json
+import shutil
 from datetime import datetime
 from pathlib import Path
-from openpyxl import Workbook, load_workbook
-from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+from openpyxl import load_workbook
+from openpyxl.styles import Font, Alignment, Border, Side
 
 def get_project_paths():
     """プロジェクトのパスを取得"""
-    # スクリプトの場所から2階層上がプロジェクトルート
     project_root = Path(__file__).parent.parent
     
-    # Excelファイル保存先
+    template_dir = project_root / "data" / "excel" / "templates"
     base_dir = project_root / "data" / "excel"
-    # ダウンロード用コピー先
     output_dir = project_root / "public" / "downloads"
     
-    # ディレクトリが存在しない場合は作成
+    template_dir.mkdir(parents=True, exist_ok=True)
     base_dir.mkdir(parents=True, exist_ok=True)
     output_dir.mkdir(parents=True, exist_ok=True)
     
-    return base_dir, output_dir
-
-def create_excel_template(year, month):
-    """Excelテンプレートを作成"""
-    wb = Workbook()
-    ws = wb.active
-    ws.title = "総合売上"
-    
-    # スタイル定義
-    header_font = Font(name='游ゴシック', size=11, bold=True, color='FFFFFF')
-    header_fill = PatternFill(start_color='4472C4', end_color='4472C4', fill_type='solid')
-    header_alignment = Alignment(horizontal='center', vertical='center')
-    
-    data_font = Font(name='游ゴシック', size=10)
-    data_alignment = Alignment(horizontal='left', vertical='center')
-    
-    border = Border(
-        left=Side(style='thin', color='000000'),
-        right=Side(style='thin', color='000000'),
-        top=Side(style='thin', color='000000'),
-        bottom=Side(style='thin', color='000000')
-    )
-    
-    # 列幅設定
-    ws.column_dimensions['A'].width = 12
-    ws.column_dimensions['C'].width = 15
-    ws.column_dimensions['E'].width = 12
-    ws.column_dimensions['H'].width = 10
-    
-    # ヘッダー設定（13行目）
-    headers = {
-        'A13': '予約日',
-        'C13': '予約者名',
-        'E13': '担当者',
-        'H13': '来店回数'
-    }
-    
-    for cell, value in headers.items():
-        ws[cell] = value
-        ws[cell].font = header_font
-        ws[cell].fill = header_fill
-        ws[cell].alignment = header_alignment
-        ws[cell].border = border
-    
-    return wb
+    return template_dir, base_dir, output_dir
 
 def format_date(date_str):
     """日付を 'MM月DD日' 形式に変換"""
@@ -80,55 +35,101 @@ def format_date(date_str):
         return date_str
 
 def update_excel(booking_data):
-    """Excelファイルを更新"""
+    """Excelファイルを更新（テンプレート使用）"""
     try:
-        # パス取得
-        base_dir, output_dir = get_project_paths()
+        template_dir, base_dir, output_dir = get_project_paths()
         
-        # 予約日から年月を取得
         date_obj = datetime.strptime(booking_data['date'], '%Y-%m-%d')
         year = date_obj.year
         month = date_obj.month
         
-        # ファイル名生成
         file_name = f"{year}年 {month:02d}月売上.xlsx"
         file_path = base_dir / file_name
         
-        # ファイルが存在しない場合は新規作成
+        template_name = "月次売上テンプレート.xlsx"
+        template_path = template_dir / template_name
+        
         if not file_path.exists():
-            wb = create_excel_template(year, month)
-            ws = wb.active
-            start_row = 14
-        else:
-            wb = load_workbook(file_path)
-            ws = wb.active
+            if not template_path.exists():
+                error_result = {
+                    "success": False,
+                    "error": f"テンプレートファイルが見つかりません: {template_path}"
+                }
+                print(json.dumps(error_result, ensure_ascii=False))
+                return 1
             
-            # 次の空行を探す（14行目から）
-            start_row = 14
-            while ws[f'A{start_row}'].value is not None:
-                start_row += 1
+            shutil.copy(template_path, file_path)
+        
+        wb = load_workbook(file_path)
+        ws = wb.active
+        
+        # 新しい予約の日付
+        new_date = datetime.strptime(booking_data['date'], '%Y-%m-%d')
+        
+        # 適切な挿入位置を探す（14行目から）
+        insert_row = 14
+        current_row = 14
+        
+        # 既存のデータを走査して挿入位置を決定
+        while ws[f'A{current_row}'].value is not None:
+            cell_value = ws[f'A{current_row}'].value
+            
+            # セルの値から日付を抽出（例: "10月27日" → datetime）
+            try:
+                if isinstance(cell_value, str) and '月' in cell_value and '日' in cell_value:
+                    # "10月27日" 形式から日付を抽出
+                    month_str = cell_value.split('月')[0]
+                    day_str = cell_value.split('月')[1].replace('日', '')
+                    existing_date = datetime(new_date.year, int(month_str), int(day_str))
+                    
+                    # 新しい日付が既存の日付より前なら、この位置に挿入
+                    if new_date < existing_date:
+                        insert_row = current_row
+                        break
+            except:
+                pass
+            
+            current_row += 1
+        
+        # 挿入位置が既存データの中なら、行を挿入
+        if ws[f'A{insert_row}'].value is not None:
+            ws.insert_rows(insert_row)
         
         # データを書き込み
-        ws[f'A{start_row}'] = format_date(booking_data['date'])
-        ws[f'C{start_row}'] = booking_data['customer_name']
-        ws[f'E{start_row}'] = booking_data['staff_name']
-        ws[f'H{start_row}'] = booking_data['visit_count']
+        ws[f'A{insert_row}'] = format_date(booking_data['date'])
+        ws[f'C{insert_row}'] = booking_data['customer_name']
+        ws[f'E{insert_row}'] = booking_data['staff_name']
+        ws[f'H{insert_row}'] = str(booking_data['visit_count']) + "回目"
         
-        # スタイル適用
-        data_font = Font(name='游ゴシック', size=10)
-        data_alignment = Alignment(horizontal='left', vertical='center')
-        border = Border(
+        # ★修正: 罫線を細線(thin)に統一
+        thin_border = Border(
             left=Side(style='thin', color='000000'),
             right=Side(style='thin', color='000000'),
             top=Side(style='thin', color='000000'),
             bottom=Side(style='thin', color='000000')
         )
         
+        # スタイル適用
         for col in ['A', 'C', 'E', 'H']:
-            cell = ws[f'{col}{start_row}']
-            cell.font = data_font
-            cell.alignment = data_alignment
-            cell.border = border
+            source_cell = ws[f'{col}13']
+            target_cell = ws[f'{col}{insert_row}']
+            
+            if source_cell.font:
+                target_cell.font = Font(
+                    name=source_cell.font.name,
+                    size=source_cell.font.size,
+                    bold=source_cell.font.bold,
+                    color=source_cell.font.color
+                )
+            
+            if source_cell.alignment:
+                target_cell.alignment = Alignment(
+                    horizontal=source_cell.alignment.horizontal,
+                    vertical=source_cell.alignment.vertical
+                )
+            
+            # ★修正: 罫線は細線を強制適用
+            target_cell.border = thin_border
         
         # 保存
         wb.save(file_path)
@@ -137,11 +138,10 @@ def update_excel(booking_data):
         output_path = output_dir / file_name
         wb.save(output_path)
         
-        # 成功レスポンス
         result = {
             "success": True,
             "file_name": file_name,
-            "row": start_row,
+            "row": insert_row,
             "file_path": str(file_path),
             "output_path": str(output_path)
         }
@@ -150,7 +150,6 @@ def update_excel(booking_data):
         return 0
         
     except Exception as e:
-        # エラーレスポンス
         error_result = {
             "success": False,
             "error": str(e)
