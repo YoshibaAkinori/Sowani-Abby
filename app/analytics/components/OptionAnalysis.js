@@ -106,7 +106,7 @@ const OptionAnalysis = ({ data, period }) => {
           <Package size={20} style={{ display: 'inline', marginRight: '0.5rem' }} />
           {period === 'yearly' ? '年別' : '月別'}オプションランキング
         </h3>
-        
+
         {rankedPeriods.map(({ period: periodName, rankings }) => (
           <div key={periodName} className="period-section">
             <h4 className="period-title">{periodName}</h4>
@@ -117,12 +117,11 @@ const OptionAnalysis = ({ data, period }) => {
                 <div className="option-cell option-cell--name">オプション名</div>
                 <div className="option-cell option-cell--category">カテゴリ</div>
                 <div className="option-cell option-cell--number">使用回数</div>
-                <div className="option-cell option-cell--number">総数量</div>
                 <div className="option-cell option-cell--number">売上</div>
                 <div className="option-cell option-cell--number">無料</div>
                 <div className="option-cell option-cell--number">有料</div>
               </div>
-              
+
               {/* データ行 */}
               {rankings.map((option, index) => (
                 <div key={index} className="option-row">
@@ -139,10 +138,13 @@ const OptionAnalysis = ({ data, period }) => {
                   </div>
                   <div className="option-cell option-cell--category">{option.option_category}</div>
                   <div className="option-cell option-cell--number">{option.usage_count}回</div>
-                  <div className="option-cell option-cell--number">{option.total_quantity}個</div>
                   <div className="option-cell option-cell--number">{formatCurrency(option.total_revenue)}</div>
-                  <div className="option-cell option-cell--number">{option.free_count}回</div>
-                  <div className="option-cell option-cell--number">{option.paid_count}回</div>
+                  <div className="option-cell option-cell--number">
+                    {option.free_count > 0 ? `${option.free_count}回` : '-'}
+                  </div>
+                  <div className="option-cell option-cell--number">
+                    {option.paid_count > 0 ? `${option.paid_count}回` : '-'}
+                  </div>
                 </div>
               ))}
             </div>
