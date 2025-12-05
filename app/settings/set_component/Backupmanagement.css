@@ -1,0 +1,611 @@
+/* BackupManagement.css */
+
+.backup-management {
+  padding: 0;
+}
+
+/* メッセージ */
+.backup-message {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 1rem 1.25rem;
+  border-radius: 0.375rem;
+  margin-bottom: 1.5rem;
+  font-size: 1rem;
+}
+
+.backup-message--success {
+  background-color: #dcfce7;
+  color: #166534;
+  border: 1px solid #bbf7d0;
+}
+
+.backup-message--error {
+  background-color: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+}
+
+.backup-message--info {
+  background-color: #dbeafe;
+  color: #1e40af;
+  border: 1px solid #bfdbfe;
+}
+
+/* セクション */
+.backup-section {
+  margin-bottom: 2.5rem;
+}
+
+.backup-section__header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 2px solid #e5e7eb;
+}
+
+.backup-section__icon {
+  color: #3b82f6;
+  width: 24px;
+  height: 24px;
+}
+
+.backup-section__title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #111827;
+  margin: 0;
+}
+
+.backup-section__content {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.backup-section__description {
+  color: #6b7280;
+  font-size: 0.9375rem;
+  margin: 0;
+  line-height: 1.6;
+}
+
+/* カード */
+.backup-card {
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+  overflow: hidden;
+}
+
+.backup-card--highlight {
+  border: 2px solid #3b82f6;
+  background: #eff6ff;
+}
+
+.backup-card__header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.875rem 1.25rem;
+  background: #f3f4f6;
+  border-bottom: 1px solid #e5e7eb;
+  font-weight: 600;
+  font-size: 1rem;
+  color: #374151;
+}
+
+.backup-card--highlight .backup-card__header {
+  background: #dbeafe;
+  border-bottom-color: #bfdbfe;
+}
+
+.backup-card__body {
+  padding: 1.25rem;
+}
+
+.backup-card__body p {
+  margin: 0 0 1rem 0;
+  color: #4b5563;
+  font-size: 0.9375rem;
+  line-height: 1.5;
+}
+
+.backup-card__info {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #6b7280;
+  font-size: 0.875rem;
+}
+
+/* ボタン */
+.backup-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.25rem;
+  border: none;
+  border-radius: 0.375rem;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.backup-btn--primary {
+  background-color: #3b82f6;
+  color: white;
+}
+
+.backup-btn--primary:hover:not(:disabled) {
+  background-color: #2563eb;
+}
+
+.backup-btn--secondary {
+  background-color: #6b7280;
+  color: white;
+}
+
+.backup-btn--secondary:hover:not(:disabled) {
+  background-color: #4b5563;
+}
+
+.backup-btn--outline {
+  background-color: white;
+  color: #374151;
+  border: 1px solid #d1d5db;
+}
+
+.backup-btn--outline:hover:not(:disabled) {
+  background-color: #f3f4f6;
+  border-color: #9ca3af;
+}
+
+.backup-btn--large {
+  padding: 1rem 2rem;
+  font-size: 1.125rem;
+}
+
+.backup-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* コマンドボタングループ */
+.backup-command-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+/* ファイル入力 */
+.backup-file-input {
+  margin-bottom: 1rem;
+}
+
+.backup-file-label {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem;
+  background: white;
+  border: 2px dashed #d1d5db;
+  border-radius: 0.375rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  color: #6b7280;
+  font-size: 0.9375rem;
+}
+
+.backup-file-label:hover {
+  border-color: #3b82f6;
+  background: #eff6ff;
+}
+
+.backup-file-hidden {
+  display: none;
+}
+
+/* リポジトリリンク */
+.backup-repo-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #3b82f6;
+  text-decoration: none;
+  font-size: 0.9375rem;
+  word-break: break-all;
+}
+
+.backup-repo-link:hover {
+  text-decoration: underline;
+}
+
+/* アラート */
+.backup-alert {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border-radius: 0.375rem;
+  margin-top: 1rem;
+  font-size: 0.9375rem;
+}
+
+.backup-alert--success {
+  background-color: #dcfce7;
+  color: #166534;
+}
+
+.backup-alert--info {
+  background-color: #dbeafe;
+  color: #1e40af;
+}
+
+.backup-alert--warning {
+  background-color: #fef3c7;
+  color: #92400e;
+}
+
+.backup-alert--error {
+  background-color: #fee2e2;
+  color: #991b1b;
+}
+
+/* バージョン情報 */
+.backup-version-info {
+  margin-top: 1rem;
+  padding: 1rem;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.375rem;
+}
+
+.backup-version-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0;
+  font-size: 0.9375rem;
+}
+
+.backup-version-label {
+  font-weight: 500;
+  color: #374151;
+  min-width: 80px;
+}
+
+.backup-version-hash {
+  font-family: 'Consolas', 'Monaco', monospace;
+  background: #f3f4f6;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  font-size: 0.875rem;
+  color: #4b5563;
+}
+
+.backup-version-date {
+  color: #6b7280;
+  font-size: 0.875rem;
+}
+
+.backup-version-message {
+  padding: 0.25rem 0 0.5rem 80px;
+  font-size: 0.8125rem;
+  color: #6b7280;
+  font-style: italic;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+/* アップデート結果 */
+.backup-update-results {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.375rem;
+}
+
+.backup-update-results h4 {
+  margin: 0 0 0.75rem 0;
+  font-size: 0.9375rem;
+  color: #374151;
+}
+
+.backup-update-step {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.25rem;
+  margin-bottom: 0.5rem;
+  font-size: 0.9375rem;
+}
+
+.backup-update-step--success {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.backup-update-step--error {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.backup-update-step__name {
+  flex: 1;
+  font-family: 'Consolas', 'Monaco', monospace;
+}
+
+.backup-update-step__status {
+  font-weight: 500;
+}
+
+/* コマンドリスト */
+.backup-command-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.backup-command {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.backup-command-label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #374151;
+}
+
+.backup-command-box {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #1f2937;
+  border-radius: 0.375rem;
+  padding: 0.75rem 1rem;
+  overflow-x: auto;
+}
+
+.backup-command-box code {
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-size: 0.875rem;
+  color: #f3f4f6;
+  white-space: nowrap;
+}
+
+.backup-command-copy {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: transparent;
+  border: 1px solid #4b5563;
+  border-radius: 0.25rem;
+  color: #9ca3af;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-left: 0.75rem;
+}
+
+.backup-command-copy:hover {
+  background: #374151;
+  color: white;
+  border-color: #6b7280;
+}
+
+/* コピー完了トースト */
+.backup-copy-toast {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  margin-top: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  background: #dcfce7;
+  color: #166534;
+  border-radius: 0.25rem;
+  font-size: 0.875rem;
+}
+
+/* バックアップ一覧 */
+.backup-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.backup-list__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.375rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.backup-list__item:hover {
+  border-color: #3b82f6;
+  background: #f8fafc;
+}
+
+.backup-list__item--selected {
+  border-color: #3b82f6;
+  background: #eff6ff;
+}
+
+.backup-list__item-info {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: #374151;
+}
+
+.backup-list__item-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.backup-list__item-name {
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: #111827;
+}
+
+.backup-list__item-meta {
+  font-size: 0.8125rem;
+  color: #6b7280;
+}
+
+.backup-list__item-delete {
+  padding: 0.375rem;
+  background: transparent;
+  border: none;
+  color: #9ca3af;
+  cursor: pointer;
+  border-radius: 0.25rem;
+  transition: all 0.2s;
+}
+
+.backup-list__item-delete:hover {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.backup-loading,
+.backup-empty {
+  text-align: center;
+  color: #6b7280;
+  padding: 1rem;
+  font-size: 0.9375rem;
+}
+
+.backup-selected {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  background: #eff6ff;
+  border: 1px solid #3b82f6;
+  border-radius: 0.375rem;
+  color: #1e40af;
+  font-size: 0.9375rem;
+  margin-bottom: 1rem;
+}
+
+.backup-hint {
+  color: #9ca3af;
+  font-size: 0.875rem;
+  font-style: italic;
+}
+
+.backup-refresh-btn {
+  margin-left: auto;
+  padding: 0.25rem;
+  background: transparent;
+  border: none;
+  color: #6b7280;
+  cursor: pointer;
+  border-radius: 0.25rem;
+  transition: all 0.2s;
+}
+
+.backup-refresh-btn:hover:not(:disabled) {
+  background: #e5e7eb;
+  color: #374151;
+}
+
+.backup-refresh-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* 折りたたみ */
+.backup-details {
+  border: 1px solid #e5e7eb;
+}
+
+.backup-details__summary {
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+
+.backup-details__summary::-webkit-details-marker {
+  display: none;
+}
+
+.backup-details__summary::after {
+  content: '▶';
+  margin-left: auto;
+  font-size: 0.75rem;
+  transition: transform 0.2s;
+}
+
+.backup-details[open] .backup-details__summary::after {
+  transform: rotate(90deg);
+}
+
+/* スピンアニメーション */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.spinning {
+  animation: spin 1s linear infinite;
+}
+
+/* レスポンシブ */
+@media (max-width: 768px) {
+  .backup-version-row {
+    flex-wrap: wrap;
+  }
+
+  .backup-version-date {
+    width: 100%;
+    margin-left: 80px;
+    margin-top: -0.25rem;
+  }
+
+  .backup-version-message {
+    padding-left: 0;
+  }
+
+  .backup-command-box {
+    padding: 0.625rem 0.75rem;
+  }
+
+  .backup-command-box code {
+    font-size: 0.8125rem;
+  }
+
+  .backup-command-buttons {
+    flex-direction: column;
+  }
+
+  .backup-command-buttons .backup-btn {
+    width: 100%;
+  }
+}

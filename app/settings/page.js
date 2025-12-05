@@ -7,6 +7,7 @@ import ShiftManagement from './set_component/ShiftManagement';
 import ServicesManagement from './set_component/ServicesManagement';
 import OptionsManagement from './set_component/OptionsManagement';
 import RegisterClosing from './set_component/RegisterClosing';
+import BackupManagement from './set_component/Backupmanagement';
 import './settings.css';
 
 const SettingsPage = () => {
@@ -98,10 +99,10 @@ const SettingsPage = () => {
       case 'backup':
         return (
           <div>
-            <h2 className="settings__content-title">バックアップ管理</h2>
+            <h2 className="settings__content-title">バックアップ・更新管理</h2>
             <div className="settings__content-card">
-              <p className="settings__content-description">システムデータの自動・手動バックアップ、復元機能を管理します。顧客情報、予約データ、売上データなどの重要情報を安全に保護します。</p>
-              <div className="settings__content-status">※ 機能実装中</div>
+              <p className="settings__content-description">システムデータのバックアップ・復元、アプリのアップデート管理を行います。</p>
+              <BackupManagement />
             </div>
           </div>
         );
