@@ -29,14 +29,9 @@ export async function GET(request) {
         c.birth_date,
         c.gender,
         c.base_visit_count,
-        c.created_at,
-        COUNT(CASE 
-          WHEN p.is_cancelled = FALSE 
-            AND (p.related_payment_id IS NULL OR p.related_payment_id = '') 
-          THEN 1 
-        END) as payment_count
+        c.visit_count,
+        c.created_at
       FROM customers c
-      LEFT JOIN payments p ON c.customer_id = p.customer_id
       WHERE 1=1
     `;
     
@@ -61,19 +56,14 @@ export async function GET(request) {
       params.push(`%${phone.replace(/-/g, '')}%`);
     }
 
-    query += ' GROUP BY c.customer_id ORDER BY c.created_at DESC LIMIT 50';
+    query += ' ORDER BY c.created_at DESC LIMIT 50';
 
     const [rows] = await pool.execute(query, params);
 
-    // visit_countを計算して追加
-    const customersWithVisitCount = rows.map(customer => ({
-      ...customer,
-      visit_count: (customer.base_visit_count || 0) + customer.payment_count
-    }));
-
+    // visit_count はDBから取得した値をそのまま使用
     return NextResponse.json({
       success: true,
-      data: customersWithVisitCount
+      data: rows
     });
   } catch (error) {
     console.error('顧客検索エラー:', error);

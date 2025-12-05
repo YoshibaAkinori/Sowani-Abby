@@ -3,13 +3,14 @@ import { NextResponse } from 'next/server';
 import { getConnection } from '../../../../lib/db';
 
 // 顧客詳細取得
+// 顧客詳細取得
 export async function GET(request, { params }) {
   try {
     const pool = await getConnection();
     const { id } = await params;
     const customerId = id;
 
-    // 顧客基本情報を取得
+    // 顧客基本情報を取得（visit_countを含む）
     const [customerRows] = await pool.execute(
       `SELECT 
         customer_id,
@@ -24,6 +25,7 @@ export async function GET(request, { params }) {
         gender,
         notes,
         base_visit_count,
+        visit_count,
         created_at,
         updated_at
       FROM customers 
@@ -39,23 +41,16 @@ export async function GET(request, { params }) {
     }
 
     const customer = customerRows[0];
+    // visit_count はDBから取得した値をそのまま使用（計算不要）
 
-    // ★修正: paymentsテーブルから来店回数を計算
-    const [visitCountRows] = await pool.execute(
-      `SELECT COUNT(DISTINCT DATE(payment_date)) as actual_visit_count 
-       FROM payments 
-       WHERE customer_id = ? AND is_cancelled = FALSE`,
-      [customerId]
-    );
-    const actualVisitCount = visitCountRows[0].actual_visit_count || 0;
-    const baseVisitCount = customer.base_visit_count || 0;
-    customer.visit_count = baseVisitCount + actualVisitCount;
-
-    // ★修正: paymentsテーブルから最終来店日を取得
+    // 最終来店日を取得（回数券使用日ベース）
     const [lastVisitRows] = await pool.execute(
       `SELECT MAX(DATE(payment_date)) as last_visit_date 
        FROM payments 
-       WHERE customer_id = ? AND is_cancelled = FALSE`,
+       WHERE customer_id = ? 
+         AND is_cancelled = FALSE
+         AND payment_type = 'ticket'
+         AND service_name NOT LIKE '%回数券購入%'`,
       [customerId]
     );
     customer.last_visit_date = lastVisitRows[0].last_visit_date || null;

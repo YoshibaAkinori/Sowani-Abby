@@ -21,20 +21,24 @@ export async function POST(request) {
       );
     }
 
-    // 予約情報を取得
+    // 予約情報を取得（visit_count、customer_ticket_idを含む）
     const [bookingRows] = await pool.execute(
       `SELECT 
-        b.booking_id,
-        b.date,
-        b.customer_id,
-        c.last_name,
-        c.first_name,
-        c.base_visit_count,
-        s.name as staff_name
-      FROM bookings b
-      LEFT JOIN customers c ON b.customer_id = c.customer_id
-      LEFT JOIN staff s ON b.staff_id = s.staff_id
-      WHERE b.booking_id = ?`,
+          b.booking_id,
+          b.date,
+          b.customer_id,
+          b.customer_ticket_id,
+          c.last_name,
+          c.first_name,
+          c.visit_count,
+          s.name as staff_name,
+          tp.service_category as ticket_category
+        FROM bookings b
+        LEFT JOIN customers c ON b.customer_id = c.customer_id
+        LEFT JOIN staff s ON b.staff_id = s.staff_id
+        LEFT JOIN customer_tickets ct ON b.customer_ticket_id = ct.customer_ticket_id
+        LEFT JOIN ticket_plans tp ON ct.plan_id = tp.plan_id
+        WHERE b.booking_id = ?`,
       [booking_id]
     );
 
@@ -47,17 +51,11 @@ export async function POST(request) {
 
     const booking = bookingRows[0];
 
-    // 来店回数を計算（paymentsテーブルから実来店数 + 今回の予約）
-    const [visitCountRows] = await pool.execute(
-      `SELECT COUNT(DISTINCT DATE(payment_date)) as actual_visit_count 
-       FROM payments 
-       WHERE customer_id = ? AND is_cancelled = FALSE`,
-      [booking.customer_id]
-    );
-    
-    const actualVisitCount = visitCountRows[0].actual_visit_count || 0;
-    const baseVisitCount = booking.base_visit_count || 0;
-    const totalVisitCount = baseVisitCount + actualVisitCount + 1;
+    // 来店回数: 回数券使用予定がある場合のみ +1
+    const currentVisitCount = booking.visit_count || 0;
+    const totalVisitCount = (booking.customer_ticket_id && booking.ticket_category !== 'その他')
+      ? currentVisitCount + 1
+      : currentVisitCount;
 
     // 予約データをJSON形式で準備
     const bookingData = {
@@ -70,9 +68,9 @@ export async function POST(request) {
     // Pythonスクリプトを実行してExcelを更新
     const scriptPath = '/home/claude/update_excel.py';
     const command = `python3 ${scriptPath} '${JSON.stringify(bookingData)}'`;
-    
+
     const { stdout, stderr } = await execAsync(command);
-    
+
     if (stderr) {
       console.error('Python stderr:', stderr);
     }

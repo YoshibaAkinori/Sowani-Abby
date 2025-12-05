@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { getConnection } from '../../../lib/db';
 
 // 顧客一覧取得
+// 顧客一覧取得
 export async function GET(request) {
   try {
     const pool = await getConnection();
@@ -23,6 +24,7 @@ export async function GET(request) {
         c.gender,
         c.notes,
         c.base_visit_count,
+        c.visit_count,
         c.created_at,
         c.updated_at
     `;
@@ -30,11 +32,6 @@ export async function GET(request) {
     // 統計情報を含める場合
     if (includeStats) {
       query += `,
-        COUNT(DISTINCT CASE 
-          WHEN p.is_cancelled = FALSE 
-            AND (p.related_payment_id IS NULL OR p.related_payment_id = '') 
-          THEN DATE(p.payment_date)
-        END) as actual_visit_count,
         MAX(CASE 
           WHEN p.is_cancelled = FALSE 
           THEN DATE(p.payment_date)
@@ -57,15 +54,10 @@ export async function GET(request) {
 
     const [rows] = await pool.execute(query);
 
-    // visit_countを計算
-    const customersWithVisitCount = rows.map(customer => ({
-      ...customer,
-      visit_count: (customer.base_visit_count || 0) + (customer.actual_visit_count || 0)
-    }));
-
+    // visit_count はDBから取得した値をそのまま使用
     return NextResponse.json({
       success: true,
-      data: customersWithVisitCount
+      data: rows
     });
   } catch (error) {
     console.error('顧客一覧取得エラー:', error);

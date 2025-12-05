@@ -147,6 +147,7 @@ export async function POST(request) {
     const purchasePaymentId = purchasePayment[0].payment_id;
 
     // 7. 初回使用の場合は使用記録も作成（related_payment_idで紐付け）
+    // 7. 初回使用の場合は使用記録も作成（related_payment_idで紐付け）
     if (use_immediately) {
       await connection.query(`
         INSERT INTO payments (
@@ -175,6 +176,12 @@ export async function POST(request) {
         '回数券購入時の初回使用',
         purchasePaymentId
       ]);
+
+      // ★ 来店回数を+1（購入時即使用 = 来店）
+      await connection.query(
+        `UPDATE customers SET visit_count = visit_count + 1 WHERE customer_id = ?`,
+        [customer_id]
+      );
     }
 
     await connection.commit();

@@ -218,7 +218,7 @@ export async function POST(request) {
 
     // ★★★ 以下は通常の施術会計処理 ★★★
     let serviceData = { name: '', price: 0, duration: 0 };
-    
+
     // 通常サービスの場合
     if (service_id && payment_type === 'normal') {
       const [serviceRows] = await connection.execute(
@@ -441,13 +441,23 @@ export async function POST(request) {
     }
 
     // ★★★ 回数券使用処理 ★★★
-    if (ticket_id) {
-      await connection.execute(
-        `UPDATE customer_tickets 
-         SET sessions_remaining = sessions_remaining - 1
-         WHERE customer_ticket_id = ? AND sessions_remaining > 0`,
+    if (ticket_id && !related_payment_id) {
+      // 回数券のカテゴリを確認
+      const [ticketInfo] = await connection.execute(
+        `SELECT tp.service_category 
+     FROM customer_tickets ct
+     JOIN ticket_plans tp ON ct.plan_id = tp.plan_id
+     WHERE ct.customer_ticket_id = ?`,
         [ticket_id]
       );
+
+      // 「その他」以外の場合のみ来店カウント
+      if (ticketInfo.length > 0 && ticketInfo[0].service_category !== 'その他') {
+        await connection.execute(
+          `UPDATE customers SET visit_count = visit_count + 1 WHERE customer_id = ?`,
+          [customer_id]
+        );
+      }
     }
 
     // ★★★ 予約ステータス更新 ★★★
