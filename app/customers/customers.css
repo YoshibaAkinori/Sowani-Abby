@@ -812,3 +812,28 @@
   border-color: #3b82f6;
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
+/* レシートボタン */
+.customers-page__receipt-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: #eff6ff;
+  color: #3b82f6;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.customers-page__receipt-btn:hover {
+  background: #dbeafe;
+  color: #2563eb;
+  transform: scale(1.1);
+}
+
+.customers-page__receipt-btn:active {
+  transform: scale(0.95);
+}

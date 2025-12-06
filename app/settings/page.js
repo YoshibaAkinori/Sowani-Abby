@@ -1,13 +1,14 @@
 "use client";
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Settings, Users, Clock, Sparkles, Settings2, Calculator, Gift, Database, FileText } from 'lucide-react';
+import { ArrowLeft, Settings, Users, Clock, Sparkles, Settings2, Calculator, Gift, Database, FileText, Printer } from 'lucide-react';
 import StaffManagement from './set_component/StaffManagement';
 import ShiftManagement from './set_component/ShiftManagement';
 import ServicesManagement from './set_component/ServicesManagement';
 import OptionsManagement from './set_component/OptionsManagement';
 import RegisterClosing from './set_component/RegisterClosing';
 import BackupManagement from './set_component/Backupmanagement';
+import PrinterSettings from './set_component/PrinterSettings';
 import './settings.css';
 
 const SettingsPage = () => {
@@ -19,6 +20,7 @@ const SettingsPage = () => {
     { id: 'courses', label: '施術コース管理', icon: Sparkles, description: '施術メニュー・コース・料金設定' },
     { id: 'options', label: 'オプション管理', icon: Settings2, description: '追加オプション・料金設定' },
     { id: 'register-close', label: 'レジ締め管理', icon: Calculator, description: '日次売上締め・集計管理' },
+    { id: 'printer', label: 'プリンター設定', icon: Printer, description: 'レシート印刷・プリンター接続設定' },
     { id: 'coupon', label: 'クーポン送信管理', icon: Gift, description: 'クーポン作成・配信・管理' },
     { id: 'documents', label: '各種書類作成', icon: FileText, description: '売上報告書・レシート管理' },
     { id: 'backup', label: 'バックアップ管理', icon: Database, description: 'データバックアップ・復元管理' },
@@ -73,6 +75,16 @@ const SettingsPage = () => {
             <div className="settings__content-card">
               <p className="settings__content-description">日次の売上集計、レジ締め作業を管理します。現金・カード決済の実績確認、売上レポートの出力、差異チェック機能を提供します。</p>
                 <RegisterClosing />
+            </div>
+          </div>
+        );
+      case 'printer':
+        return (
+          <div>
+            <h2 className="settings__content-title">プリンター設定</h2>
+            <div className="settings__content-card">
+              <p className="settings__content-description">レシートプリンターの接続方法、自動印刷設定、レシートの表示内容をカスタマイズできます。</p>
+              <PrinterSettings />
             </div>
           </div>
         );

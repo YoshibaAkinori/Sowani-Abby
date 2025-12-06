@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, Users, Search, Calendar, Phone, Mail, CreditCard, Tag, Clock, Edit2, Plus, FileText, Save, X } from 'lucide-react';
 import './customers.css';
+import Receipt from '../components/Receipt';
 
 const CustomersPage = () => {
   const [activeTab, setActiveTab] = useState('basic');
@@ -11,6 +12,8 @@ const CustomersPage = () => {
   const [searchResults, setSearchResults] = useState([]);
   const [todayBookings, setTodayBookings] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [showReceipt, setShowReceipt] = useState(false);
+  const [receiptPaymentId, setReceiptPaymentId] = useState(null);
 
   // 編集モード関連
   const [isEditMode, setIsEditMode] = useState(false);
@@ -117,6 +120,17 @@ const CustomersPage = () => {
     } finally {
       setIsLoading(false);
     }
+  };
+  // レシート表示
+  const handleShowReceipt = (paymentId) => {
+    setReceiptPaymentId(paymentId);
+    setShowReceipt(true);
+  };
+
+  // レシートモーダルを閉じる
+  const handleCloseReceipt = () => {
+    setShowReceipt(false);
+    setReceiptPaymentId(null);
   };
 
   // 今日の予約者から選択
@@ -753,6 +767,7 @@ const CustomersPage = () => {
                         <th>担当スタッフ</th>
                         <th>支払方法</th>
                         <th>金額</th>
+                        <th style={{ width: '80px', textAlign: 'center' }}>レシート</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -785,6 +800,10 @@ const CustomersPage = () => {
                               </td>
                               <td className="customers-page__history-amount">
                                 <span style={{ color: '#9ca3af' }}>-</span>
+                              </td>
+                              {/* ★追加 */}
+                              <td style={{ textAlign: 'center' }}>
+                                <span style={{ color: '#d1d5db' }}>-</span>
                               </td>
                             </tr>
                           );
@@ -898,6 +917,19 @@ const CustomersPage = () => {
                             <td className="customers-page__history-amount">
                               ¥{visit.amount.toLocaleString()}
                             </td>
+                            <td style={{ textAlign: 'center' }}>
+                              {visit.payment_id && !visit.is_cancelled && visit.record_type !== 'cancelled_booking' ? (
+                                <button
+                                  onClick={() => handleShowReceipt(visit.payment_id)}
+                                  className="customers-page__receipt-btn"
+                                  title="レシートを表示"
+                                >
+                                  <FileText size={16} />
+                                </button>
+                              ) : (
+                                <span style={{ color: '#d1d5db' }}>-</span>
+                              )}
+                            </td>
                           </tr>
                         );
                       })}
@@ -926,6 +958,14 @@ const CustomersPage = () => {
           </div>
         )}
       </main>
+
+      {/* レシートモーダル */}
+      {showReceipt && receiptPaymentId && (
+        <Receipt
+          paymentId={receiptPaymentId}
+          onClose={handleCloseReceipt}
+        />
+      )}
     </div>
   );
 };

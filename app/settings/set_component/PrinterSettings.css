@@ -1,0 +1,215 @@
+/* app/settings/set_component/PrinterSettings.css */
+
+.printer-settings {
+  max-width: 600px;
+}
+
+.printer-settings__header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.printer-settings__header h2 {
+  font-size: 20px;
+  font-weight: 600;
+  color: #111827;
+  margin: 0;
+}
+
+.printer-settings__loading {
+  padding: 40px;
+  text-align: center;
+  color: #6b7280;
+}
+
+.printer-settings__message {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.printer-settings__message--success {
+  background: #dcfce7;
+  color: #166534;
+  border: 1px solid #bbf7d0;
+}
+
+.printer-settings__message--error {
+  background: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+}
+
+.printer-settings__section {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+.printer-settings__section h3 {
+  font-size: 15px;
+  font-weight: 600;
+  color: #374151;
+  margin: 0 0 16px 0;
+}
+
+/* ラジオボタングループ */
+.printer-settings__radio-group {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.printer-settings__radio {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px;
+  border: 2px solid #e5e7eb;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.printer-settings__radio:hover {
+  border-color: #d1d5db;
+  background: #f9fafb;
+}
+
+.printer-settings__radio--selected {
+  border-color: #3b82f6;
+  background: #eff6ff;
+}
+
+.printer-settings__radio input {
+  display: none;
+}
+
+.printer-settings__radio svg {
+  flex-shrink: 0;
+  color: #6b7280;
+  margin-top: 2px;
+}
+
+.printer-settings__radio--selected svg {
+  color: #3b82f6;
+}
+
+.printer-settings__radio-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #111827;
+  margin-bottom: 4px;
+}
+
+.printer-settings__radio-desc {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+/* フォーム */
+.printer-settings__form-group {
+  margin-bottom: 16px;
+}
+
+.printer-settings__form-group label {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  color: #374151;
+  margin-bottom: 6px;
+}
+
+.printer-settings__input,
+.printer-settings__textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+
+.printer-settings__input:focus,
+.printer-settings__textarea:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.printer-settings__input--small {
+  width: 120px;
+}
+
+.printer-settings__textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+/* チェックボックス */
+.printer-settings__checkbox {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  font-size: 14px;
+  color: #374151;
+}
+
+.printer-settings__checkbox input {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+}
+
+/* ボタン */
+.printer-settings__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.printer-settings__btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.printer-settings__btn--test {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.printer-settings__btn--test:hover:not(:disabled) {
+  background: #e5e7eb;
+}
+
+.printer-settings__btn--save {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  color: white;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+.printer-settings__btn--save:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(59, 130, 246, 0.4);
+}
+
+.printer-settings__actions {
+  margin-top: 24px;
+}

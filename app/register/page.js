@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { ArrowLeft, CreditCard, Users, Package, Check, AlertCircle, Sparkles, X, UserPlus } from 'lucide-react';
 import './register.css';
 import NumericKeypad from './Numerickeypad';
+import { printReceipt } from '../components/Receipt';
 
 const RegisterPage = () => {
   // 顧客選択
@@ -1089,6 +1090,17 @@ const RegisterPage = () => {
       }
 
       setSuccess('お会計が完了しました!');
+
+      // ★ レシート自動印刷
+      if (mainPaymentId) {
+        try {
+          await printReceipt(mainPaymentId);
+        } catch (printErr) {
+          console.error('レシート印刷エラー:', printErr);
+          // 印刷エラーでも会計は成功扱い
+        }
+      }
+
       setTimeout(() => {
         setSuccess('');
         resetForm();
@@ -2099,14 +2111,14 @@ const RegisterPage = () => {
         <NumericKeypad
           value={
             keypadTarget === 'cashAmount' ? cashAmount :
-            keypadTarget === 'cardAmount' ? cardAmount :
-            keypadTarget === 'discountAmount' ? discountAmount :
-            keypadTarget === 'receivedAmount' ? receivedAmount :
-            keypadTarget && keypadTarget.startsWith('ticket-price-') ? 
-              ticketCustomPrices[keypadTarget.replace('ticket-price-', '')] || '' :
-            keypadTarget && keypadTarget.startsWith('ticket-payment-') ?
-              ticketPurchaseList.find(t => t.id.toString() === keypadTarget.replace('ticket-payment-', ''))?.payment_amount?.toString() || '' :
-            ''
+              keypadTarget === 'cardAmount' ? cardAmount :
+                keypadTarget === 'discountAmount' ? discountAmount :
+                  keypadTarget === 'receivedAmount' ? receivedAmount :
+                    keypadTarget && keypadTarget.startsWith('ticket-price-') ?
+                      ticketCustomPrices[keypadTarget.replace('ticket-price-', '')] || '' :
+                      keypadTarget && keypadTarget.startsWith('ticket-payment-') ?
+                        ticketPurchaseList.find(t => t.id.toString() === keypadTarget.replace('ticket-payment-', ''))?.payment_amount?.toString() || '' :
+                        ''
           }
           onChange={handleKeypadChange}
           onClose={() => setShowKeypad(false)}
