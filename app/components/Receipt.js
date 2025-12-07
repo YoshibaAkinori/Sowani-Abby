@@ -202,135 +202,135 @@ export default function Receipt({ paymentId, onClose, autoPrint = false }) {
 
               <div className="receipt__divider" />
 
-            {/* 顧客情報 */}
-            <div className="receipt__customer">
-              <div>お客様: {payment.last_name} {payment.first_name} 様</div>
-              <div>担当: {payment.staff_name || '-'}</div>
-            </div>
+              {/* 顧客情報 */}
+              <div className="receipt__customer">
+                <div>お客様: {payment.last_name} {payment.first_name} 様</div>
+                <div>担当: {payment.staff_name || '-'}</div>
+              </div>
 
-            <div className="receipt__divider" />
+              <div className="receipt__divider" />
 
-            {/* 施術内容 */}
-            <div className="receipt__service">
-              <div className="receipt__service-name">{payment.service_name || '施術'}</div>
-              
-              {payment.service_subtotal > 0 && (
-                <div className="receipt__line">
-                  <span>小計</span>
-                  <span>¥{payment.service_subtotal.toLocaleString()}</span>
-                </div>
-              )}
+              {/* 施術内容 */}
+              <div className="receipt__service">
+                <div className="receipt__service-name">{payment.service_name || '施術'}</div>
+                
+                {payment.service_subtotal > 0 && (
+                  <div className="receipt__line">
+                    <span>小計</span>
+                    <span>¥{payment.service_subtotal.toLocaleString()}</span>
+                  </div>
+                )}
 
-              {/* オプション */}
-              {options && options.length > 0 && options.map((opt, idx) => (
-                <div key={idx} className="receipt__line">
-                  <span>
-                    {opt.option_name}
-                    {opt.is_free && <span className="receipt__free">(無料)</span>}
-                  </span>
-                  <span>¥{(opt.is_free ? 0 : opt.price).toLocaleString()}</span>
-                </div>
-              ))}
+                {/* オプション */}
+                {options && options.length > 0 && options.map((opt, idx) => (
+                  <div key={idx} className="receipt__line">
+                    <span>
+                      {opt.option_name}
+                      {opt.is_free && <span className="receipt__free">(無料)</span>}
+                    </span>
+                    <span>¥{(opt.is_free ? 0 : opt.price).toLocaleString()}</span>
+                  </div>
+                ))}
 
-              {/* 割引 */}
-              {payment.discount_amount > 0 && (
-                <div className="receipt__line receipt__line--discount">
-                  <span>割引</span>
-                  <span>-¥{payment.discount_amount.toLocaleString()}</span>
-                </div>
-              )}
-            </div>
+                {/* 割引 */}
+                {payment.discount_amount > 0 && (
+                  <div className="receipt__line receipt__line--discount">
+                    <span>割引</span>
+                    <span>-¥{payment.discount_amount.toLocaleString()}</span>
+                  </div>
+                )}
+              </div>
 
-            <div className="receipt__divider" />
-
-            {/* 合計 */}
-            <div className="receipt__total">
-              <span>合計</span>
-              <span>¥{payment.total_amount.toLocaleString()}</span>
-            </div>
-
-            <div className="receipt__divider" />
-
-            {/* 支払方法 */}
-            <div className="receipt__payment">
-              {payment.payment_method === 'cash' && (
-                <div className="receipt__line">
-                  <span>現金</span>
-                  <span>¥{payment.cash_amount.toLocaleString()}</span>
-                </div>
-              )}
-              {payment.payment_method === 'card' && (
-                <div className="receipt__line">
-                  <span>カード</span>
-                  <span>¥{payment.card_amount.toLocaleString()}</span>
-                </div>
-              )}
-              {payment.payment_method === 'mixed' && (
+              {/* ★★★ 回数券使用（合計の前に移動） ★★★ */}
+              {ticketUses && ticketUses.length > 0 && (
                 <>
+                  <div className="receipt__divider" />
+                  <div className="receipt__tickets">
+                    <div className="receipt__section-title">【回数券使用】</div>
+                    {ticketUses.map((t, idx) => (
+                      <div key={idx}>
+                        <div className="receipt__ticket-item">
+                          <span>{t.plan_name || t.service_name}</span>
+                          {t.remaining_payment > 0 && (
+                            <span style={{ color: '#dc2626' }}>残金支払 ¥{t.remaining_payment.toLocaleString()}</span>
+                          )}
+                        </div>
+                        <div className="receipt__ticket-detail">
+                          残り {t.sessions_remaining}/{t.total_sessions} 回
+                          {t.remaining_balance > 0 ? ` ／ 残金 ¥${t.remaining_balance.toLocaleString()}` : ' ／ 支払完了'}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+
+              {/* ★★★ 回数券購入（合計の前に移動） ★★★ */}
+              {ticketPurchases && ticketPurchases.length > 0 && (
+                <>
+                  <div className="receipt__divider" />
+                  <div className="receipt__tickets">
+                    <div className="receipt__section-title">【回数券購入】</div>
+                    {ticketPurchases.map((t, idx) => (
+                      <div key={idx}>
+                        <div className="receipt__ticket-item">
+                          <span>{t.plan_name || t.service_name}</span>
+                          <span>¥{(t.amount || 0).toLocaleString()}</span>
+                        </div>
+                        <div className="receipt__ticket-detail">
+                          残り {t.sessions_remaining}/{t.total_sessions} 回
+                          {t.remaining_balance > 0 ? ` ／ 残金 ¥${t.remaining_balance.toLocaleString()}` : ' ／ 支払完了'}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+
+              <div className="receipt__divider" />
+
+              {/* 合計 */}
+              <div className="receipt__total">
+                <span>合計</span>
+                <span>¥{payment.total_amount.toLocaleString()}</span>
+              </div>
+
+              <div className="receipt__divider" />
+
+              {/* 支払方法 */}
+              <div className="receipt__payment">
+                {payment.payment_method === 'cash' && (
                   <div className="receipt__line">
                     <span>現金</span>
                     <span>¥{payment.cash_amount.toLocaleString()}</span>
                   </div>
+                )}
+                {payment.payment_method === 'card' && (
                   <div className="receipt__line">
                     <span>カード</span>
                     <span>¥{payment.card_amount.toLocaleString()}</span>
                   </div>
-                </>
-              )}
-            </div>
-
-            {/* 回数券使用 */}
-            {ticketUses && ticketUses.length > 0 && (
-              <>
-                <div className="receipt__divider" />
-                <div className="receipt__tickets">
-                  <div className="receipt__section-title">【回数券使用】</div>
-                  {ticketUses.map((t, idx) => (
-                    <div key={idx}>
-                      <div className="receipt__ticket-item">
-                        <span>{t.plan_name || t.service_name}</span>
-                        {t.remaining_payment > 0 && (
-                          <span style={{ color: '#dc2626' }}>残金支払 ¥{t.remaining_payment.toLocaleString()}</span>
-                        )}
-                      </div>
-                      <div className="receipt__ticket-detail">
-                        残り {t.sessions_remaining}/{t.total_sessions} 回
-                        {t.remaining_balance > 0 ? ` ／ 残金 ¥${t.remaining_balance.toLocaleString()}` : ' ／ 支払完了'}
-                      </div>
+                )}
+                {payment.payment_method === 'mixed' && (
+                  <>
+                    <div className="receipt__line">
+                      <span>現金</span>
+                      <span>¥{payment.cash_amount.toLocaleString()}</span>
                     </div>
-                  ))}
-                </div>
-              </>
-            )}
-
-            {/* 回数券購入 */}
-            {ticketPurchases && ticketPurchases.length > 0 && (
-              <>
-                <div className="receipt__divider" />
-                <div className="receipt__tickets">
-                  <div className="receipt__section-title">【回数券購入】</div>
-                  {ticketPurchases.map((t, idx) => (
-                    <div key={idx}>
-                      <div className="receipt__ticket-item">
-                        <span>{t.plan_name || t.service_name}</span>
-                        <span>¥{(t.amount || 0).toLocaleString()}</span>
-                      </div>
-                      <div className="receipt__ticket-detail">
-                        残り {t.sessions_remaining}/{t.total_sessions} 回
-                        {t.remaining_balance > 0 ? ` ／ 残金 ¥${t.remaining_balance.toLocaleString()}` : ' ／ 支払完了'}
-                      </div>
+                    <div className="receipt__line">
+                      <span>カード</span>
+                      <span>¥{payment.card_amount.toLocaleString()}</span>
                     </div>
-                  ))}
-                </div>
-              </>
-            )}
+                  </>
+                )}
+              </div>
 
-            {/* フッター */}
-            <div className="receipt__footer">
-              <p>ありがとうございました</p>
-              <p>またのご来店をお待ちしております</p>
+              {/* フッター */}
+              <div className="receipt__footer">
+                <p>ありがとうございました</p>
+                <p>またのご来店をお待ちしております</p>
+              </div>
             </div>
-          </div>
           )}
         </div>
 

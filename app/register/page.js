@@ -842,8 +842,18 @@ const RegisterPage = () => {
     const newTicketPurchases = ticketPurchaseList.filter(t => !t.is_additional_payment);
     const additionalPayments = ticketPurchaseList.filter(t => t.is_additional_payment);
 
-    // 回数券購入のみの場合
+    console.log('=== handleCheckout 開始 ===');
+    console.log('newTicketPurchases:', newTicketPurchases);
+    console.log('additionalPayments:', additionalPayments);
+    console.log('ticketUseList:', ticketUseList);
+    console.log('limitedOfferUseList:', limitedOfferUseList);
+    console.log('selectedMenu:', selectedMenu);
+
+    // =====================================================
+    // パターン1: 回数券購入のみの場合
+    // =====================================================
     if (newTicketPurchases.length > 0 && !selectedMenu && ticketUseList.length === 0 && limitedOfferUseList.length === 0) {
+      console.log('パターン1: 回数券購入のみ');
       setIsLoading(true);
       try {
         let firstTicketPaymentId = null;
@@ -892,6 +902,16 @@ const RegisterPage = () => {
         }
 
         setSuccess('回数券を購入しました!');
+
+        // レシート印刷
+        if (firstTicketPaymentId) {
+          try {
+            await printReceipt(firstTicketPaymentId);
+          } catch (printErr) {
+            console.error('レシート印刷エラー:', printErr);
+          }
+        }
+
         setTimeout(() => {
           setSuccess('');
           resetForm();
@@ -906,20 +926,25 @@ const RegisterPage = () => {
       return;
     }
 
-    // メニュー、回数券、期間限定のいずれかが選択されているかチェック
+    // =====================================================
+    // パターン2: メニュー、回数券使用、期間限定のいずれかがある場合
+    // =====================================================
     if (!selectedMenu && ticketUseList.length === 0 && limitedOfferUseList.length === 0) {
       setError('メニューまたは回数券・期間限定を選択してください');
       setTimeout(() => setError(''), 3000);
       return;
     }
 
+    console.log('パターン2: 施術あり + 可能性として回数券購入も');
     setIsLoading(true);
     try {
       const ticketToUse = ticketUseList.length > 0 ? ticketUseList[0] : null;
       const limitedOfferToUse = limitedOfferUseList.length > 0 ? limitedOfferUseList[0] : null;
       const ticketPaymentAmount = additionalPayments.reduce((sum, t) => sum + (t.payment_amount || 0), 0);
 
+      // =====================================================
       // 1. 施術の会計処理（メインの支払い）
+      // =====================================================
       const paymentData = {
         customer_id: selectedCustomer.customer_id,
         booking_id: selectedBookingId,
@@ -943,6 +968,8 @@ const RegisterPage = () => {
         payment_amount: ticketPaymentAmount
       };
 
+      console.log('1. メイン支払いデータ:', paymentData);
+
       const response = await fetch('/api/payments', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -956,10 +983,15 @@ const RegisterPage = () => {
       }
 
       const mainPaymentId = result.data.payment_id;
+      console.log('メイン支払いID:', mainPaymentId);
 
+      // =====================================================
       // 2. 2回目以降の回数券使用処理
+      // =====================================================
       for (let i = 1; i < ticketUseList.length; i++) {
         const additionalTicket = ticketUseList[i];
+        console.log(`2. 追加回数券使用 ${i}:`, additionalTicket.customer_ticket_id);
+
         await fetch('/api/payments', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -978,9 +1010,13 @@ const RegisterPage = () => {
         });
       }
 
+      // =====================================================
       // 3. 2回目以降の期間限定オファー使用処理
+      // =====================================================
       for (let i = 1; i < limitedOfferUseList.length; i++) {
         const additionalOffer = limitedOfferUseList[i];
+        console.log(`3. 追加期間限定 ${i}:`, additionalOffer.offer_id);
+
         await fetch('/api/payments', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -999,8 +1035,13 @@ const RegisterPage = () => {
         });
       }
 
+      // =====================================================
+      // 4. 既存回数券の残金支払い処理
+      // =====================================================
       for (const ticket of additionalPayments) {
         if (ticket.payment_amount > 0) {
+          console.log('4. 既存回数券残金支払い:', ticket);
+
           // 按分計算
           let cashAmt = 0;
           let cardAmt = 0;
@@ -1012,7 +1053,6 @@ const RegisterPage = () => {
             cashAmt = 0;
             cardAmt = ticket.payment_amount;
           } else if (paymentMethod === 'mixed') {
-            // 全体の未払い分合計に対する比率で按分
             const totalAdditionalPayment = additionalPayments.reduce((sum, t) => sum + (t.payment_amount || 0), 0);
             if (totalAdditionalPayment > 0) {
               const ratio = ticket.payment_amount / totalAdditionalPayment;
@@ -1021,7 +1061,19 @@ const RegisterPage = () => {
             }
           }
 
-          // paymentsテーブルへの記録（is_remaining_paymentでticket_paymentsも自動登録される）
+          // ticket_paymentsテーブルへの記録
+          await fetch('/api/ticket-purchases', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              customer_ticket_id: ticket.customer_ticket_id,
+              payment_amount: ticket.payment_amount,
+              payment_method: paymentMethod,
+              notes: '回数券使用時の未払い分支払い'
+            })
+          });
+
+          // paymentsテーブルへの記録（売上管理用）
           await fetch('/api/payments', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -1036,7 +1088,6 @@ const RegisterPage = () => {
               cash_amount: cashAmt,
               card_amount: cardAmt,
               payment_amount: ticket.payment_amount,
-              is_remaining_payment: true,  // ★ これを追加
               notes: '回数券使用時の未払い分支払い',
               related_payment_id: mainPaymentId
             })
@@ -1044,49 +1095,79 @@ const RegisterPage = () => {
         }
       }
 
-      // 5. 新規回数券購入
+      // =====================================================
+      // ★★★ 5. 新規回数券購入 ★★★
+      // ここが重要！回数券使用と同時に新規購入がある場合の処理
+      // =====================================================
+      console.log('5. 新規回数券購入チェック - newTicketPurchases:', newTicketPurchases.length, '件');
+
       for (const ticket of newTicketPurchases) {
+        console.log('5. 新規回数券購入処理:', ticket);
+
         let cashAmt = 0;
         let cardAmt = 0;
 
         if (paymentMethod === 'cash') {
-          cashAmt = ticket.payment_amount;
+          cashAmt = ticket.payment_amount || 0;
         } else if (paymentMethod === 'card') {
-          cardAmt = ticket.payment_amount;
+          cardAmt = ticket.payment_amount || 0;
         } else if (paymentMethod === 'mixed') {
-          const totalTicketAmount = newTicketPurchases.reduce((sum, t) => sum + (t.payment_amount || 0), 0);
-          const ratio = ticket.payment_amount / totalTicketAmount;
-          cashAmt = Math.round(parseInt(cashAmount) * ratio);
-          cardAmt = Math.round(parseInt(cardAmount) * ratio);
+          // ★★★ 修正: 新規購入の金額に基づいて按分 ★★★
+          const totalNewPurchaseAmount = newTicketPurchases.reduce((sum, t) => sum + (t.payment_amount || 0), 0);
+          if (totalNewPurchaseAmount > 0) {
+            const ratio = (ticket.payment_amount || 0) / totalNewPurchaseAmount;
+            // 混合支払いの場合、新規購入分の現金・カード按分を計算
+            // ここでは全体のcashAmount/cardAmountから計算するのではなく、
+            // 新規購入額に対する比率で按分
+            cashAmt = Math.round((ticket.payment_amount || 0) * (parseInt(cashAmount) / (parseInt(cashAmount) + parseInt(cardAmount) || 1)));
+            cardAmt = (ticket.payment_amount || 0) - cashAmt;
+          }
         }
 
-        await fetch('/api/ticket-purchases', {
+        const purchaseRequestBody = {
+          customer_id: selectedCustomer.customer_id,
+          plan_id: ticket.plan_id,
+          purchase_price: ticketCustomPrices[ticket.id] || ticket.price,
+          payment_amount: ticket.payment_amount || 0,
+          payment_method: paymentMethod,
+          cash_amount: cashAmt,
+          card_amount: cardAmt,
+          staff_id: selectedStaff.staff_id,
+          use_immediately: ticketUseOnPurchase[ticket.id] || false,
+          related_payment_id: mainPaymentId  // ★ メインの支払いIDと紐付け
+        };
+
+        console.log('5. 新規回数券購入リクエスト:', purchaseRequestBody);
+
+        const purchaseResponse = await fetch('/api/ticket-purchases', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            customer_id: selectedCustomer.customer_id,
-            plan_id: ticket.plan_id,
-            purchase_price: ticketCustomPrices[ticket.id] || ticket.price,
-            payment_amount: ticket.payment_amount,
-            payment_method: paymentMethod,
-            cash_amount: cashAmt,
-            card_amount: cardAmt,
-            staff_id: selectedStaff.staff_id,
-            use_immediately: ticketUseOnPurchase[ticket.id] || false,
-            related_payment_id: mainPaymentId
-          })
+          body: JSON.stringify(purchaseRequestBody)
         });
+
+        const purchaseResult = await purchaseResponse.json();
+        console.log('5. 新規回数券購入レスポンス:', purchaseResult);
+
+        if (!purchaseResult.success) {
+          console.error('新規回数券購入エラー:', purchaseResult.error);
+          // エラーがあってもメイン処理は完了しているので続行
+          // ただし警告を表示
+          setError(`回数券購入でエラー: ${purchaseResult.error}`);
+          setTimeout(() => setError(''), 5000);
+        }
       }
 
+      // =====================================================
+      // 完了処理
+      // =====================================================
       setSuccess('お会計が完了しました!');
 
-      // ★ レシート自動印刷
+      // レシート自動印刷
       if (mainPaymentId) {
         try {
           await printReceipt(mainPaymentId);
         } catch (printErr) {
           console.error('レシート印刷エラー:', printErr);
-          // 印刷エラーでも会計は成功扱い
         }
       }
 
