@@ -7,6 +7,7 @@ import './Receipt.css';
 
 export default function Receipt({ paymentId, onClose, autoPrint = false }) {
   const [receiptData, setReceiptData] = useState(null);
+  const [receiptHtml, setReceiptHtml] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [printing, setPrinting] = useState(false);
@@ -31,12 +32,27 @@ export default function Receipt({ paymentId, onClose, autoPrint = false }) {
     setLoading(true);
     setError('');
     try {
-      const response = await fetch(`/api/receipt/print?payment_id=${paymentId}`);
-      const result = await response.json();
-      if (result.success) {
-        setReceiptData(result.data);
-      } else {
-        setError(result.error || 'データ取得に失敗しました');
+      // データとHTMLの両方を取得
+      const [dataRes, htmlRes] = await Promise.all([
+        fetch(`/api/receipt/print?payment_id=${paymentId}`),
+        fetch('/api/receipt/print', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ payment_id: paymentId })
+        })
+      ]);
+      
+      const dataResult = await dataRes.json();
+      const htmlResult = await htmlRes.json();
+      
+      if (dataResult.success) {
+        setReceiptData(dataResult.data);
+      }
+      if (htmlResult.success && htmlResult.html) {
+        setReceiptHtml(htmlResult.html);
+      }
+      if (!dataResult.success) {
+        setError(dataResult.error || 'データ取得に失敗しました');
       }
     } catch (err) {
       setError('通信エラーが発生しました');
@@ -165,14 +181,26 @@ export default function Receipt({ paymentId, onClose, autoPrint = false }) {
         </div>
 
         <div className="receipt-modal__body">
-          <div className="receipt" ref={receiptRef}>
-            {/* ヘッダー */}
-            <div className="receipt__header">
-              <div className="receipt__shop-name">Sowani ABBY</div>
-              <div className="receipt__date">{formatDate(payment.payment_date)}</div>
-            </div>
+          {receiptHtml ? (
+            <iframe
+              srcDoc={receiptHtml}
+              style={{
+                width: '100%',
+                height: '500px',
+                border: 'none',
+                background: 'white'
+              }}
+              title="レシートプレビュー"
+            />
+          ) : (
+            <div className="receipt" ref={receiptRef}>
+              {/* ヘッダー */}
+              <div className="receipt__header">
+                <div className="receipt__shop-name">Sowani ABBY</div>
+                <div className="receipt__date">{formatDate(payment.payment_date)}</div>
+              </div>
 
-            <div className="receipt__divider" />
+              <div className="receipt__divider" />
 
             {/* 顧客情報 */}
             <div className="receipt__customer">
@@ -303,6 +331,7 @@ export default function Receipt({ paymentId, onClose, autoPrint = false }) {
               <p>またのご来店をお待ちしております</p>
             </div>
           </div>
+          )}
         </div>
 
         <div className="receipt-modal__footer">

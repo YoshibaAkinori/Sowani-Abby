@@ -1021,19 +1021,7 @@ const RegisterPage = () => {
             }
           }
 
-          // 1. ticket_paymentsテーブルへの記録
-          await fetch('/api/ticket-purchases', {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              customer_ticket_id: ticket.customer_ticket_id,
-              payment_amount: ticket.payment_amount,
-              payment_method: paymentMethod,
-              notes: '回数券使用時の未払い分支払い'
-            })
-          });
-
-          // 2. paymentsテーブルへの記録（売上管理用）
+          // paymentsテーブルへの記録（is_remaining_paymentでticket_paymentsも自動登録される）
           await fetch('/api/payments', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -1048,6 +1036,7 @@ const RegisterPage = () => {
               cash_amount: cashAmt,
               card_amount: cardAmt,
               payment_amount: ticket.payment_amount,
+              is_remaining_payment: true,  // ★ これを追加
               notes: '回数券使用時の未払い分支払い',
               related_payment_id: mainPaymentId
             })

@@ -1,4 +1,4 @@
-// app/api/ticket-purchases/route.js - 回数券購入API（決済金額修正版）
+// app/api/ticket-purchases/route.js - 回数券購入API（フラグ対応版）
 import { NextResponse } from 'next/server';
 import { getConnection } from '../../../lib/db';
 
@@ -65,7 +65,7 @@ export async function POST(request) {
       ? plan.total_sessions - 1 
       : plan.total_sessions;
 
-    // 4. customer_tickets レコード作成（UUIDを生成）
+    // 4. customer_tickets レコード作成
     const customerTicketId = crypto.randomUUID();
     
     await connection.query(`
@@ -91,7 +91,7 @@ export async function POST(request) {
       `, [customerTicketId, payment_amount, payment_method, notes]);
     }
 
-    // ★★★ 決済方法に応じて cash_amount と card_amount を按分計算 ★★★
+    // 決済方法に応じて cash_amount と card_amount を按分計算
     let finalCashAmount = 0;
     let finalCardAmount = 0;
 
@@ -102,20 +102,26 @@ export async function POST(request) {
       finalCashAmount = 0;
       finalCardAmount = payment_amount;
     } else if (payment_method === 'mixed') {
-      // 混合決済の場合は、リクエストから受け取った按分済みの値を使用
       finalCashAmount = cash_amount || 0;
       finalCardAmount = card_amount || 0;
     }
 
-    // 6. payments テーブルにも記録（売上管理用）
-    const [purchasePaymentResult] = await connection.query(`
+    // スナップショット計算
+    const sessionsAtPayment = initialSessions;
+    const balanceAtPayment = purchase_price - payment_amount;
+
+    // 6. payments テーブルに記録（★フラグ付き）
+    await connection.query(`
       INSERT INTO payments (
         payment_id,
         customer_id, staff_id, service_id, service_name, service_price, service_duration,
-        payment_type, ticket_id, service_subtotal, options_total, discount_amount, 
+        payment_type, ticket_id, 
+        ticket_sessions_at_payment, ticket_balance_at_payment,
+        is_ticket_purchase, is_remaining_payment, is_immediate_use,
+        service_subtotal, options_total, discount_amount, 
         payment_amount, total_amount,
         payment_method, cash_amount, card_amount, notes, related_payment_id
-      ) VALUES (UUID(), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (UUID(), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `, [
       customer_id,
       staff_id,
@@ -125,6 +131,11 @@ export async function POST(request) {
       0,
       'ticket',
       customerTicketId,
+      sessionsAtPayment,
+      balanceAtPayment,
+      true,   // ★ is_ticket_purchase = TRUE
+      false,  // ★ is_remaining_payment = FALSE
+      false,  // ★ is_immediate_use = FALSE (購入レコード自体は初回使用ではない)
       payment_amount,
       0,
       0,
@@ -133,9 +144,7 @@ export async function POST(request) {
       payment_method,
       finalCashAmount,
       finalCardAmount,
-      use_immediately 
-        ? `回数券購入: ${plan.name}(${plan.total_sessions}回) - 購入時に1回使用済み`
-        : `回数券購入: ${plan.name}(${plan.total_sessions}回)`,
+      notes,
       related_payment_id
     ]);
 
@@ -146,16 +155,18 @@ export async function POST(request) {
     );
     const purchasePaymentId = purchasePayment[0].payment_id;
 
-    // 7. 初回使用の場合は使用記録も作成（related_payment_idで紐付け）
-    // 7. 初回使用の場合は使用記録も作成（related_payment_idで紐付け）
+    // 7. 初回使用の場合は使用記録も作成（★フラグ付き）
     if (use_immediately) {
       await connection.query(`
         INSERT INTO payments (
           customer_id, staff_id, service_id, service_name, service_price, service_duration,
-          payment_type, ticket_id, service_subtotal, options_total, discount_amount, 
+          payment_type, ticket_id,
+          ticket_sessions_at_payment, ticket_balance_at_payment,
+          is_ticket_purchase, is_remaining_payment, is_immediate_use,
+          service_subtotal, options_total, discount_amount, 
           payment_amount, total_amount,
           payment_method, cash_amount, card_amount, notes, related_payment_id
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `, [
         customer_id,
         staff_id,
@@ -165,6 +176,11 @@ export async function POST(request) {
         0,
         'ticket',
         customerTicketId,
+        sessionsAtPayment,
+        balanceAtPayment,
+        false,  // ★ is_ticket_purchase = FALSE
+        false,  // ★ is_remaining_payment = FALSE
+        true,   // ★ is_immediate_use = TRUE
         0,
         0,
         0,
@@ -173,11 +189,11 @@ export async function POST(request) {
         'cash',
         0,
         0,
-        '回数券購入時の初回使用',
+        null,  // notesは不要に
         purchasePaymentId
       ]);
 
-      // ★ 来店回数を+1（購入時即使用 = 来店）
+      // 来店回数を+1
       await connection.query(
         `UPDATE customers SET visit_count = visit_count + 1 WHERE customer_id = ?`,
         [customer_id]
