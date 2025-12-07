@@ -553,7 +553,8 @@ function generateReceiptHtml(data) {
   <table class="items-table">
     <tr><td class="item-name"></td><td class="item-price">¥${info.full_price.toLocaleString()}</td></tr>
     <tr><td class="item-name">前回までのお預かり金額</td><td class="item-price">¥${info.previous_paid.toLocaleString()}</td></tr>
-    <tr><td class="item-name">残り金額</td><td class="item-price">¥${info.this_payment.toLocaleString()}</td></tr>
+    <tr><td class="item-name">残り金額</td><td class="item-price">¥${(info.full_price - info.previous_paid).toLocaleString()}</td></tr>
+    <tr><td class="item-name">今回お支払い</td><td class="item-price">¥${info.this_payment.toLocaleString()}</td></tr>
   </table>
   <div class="divider"></div>
   <table class="items-table">
@@ -574,7 +575,7 @@ function generateReceiptHtml(data) {
   </div>
   <div class="ticket-summary">
     <div class="ticket-summary-name">${info.plan_name}</div>
-    <div class="ticket-summary-detail">残り ${info.sessions_remaining}/${info.total_sessions} 回 ／ ${info.is_fully_paid ? '支払完了' : ''}</div>
+    <div class="ticket-summary-detail">残り ${info.sessions_remaining}/${info.total_sessions} 回 ／ ${info.is_fully_paid ? '支払完了' : `残金 ¥${(info.full_price - info.previous_paid - info.this_payment).toLocaleString()}`}</div>
   </div>
   <div class="footer">
     <p>ありがとうございました</p>

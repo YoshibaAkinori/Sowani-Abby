@@ -1,4 +1,4 @@
-// app/api/customers/[id]/visit-history/route.js
+// app/api/customers/[id]/visit-history/route.js - フラグ対応版
 import { NextResponse } from 'next/server';
 import { getConnection } from '../../../../../lib/db';
 
@@ -8,7 +8,7 @@ export async function GET(request, { params }) {
     const { id: customerId } = await params;
     const connection = await pool.getConnection();
 
-    // ★改善ポイント1: 再帰CTEで親・子・孫の支払いを1回のクエリで取得
+    // ★改善ポイント1: 再帰CTEで親・子・孫の支払いを1回のクエリで取得（フラグ追加）
     const [payments] = await connection.query(`
       WITH RECURSIVE payment_tree AS (
         -- 親支払い（related_payment_idがNULL）
@@ -28,6 +28,9 @@ export async function GET(request, { params }) {
           p.related_payment_id,
           p.payment_amount,
           p.is_cancelled,
+          p.is_ticket_purchase,
+          p.is_remaining_payment,
+          p.is_immediate_use,
           s.name as staff_name,
           DATE(p.payment_date) as date,
           p.payment_date as payment_datetime,
@@ -57,6 +60,9 @@ export async function GET(request, { params }) {
           p.related_payment_id,
           p.payment_amount,
           p.is_cancelled,
+          p.is_ticket_purchase,
+          p.is_remaining_payment,
+          p.is_immediate_use,
           s.name as staff_name,
           DATE(p.payment_date) as date,
           p.payment_date as payment_datetime,
@@ -225,20 +231,21 @@ export async function GET(request, { params }) {
 
       const immediateUseMap = new Map();
 
-      // 初回使用フラグの設定
+      // ★フラグ対応: 初回使用フラグの設定
       for (const child of allChildPayments) {
-        if (child.notes && child.notes.includes('回数券購入時の初回使用') && child.ticket_id) {
+        if (child.is_immediate_use && child.ticket_id) {
           immediateUseMap.set(child.ticket_id, true);
         }
       }
 
-      const isParentTicketPurchase = payment.payment_type === 'ticket' &&
-        payment.service_name &&
-        payment.service_name.includes('回数券購入');
+      // ★フラグ対応: 親が回数券購入かどうか
+      const isParentTicketPurchase = !!payment.is_ticket_purchase;
 
+      // ★フラグ対応: 親が回数券使用かどうか
       const isParentTicketUse = payment.payment_type === 'ticket' && 
         payment.ticket_id && 
-        !isParentTicketPurchase;
+        !isParentTicketPurchase &&
+        !payment.is_remaining_payment;
 
       // キャンセルされた支払いの場合
       if (payment.is_cancelled) {
@@ -279,13 +286,13 @@ export async function GET(request, { params }) {
 
       // 子・孫の支払いを処理
       for (const child of allChildPayments) {
-        // 初回使用レコードはスキップ（金額に含めない）
-        if (child.notes && child.notes.includes('回数券購入時の初回使用')) {
+        // ★フラグ対応: 初回使用レコードはスキップ（金額に含めない）
+        if (child.is_immediate_use) {
           continue;
         }
         
-        // 回数券購入の子レコード
-        if (child.service_name && child.service_name.includes('回数券購入')) {
+        // ★フラグ対応: 回数券購入の子レコード
+        if (child.is_ticket_purchase) {
           // ★重要: 回数券購入の金額を加算
           totalAmount += child.total_amount;
 
@@ -301,16 +308,20 @@ export async function GET(request, { params }) {
             });
           }
         } 
+        // ★フラグ対応: 残金支払いの子レコード
+        else if (child.is_remaining_payment) {
+          // 残金支払いがある場合は金額を加算
+          if (child.payment_amount > 0) {
+            totalAmount += child.payment_amount;
+          }
+          // 残金支払いレコードはticketUsesに追加しない
+          continue;
+        }
         // 回数券使用の子レコード
         else if (child.payment_type === 'ticket' && child.ticket_id) {
           // ★重要: 残金支払いがある場合は加算
           if (child.payment_amount > 0) {
             totalAmount += child.payment_amount;
-          }
-          
-          // 残金支払いレコード（service_nameに「残金支払い」が含まれる）はticketUsesに追加しない
-          if (child.service_name && child.service_name.includes('残金支払い')) {
-            continue;
           }
 
           const ticketInfo = ticketInfoMap.get(child.ticket_id);
