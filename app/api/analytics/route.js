@@ -48,9 +48,10 @@ export async function GET(request) {
 
 // サマリー情報
 async function getSummary(pool, startDate, endDate) {
+  // 取引数: related_payment_id IS NULLのものだけカウント
   const [summary] = await pool.execute(
     `SELECT 
-      COUNT(*) as total_transactions,
+      SUM(CASE WHEN p.related_payment_id IS NULL THEN 1 ELSE 0 END) as total_transactions,
       SUM(p.total_amount) as actual_sales,
       SUM(CASE
         WHEN p.payment_type = 'ticket' AND p.service_name LIKE '%回数券購入%' THEN ct.purchase_price
@@ -127,12 +128,13 @@ async function getSummary(pool, startDate, endDate) {
      LIMIT 5`,
     [startDate, endDate]
   );
+
   // トップパフォーマー情報を取得
   const [topStaff] = await pool.execute(
     `SELECT 
     s.name as staff_name,
     s.color as staff_color,
-    COUNT(*) as transaction_count,
+    SUM(CASE WHEN p.related_payment_id IS NULL THEN 1 ELSE 0 END) as transaction_count,
     CAST(SUM(p.total_amount) AS DECIMAL(15,2)) as total_sales,
     COUNT(DISTINCT p.customer_id) as unique_customers
   FROM payments p
@@ -155,10 +157,11 @@ async function getSummary(pool, startDate, endDate) {
 
 // 日次売上
 async function getDailySales(pool, startDate, endDate) {
+  // 取引数: related_payment_id IS NULLのものだけカウント
   const [rows] = await pool.execute(
     `SELECT 
       DATE(p.payment_date) as period,
-      COUNT(*) as transaction_count,
+      SUM(CASE WHEN p.related_payment_id IS NULL THEN 1 ELSE 0 END) as transaction_count,
       SUM(p.total_amount) as actual_sales,
       SUM(CASE
         WHEN p.payment_type = 'ticket' AND p.service_name LIKE '%回数券購入%' THEN ct.purchase_price
@@ -182,10 +185,11 @@ async function getDailySales(pool, startDate, endDate) {
 
 // 月次売上
 async function getMonthlySales(pool, startDate, endDate) {
+  // 取引数: related_payment_id IS NULLのものだけカウント
   const [rows] = await pool.execute(
     `SELECT 
       DATE_FORMAT(p.payment_date, '%Y-%m') as period,
-      COUNT(*) as transaction_count,
+      SUM(CASE WHEN p.related_payment_id IS NULL THEN 1 ELSE 0 END) as transaction_count,
       SUM(p.total_amount) as actual_sales,
       SUM(CASE
         WHEN p.payment_type = 'ticket' AND p.service_name LIKE '%回数券購入%' THEN ct.purchase_price
@@ -217,7 +221,7 @@ async function getGenderSales(pool, startDate, endDate, type) {
     `SELECT 
       ${groupBy} as period,
       c.gender,
-      COUNT(*) as transaction_count,
+      SUM(CASE WHEN p.related_payment_id IS NULL THEN 1 ELSE 0 END) as transaction_count,
       SUM(p.total_amount) as total_sales,
       COUNT(DISTINCT p.customer_id) as unique_customers
     FROM payments p

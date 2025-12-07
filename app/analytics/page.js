@@ -2,7 +2,7 @@
 "use client";
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, BarChart3, TrendingUp, Package, Settings2, Users, Tag, Clock, Calendar, Download, Ban } from 'lucide-react';
+import { ArrowLeft, BarChart3, TrendingUp, Package, Settings2, Users, Tag, Clock, Calendar, Ban } from 'lucide-react';
 import SummarySection from './components/SummarySection';
 import SalesAnalysis from './components/SalesTrendChart';
 import ServiceAnalysis from './components/ServiceAnalysis';
@@ -16,16 +16,22 @@ import './analytics.css';
 
 const AnalyticsPage = () => {
   const [activeTab, setActiveTab] = useState('summary');
-  const [period, setPeriod] = useState('monthly'); // 'monthly' or 'yearly'
-  const [datePreset, setDatePreset] = useState('thisYear'); // 期間プリセット
-  const [showCalendarModal, setShowCalendarModal] = useState(false); // カレンダーモーダル表示
-  const [tempDateRange, setTempDateRange] = useState({ startYear: '', startMonth: '', endYear: '', endMonth: '' }); // モーダル内の一時的な日付
+  const [period, setPeriod] = useState('monthly'); // 'daily', 'monthly', 'yearly'
+  const [datePreset, setDatePreset] = useState('thisYear');
+  const [showCalendarModal, setShowCalendarModal] = useState(false);
+  const [tempDateRange, setTempDateRange] = useState({ startYear: '', startMonth: '', endYear: '', endMonth: '' });
   const [dateRange, setDateRange] = useState({
     startDate: '',
     endDate: ''
   });
   const [data, setData] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+
+  // 期間切り替えが必要なタブ
+  const tabsWithPeriodToggle = ['sales', 'service', 'option', 'staff', 'coupon', 'limited'];
+  
+  // 売上推移タブは3つの期間（日別・月別・年別）
+  const isSalesTab = activeTab === 'sales';
 
   // プリセット期間の計算
   const calculatePresetDates = (preset) => {
@@ -59,8 +65,6 @@ const AnalyticsPage = () => {
   const handlePresetChange = (preset) => {
     setDatePreset(preset);
     if (preset === 'custom') {
-      // カスタムの場合はモーダルを開く
-      // 現在の日付範囲から年月を抽出
       const startDate = new Date(dateRange.startDate);
       const endDate = new Date(dateRange.endDate);
       setTempDateRange({
@@ -79,9 +83,7 @@ const AnalyticsPage = () => {
   // カレンダーモーダルの適用
   const handleApplyCustomDate = () => {
     if (tempDateRange.startYear && tempDateRange.startMonth && tempDateRange.endYear && tempDateRange.endMonth) {
-      // 開始日: その月の1日
       const startDate = new Date(parseInt(tempDateRange.startYear), parseInt(tempDateRange.startMonth) - 1, 1);
-      // 終了日: その月の最終日
       const endDate = new Date(parseInt(tempDateRange.endYear), parseInt(tempDateRange.endMonth), 0);
       
       setDateRange({
@@ -95,9 +97,17 @@ const AnalyticsPage = () => {
   // カレンダーモーダルのキャンセル
   const handleCancelCustomDate = () => {
     setShowCalendarModal(false);
-    // プリセットを前の状態に戻す
     if (datePreset === 'custom') {
       setDatePreset('thisYear');
+    }
+  };
+
+  // タブ切り替え時に期間をリセット
+  const handleTabChange = (tab) => {
+    setActiveTab(tab);
+    // 売上推移以外のタブに移動時、dailyだったらmonthlyに戻す
+    if (tab !== 'sales' && period === 'daily') {
+      setPeriod('monthly');
     }
   };
 
@@ -123,7 +133,8 @@ const AnalyticsPage = () => {
           response = await fetch(`/api/analytics?type=summary&startDate=${dateRange.startDate}&endDate=${dateRange.endDate}`);
           break;
         case 'sales':
-          const salesType = period === 'yearly' ? 'monthly' : 'daily';
+          // 売上推移: daily（日次データ）, monthly（月次データ）
+          const salesType = period === 'daily' ? 'daily' : 'monthly';
           response = await fetch(`/api/analytics?type=${salesType}&startDate=${dateRange.startDate}&endDate=${dateRange.endDate}`);
           break;
         case 'service':
@@ -165,165 +176,6 @@ const AnalyticsPage = () => {
       setIsLoading(false);
     }
   };
-
-  // CSV出力
-  const handleExportCSV = () => {
-    if (!data) return;
-
-    let csv = '';
-    let filename = '';
-
-    switch (activeTab) {
-      case 'summary':
-        csv = generateSummaryCSV(data);
-        filename = 'summary';
-        break;
-      case 'sales':
-        csv = generateSalesCSV(data);
-        filename = 'sales';
-        break;
-      case 'service':
-        csv = generateServiceCSV(data);
-        filename = 'services';
-        break;
-      case 'option':
-        csv = generateOptionCSV(data);
-        filename = 'options';
-        break;
-      case 'staff':
-        csv = generateStaffCSV(data);
-        filename = 'staff';
-        break;
-      case 'customer':
-        csv = generateCustomerCSV(data);
-        filename = 'customers';
-        break;
-      case 'coupon':
-        csv = generateCouponCSV(data);
-        filename = 'coupons';
-        break;
-      case 'limited':
-        csv = generateLimitedCSV(data);
-        filename = 'limited_offers';
-        break;
-      case 'cancel':
-        csv = generateCancelCSV(data);
-        filename = 'cancellations';
-        break;
-      default:
-        return;
-    }
-
-    // BOM付きUTF-8でダウンロード
-    const bom = '\uFEFF';
-    const blob = new Blob([bom + csv], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    
-    link.setAttribute('href', url);
-    link.setAttribute('download', `${filename}_${dateRange.startDate}_${dateRange.endDate}.csv`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
-  // CSV生成関数
-  function generateSummaryCSV(data) {
-    let csv = 'サマリーレポート\n\n';
-    csv += `期間,${dateRange.startDate} 〜 ${dateRange.endDate}\n\n`;
-    csv += '項目,値\n';
-    csv += `総売上,${data.summary?.total_sales || 0}\n`;
-    csv += `取引数,${data.summary?.total_transactions || 0}\n`;
-    csv += `平均単価,${Math.round(data.summary?.average_sale || 0)}\n`;
-    csv += `現金売上,${data.summary?.total_cash || 0}\n`;
-    csv += `カード売上,${data.summary?.total_card || 0}\n`;
-    csv += `ユニーク顧客数,${data.summary?.unique_customers || 0}\n`;
-    return csv;
-  }
-
-  function generateSalesCSV(data) {
-    let csv = '売上推移\n';
-    csv += '期間,取引数,総売上,現金,カード,平均単価,顧客数\n';
-    data.forEach(row => {
-      csv += `${row.period},${row.transaction_count},${row.total_sales},${row.cash_sales},${row.card_sales},${Math.round(row.average_sale)},${row.unique_customers}\n`;
-    });
-    return csv;
-  }
-
-  function generateServiceCSV(data) {
-    let csv = 'サービス別売上\n';
-    csv += 'サービス名,カテゴリ,期間,利用回数,総売上,平均単価,総施術時間\n';
-    data.forEach(row => {
-      csv += `${row.service_name},${row.category},${row.period},${row.count},${row.total_revenue},${Math.round(row.average_price)},${row.total_minutes}\n`;
-    });
-    return csv;
-  }
-
-  function generateOptionCSV(data) {
-    let csv = 'オプション利用状況\n';
-    csv += 'オプション名,カテゴリ,期間,使用回数,総数量,売上,無料,有料\n';
-    data.forEach(row => {
-      csv += `${row.option_name},${row.option_category},${row.period},${row.usage_count},${row.total_quantity},${row.total_revenue},${row.free_count},${row.paid_count}\n`;
-    });
-    return csv;
-  }
-
-  function generateStaffCSV(data) {
-    let csv = 'スタッフ別売上\n';
-    csv += 'スタッフ名,期間,取引数,総売上,平均単価,ユニーク顧客数\n';
-    data.forEach(row => {
-      csv += `${row.staff_name},${row.period},${row.transaction_count},${row.total_sales},${Math.round(row.average_sale)},${row.unique_customers}\n`;
-    });
-    return csv;
-  }
-
-  function generateCustomerCSV(data) {
-    let csv = '顧客分析\n\n';
-    csv += '項目,値\n';
-    csv += `総顧客数,${data.repeatAnalysis?.total_customers || 0}\n`;
-    csv += `リピート顧客数,${data.repeatAnalysis?.repeat_customers || 0}\n`;
-    csv += `リピート率,${data.repeatAnalysis?.repeat_rate || 0}%\n`;
-    csv += `平均リピート日数,${Math.round(data.avgRepeatDays?.avg_repeat_days || 0)}\n`;
-    csv += `平均LTV,${Math.round(data.ltvAnalysis?.avg_ltv || 0)}\n`;
-    return csv;
-  }
-
-  function generateCouponCSV(data) {
-    let csv = 'クーポン使用状況\n';
-    csv += 'クーポン名,使用回数,総割引額,使用制限,有効\n';
-    data.usageByCoupon?.forEach(row => {
-      csv += `${row.coupon_name},${row.usage_count},${row.total_discount},${row.usage_limit || '無制限'},${row.is_active ? '有効' : '無効'}\n`;
-    });
-    return csv;
-  }
-
-  function generateLimitedCSV(data) {
-    let csv = '期間限定オファー販売状況\n';
-    csv += 'オファー名,サービス名,特別価格,販売数,総売上,販売終了日,有効\n';
-    data.salesByOffer?.forEach(row => {
-      csv += `${row.offer_name},${row.service_name},${row.special_price},${row.current_sales},${row.total_revenue},${row.sale_end_date || '無期限'},${row.is_active ? '有効' : '無効'}\n`;
-    });
-    return csv;
-  }
-
-  function generateCancelCSV(data) {
-    let csv = 'キャンセル統計\n\n';
-    csv += '項目,値\n';
-    csv += `総キャンセル数,${data.summary?.total_cancels || 0}\n`;
-    csv += `連絡ありキャンセル,${data.summary?.with_contact_cancels || 0}\n`;
-    csv += `無断キャンセル,${data.summary?.no_show_cancels || 0}\n`;
-    csv += `キャンセル率,${data.summary?.cancel_rate || 0}%\n`;
-    csv += `総予約数,${data.summary?.total_bookings || 0}\n\n`;
-    
-    csv += 'スタッフ別キャンセル\n';
-    csv += 'スタッフ名,総キャンセル数,連絡あり,無断\n';
-    data.by_staff?.forEach(row => {
-      csv += `${row.staff_name},${row.cancel_count},${row.with_contact},${row.no_show}\n`;
-    });
-    
-    return csv;
-  }
 
   return (
     <div className="analytics">
@@ -375,93 +227,106 @@ const AnalyticsPage = () => {
             </button>
           </div>
 
-          {/* 月別/年別切り替え */}
-          <div className="analytics__period-toggle">
-            <button
-              className={`analytics__period-btn ${period === 'monthly' ? 'analytics__period-btn--active' : ''}`}
-              onClick={() => setPeriod('monthly')}
-            >
-              月別
-            </button>
-            <button
-              className={`analytics__period-btn ${period === 'yearly' ? 'analytics__period-btn--active' : ''}`}
-              onClick={() => setPeriod('yearly')}
-            >
-              年別
-            </button>
-          </div>
-
-          <button
-            onClick={handleExportCSV}
-            className="analytics__export-btn"
-            disabled={!data || isLoading}
-          >
-            <Download size={18} />
-            CSV出力
-          </button>
+          {/* 期間切り替え（タブによって表示/非表示） */}
+          {tabsWithPeriodToggle.includes(activeTab) && (
+            <div className="analytics__period-toggle">
+              {/* 売上推移タブは日別・月別の2つ */}
+              {isSalesTab ? (
+                <>
+                  <button
+                    className={`analytics__period-btn ${period === 'daily' ? 'analytics__period-btn--active' : ''}`}
+                    onClick={() => setPeriod('daily')}
+                  >
+                    日別
+                  </button>
+                  <button
+                    className={`analytics__period-btn ${period === 'monthly' ? 'analytics__period-btn--active' : ''}`}
+                    onClick={() => setPeriod('monthly')}
+                  >
+                    月別
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    className={`analytics__period-btn ${period === 'monthly' ? 'analytics__period-btn--active' : ''}`}
+                    onClick={() => setPeriod('monthly')}
+                  >
+                    月別
+                  </button>
+                  <button
+                    className={`analytics__period-btn ${period === 'yearly' ? 'analytics__period-btn--active' : ''}`}
+                    onClick={() => setPeriod('yearly')}
+                  >
+                    年別
+                  </button>
+                </>
+              )}
+            </div>
+          )}
         </div>
 
         {/* タブナビゲーション */}
         <div className="analytics__tabs">
           <button
             className={`analytics__tab ${activeTab === 'summary' ? 'analytics__tab--active' : ''}`}
-            onClick={() => setActiveTab('summary')}
+            onClick={() => handleTabChange('summary')}
           >
             <BarChart3 size={18} />
             サマリー
           </button>
           <button
             className={`analytics__tab ${activeTab === 'sales' ? 'analytics__tab--active' : ''}`}
-            onClick={() => setActiveTab('sales')}
+            onClick={() => handleTabChange('sales')}
           >
             <TrendingUp size={18} />
             売上推移
           </button>
           <button
             className={`analytics__tab ${activeTab === 'service' ? 'analytics__tab--active' : ''}`}
-            onClick={() => setActiveTab('service')}
+            onClick={() => handleTabChange('service')}
           >
             <Package size={18} />
             サービス
           </button>
           <button
             className={`analytics__tab ${activeTab === 'option' ? 'analytics__tab--active' : ''}`}
-            onClick={() => setActiveTab('option')}
+            onClick={() => handleTabChange('option')}
           >
             <Settings2 size={18} />
             オプション
           </button>
           <button
             className={`analytics__tab ${activeTab === 'staff' ? 'analytics__tab--active' : ''}`}
-            onClick={() => setActiveTab('staff')}
+            onClick={() => handleTabChange('staff')}
           >
             <Users size={18} />
             スタッフ
           </button>
           <button
             className={`analytics__tab ${activeTab === 'customer' ? 'analytics__tab--active' : ''}`}
-            onClick={() => setActiveTab('customer')}
+            onClick={() => handleTabChange('customer')}
           >
             <Users size={18} />
             顧客
           </button>
           <button
             className={`analytics__tab ${activeTab === 'coupon' ? 'analytics__tab--active' : ''}`}
-            onClick={() => setActiveTab('coupon')}
+            onClick={() => handleTabChange('coupon')}
           >
             <Tag size={18} />
             クーポン
           </button>
           <button
             className={`analytics__tab ${activeTab === 'limited' ? 'analytics__tab--active' : ''}`}
-            onClick={() => setActiveTab('limited')}
+            onClick={() => handleTabChange('limited')}
           >
             <Clock size={18} />
             期間限定
           </button>
           <button
             className={`analytics__tab ${activeTab === 'cancel' ? 'analytics__tab--active' : ''}`}
-            onClick={() => setActiveTab('cancel')}
+            onClick={() => handleTabChange('cancel')}
           >
             <Ban size={18} />
             キャンセル
@@ -510,7 +375,7 @@ const AnalyticsPage = () => {
                     onChange={(e) => setTempDateRange(prev => ({ ...prev, startYear: e.target.value }))}
                     className="calendar-modal__select"
                   >
-                    <option value="">年を選択</option>
+                    <option value="">年</option>
                     {Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - i).map(year => (
                       <option key={year} value={year}>{year}年</option>
                     ))}
@@ -520,11 +385,9 @@ const AnalyticsPage = () => {
                     onChange={(e) => setTempDateRange(prev => ({ ...prev, startMonth: e.target.value }))}
                     className="calendar-modal__select"
                   >
-                    <option value="">月を選択</option>
+                    <option value="">月</option>
                     {Array.from({ length: 12 }, (_, i) => i + 1).map(month => (
-                      <option key={month} value={month.toString().padStart(2, '0')}>
-                        {month}月
-                      </option>
+                      <option key={month} value={month.toString().padStart(2, '0')}>{month}月</option>
                     ))}
                   </select>
                 </div>
@@ -539,7 +402,7 @@ const AnalyticsPage = () => {
                     onChange={(e) => setTempDateRange(prev => ({ ...prev, endYear: e.target.value }))}
                     className="calendar-modal__select"
                   >
-                    <option value="">年を選択</option>
+                    <option value="">年</option>
                     {Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - i).map(year => (
                       <option key={year} value={year}>{year}年</option>
                     ))}
@@ -549,35 +412,19 @@ const AnalyticsPage = () => {
                     onChange={(e) => setTempDateRange(prev => ({ ...prev, endMonth: e.target.value }))}
                     className="calendar-modal__select"
                   >
-                    <option value="">月を選択</option>
+                    <option value="">月</option>
                     {Array.from({ length: 12 }, (_, i) => i + 1).map(month => (
-                      <option key={month} value={month.toString().padStart(2, '0')}>
-                        {month}月
-                      </option>
+                      <option key={month} value={month.toString().padStart(2, '0')}>{month}月</option>
                     ))}
                   </select>
                 </div>
               </div>
-
-              {/* プレビュー */}
-              {tempDateRange.startYear && tempDateRange.startMonth && tempDateRange.endYear && tempDateRange.endMonth && (
-                <div className="calendar-modal__preview">
-                  <span className="calendar-modal__preview-label">選択期間:</span>
-                  <span className="calendar-modal__preview-text">
-                    {tempDateRange.startYear}年{parseInt(tempDateRange.startMonth)}月 〜 {tempDateRange.endYear}年{parseInt(tempDateRange.endMonth)}月
-                  </span>
-                </div>
-              )}
             </div>
             <div className="calendar-modal__footer">
               <button className="calendar-modal__btn calendar-modal__btn--cancel" onClick={handleCancelCustomDate}>
                 キャンセル
               </button>
-              <button 
-                className="calendar-modal__btn calendar-modal__btn--apply" 
-                onClick={handleApplyCustomDate}
-                disabled={!tempDateRange.startYear || !tempDateRange.startMonth || !tempDateRange.endYear || !tempDateRange.endMonth}
-              >
+              <button className="calendar-modal__btn calendar-modal__btn--apply" onClick={handleApplyCustomDate}>
                 適用
               </button>
             </div>

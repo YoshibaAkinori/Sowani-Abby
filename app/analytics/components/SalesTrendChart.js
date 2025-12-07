@@ -5,7 +5,7 @@ import { TrendingUp, DollarSign, Users } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 const SalesTrendChart = ({ data, period }) => {
-  // 全体売上グラフ用の月選択
+  // 月選択（月別表示の時のみ使用）
   const [selectedMonthForTotal, setSelectedMonthForTotal] = React.useState(null);
   
   function formatCurrency(amount) {
@@ -15,9 +15,6 @@ const SalesTrendChart = ({ data, period }) => {
   // データ構造チェック
   const salesData = data?.salesData || data || [];
 
-  // デバッグ用（開発時のみ）
-  console.log('SalesTrendChart data:', data);
-
   if (!salesData || !Array.isArray(salesData) || salesData.length === 0) {
     return (
       <div className="sales-trend">
@@ -26,7 +23,7 @@ const SalesTrendChart = ({ data, period }) => {
     );
   }
 
-  // 合計値計算（必ず数値に変換）
+  // 合計値計算
   const totals = salesData.reduce((acc, item) => ({
     transactions: acc.transactions + (Number(item.transaction_count) || 0),
     idealSales: acc.idealSales + (Number(item.ideal_sales) || 0),
@@ -34,51 +31,40 @@ const SalesTrendChart = ({ data, period }) => {
     customers: acc.customers + (Number(item.unique_customers) || 0)
   }), { transactions: 0, idealSales: 0, actualSales: 0, customers: 0 });
 
-  // 全体売上用の利用可能な月のリストを取得
-  const availableMonthsForTotal = React.useMemo(() => {
+  // 利用可能な月のリストを取得（月別表示用）
+  const availableMonths = React.useMemo(() => {
     const months = new Set();
     salesData.forEach(row => {
       if (!row.period) return;
-      
-      let monthKey;
-      if (row.period.includes('-')) {
-        const parts = row.period.split('-');
-        if (parts.length >= 2) {
-          monthKey = `${parts[0]}-${parts[1]}`;
-          months.add(monthKey);
-        }
+      const parts = row.period.split('-');
+      if (parts.length >= 2) {
+        months.add(`${parts[0]}-${parts[1]}`);
       }
     });
-    
     const sorted = Array.from(months).sort().reverse();
-    // 初期値を最新の月に設定
     if (!selectedMonthForTotal && sorted.length > 0) {
       setSelectedMonthForTotal(sorted[0]);
     }
     return sorted;
   }, [salesData]);
 
-  // 全体売上データのフィルタリング（月別表示の時のみ）
+  // フィルタリングされたデータ
   const filteredSalesData = React.useMemo(() => {
-    // 年別表示の場合は全データを使用
-    if (period === 'yearly') return salesData;
-    
-    // 月別表示で月が選択されている場合のみフィルタリング
+    if (period === 'monthly') return salesData; // 月別は全データ
+    // 日別: 選択された月のデータのみ
     if (!selectedMonthForTotal) return salesData;
-    
     return salesData.filter(row => {
       if (!row.period) return false;
       const parts = row.period.split('-');
       if (parts.length >= 2) {
-        const monthKey = `${parts[0]}-${parts[1]}`;
-        return monthKey === selectedMonthForTotal;
+        return `${parts[0]}-${parts[1]}` === selectedMonthForTotal;
       }
       return false;
     });
   }, [salesData, selectedMonthForTotal, period]);
 
-  // 選択された月の合計値計算
-  const selectedMonthTotals = React.useMemo(() => {
+  // 選択期間の合計
+  const selectedTotals = React.useMemo(() => {
     return filteredSalesData.reduce((acc, item) => ({
       transactions: acc.transactions + (Number(item.transaction_count) || 0),
       idealSales: acc.idealSales + (Number(item.ideal_sales) || 0),
@@ -87,21 +73,50 @@ const SalesTrendChart = ({ data, period }) => {
     }), { transactions: 0, idealSales: 0, actualSales: 0, customers: 0 });
   }, [filteredSalesData]);
 
-  // グラフ用データ整形（全体売上）
+  // グラフ用データ整形
   let chartData = [];
   let lines = [];
   const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
 
-  // 年別データの保持用
-  let yearlyData = {};
-  let years = new Set();
-
-  if (period === 'yearly') {
-    // 年別表示: 横軸は月(1-12)、各年を別の線で表示
+  if (period === 'daily') {
+    // 日別: 横軸=日(1-31)、凡例=月
+    const dailyData = {};
+    const months = new Set();
 
     filteredSalesData.forEach(row => {
-      if (!row.period || typeof row.period !== 'string') return;
+      if (!row.period) return;
+      const parts = row.period.split('-');
+      if (parts.length !== 3) return;
       
+      const monthKey = `${parts[0]}-${parts[1]}`;
+      const day = parseInt(parts[2]);
+      
+      months.add(monthKey);
+      
+      if (!dailyData[day]) {
+        dailyData[day] = { label: `${day}日` };
+      }
+      dailyData[day][monthKey] = Number(row.ideal_sales) || 0;
+      dailyData[day][`transactions_${monthKey}`] = Number(row.transaction_count) || 0;
+      dailyData[day][`customers_${monthKey}`] = Number(row.unique_customers) || 0;
+    });
+
+    for (let i = 1; i <= 31; i++) {
+      chartData.push(dailyData[i] || { label: `${i}日` });
+    }
+
+    Array.from(months).sort().forEach((month, index) => {
+      const [year, mon] = month.split('-');
+      lines.push({ key: month, label: `${year}年${parseInt(mon)}月`, color: colors[index % colors.length] });
+    });
+
+  } else {
+    // 月別: 横軸=月(1-12)、凡例=年
+    const monthlyData = {};
+    const years = new Set();
+
+    salesData.forEach(row => {
+      if (!row.period || typeof row.period !== 'string') return;
       const parts = row.period.split('-');
       if (parts.length < 2) return;
       
@@ -109,123 +124,47 @@ const SalesTrendChart = ({ data, period }) => {
       years.add(year);
       const monthNum = parseInt(month);
       
-      if (!yearlyData[monthNum]) {
-        yearlyData[monthNum] = { month: `${monthNum}月` };
+      if (!monthlyData[monthNum]) {
+        monthlyData[monthNum] = { label: `${monthNum}月` };
       }
-      yearlyData[monthNum][year] = Number(row.ideal_sales) || 0;
-      // 取引数も保存
-      yearlyData[monthNum][`transactions_${year}`] = Number(row.transaction_count) || 0;
-      // ユニーク顧客数も保存
-      yearlyData[monthNum][`customers_${year}`] = Number(row.unique_customers) || 0;
+      monthlyData[monthNum][year] = Number(row.ideal_sales) || 0;
+      monthlyData[monthNum][`transactions_${year}`] = Number(row.transaction_count) || 0;
+      monthlyData[monthNum][`customers_${year}`] = Number(row.unique_customers) || 0;
     });
 
-    // 1-12月のデータを作成
     for (let i = 1; i <= 12; i++) {
-      chartData.push(yearlyData[i] || { month: `${i}月` });
+      chartData.push(monthlyData[i] || { label: `${i}月` });
     }
 
-    // 各年を線として追加（売上用）
     Array.from(years).sort().forEach((year, index) => {
-      lines.push({
-        key: year,
-        label: `${year}年`,
-        color: colors[index % colors.length]
-      });
-    });
-
-  } else {
-    // 月別表示: 横軸は日(1-31)、各月を別の線で表示
-    const monthlyData = {};
-    const months = new Set();
-
-    filteredSalesData.forEach(row => {
-      if (!row.period) return;
-      
-      let date;
-      if (row.period.includes('-')) {
-        const parts = row.period.split('-');
-        if (parts.length === 3) {
-          date = new Date(row.period);
-        } else if (parts.length === 2) {
-          date = new Date(`${row.period}-01`);
-        }
-      }
-      
-      if (!date || isNaN(date.getTime())) return;
-      
-      const monthKey = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}`;
-      const day = date.getDate();
-      
-      months.add(monthKey);
-      
-      if (!monthlyData[day]) {
-        monthlyData[day] = { day: `${day}日` };
-      }
-      monthlyData[day][monthKey] = Number(row.ideal_sales) || 0;
-      // 取引数も保存
-      monthlyData[day][`transactions_${monthKey}`] = Number(row.transaction_count) || 0;
-      // ユニーク顧客数も保存
-      monthlyData[day][`customers_${monthKey}`] = Number(row.unique_customers) || 0;
-    });
-
-    // 1-31日のデータを作成
-    for (let i = 1; i <= 31; i++) {
-      chartData.push(monthlyData[i] || { day: `${i}日` });
-    }
-
-    // 各月を線として追加（売上用）
-    Array.from(months).sort().forEach((month, index) => {
-      const [year, mon] = month.split('-');
-      lines.push({
-        key: month,
-        label: `${year}年${parseInt(mon)}月`,
-        color: colors[index % colors.length]
-      });
+      lines.push({ key: year, label: `${year}年`, color: colors[index % colors.length] });
     });
   }
 
-  // 取引数グラフ用の線定義
+  // 取引数・顧客数グラフ用の線定義
   const transactionColors = ['#10b981', '#f59e0b', '#8b5cf6', '#ef4444', '#3b82f6', '#ec4899'];
-  const transactionLines = period === 'yearly' 
-    ? Array.from(years).sort().map((year, index) => ({
-        key: `transactions_${year}`,
-        label: `${year}年`,
-        color: transactionColors[index % transactionColors.length]
-      }))
-    : lines.map((line, index) => ({ 
-        key: `transactions_${line.key}`, 
-        label: line.label, 
-        color: transactionColors[index % transactionColors.length]
-      }));
-
-  // ユニーク顧客グラフ用の線定義
   const customerColors = ['#8b5cf6', '#ec4899', '#06b6d4', '#f97316', '#84cc16', '#64748b'];
-  const customerLines = period === 'yearly' 
-    ? Array.from(years).sort().map((year, index) => ({
-        key: `customers_${year}`,
-        label: `${year}年`,
-        color: customerColors[index % customerColors.length]
-      }))
-    : lines.map((line, index) => ({ 
-        key: `customers_${line.key}`, 
-        label: line.label, 
-        color: customerColors[index % customerColors.length]
-      }));
 
-  // カスタムツールチップ（売上用）
-  const CustomTooltip = ({ active, payload, label }) => {
+  let transactionLines = [];
+  let customerLines = [];
+
+  if (period === 'daily') {
+    // 日別: 凡例=月
+    transactionLines = lines.map((line, i) => ({ key: `transactions_${line.key}`, label: line.label, color: transactionColors[i % transactionColors.length] }));
+    customerLines = lines.map((line, i) => ({ key: `customers_${line.key}`, label: line.label, color: customerColors[i % customerColors.length] }));
+  } else {
+    // 月別: 凡例=年
+    const years = lines.map(l => l.key);
+    transactionLines = years.map((year, i) => ({ key: `transactions_${year}`, label: `${year}年`, color: transactionColors[i % transactionColors.length] }));
+    customerLines = years.map((year, i) => ({ key: `customers_${year}`, label: `${year}年`, color: customerColors[i % customerColors.length] }));
+  }
+
+  // ツールチップ
+  const SalesTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
       return (
-        <div style={{
-          background: 'white',
-          padding: '12px',
-          border: '1px solid #e5e7eb',
-          borderRadius: '8px',
-          boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
-        }}>
-          <p style={{ margin: '0 0 8px 0', fontWeight: 600, color: '#111827' }}>
-            {label}
-          </p>
+        <div style={{ background: 'white', padding: '12px', border: '1px solid #e5e7eb', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
+          <p style={{ margin: '0 0 8px 0', fontWeight: 600, color: '#111827' }}>{label}</p>
           {payload.map((entry, index) => (
             <p key={index} style={{ margin: '4px 0', color: entry.color, fontSize: '14px' }}>
               {entry.name}: {formatCurrency(entry.value)}
@@ -237,20 +176,11 @@ const SalesTrendChart = ({ data, period }) => {
     return null;
   };
 
-  // カスタムツールチップ（取引数用）
   const TransactionTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
       return (
-        <div style={{
-          background: 'white',
-          padding: '12px',
-          border: '1px solid #e5e7eb',
-          borderRadius: '8px',
-          boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
-        }}>
-          <p style={{ margin: '0 0 8px 0', fontWeight: 600, color: '#111827' }}>
-            {label}
-          </p>
+        <div style={{ background: 'white', padding: '12px', border: '1px solid #e5e7eb', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
+          <p style={{ margin: '0 0 8px 0', fontWeight: 600, color: '#111827' }}>{label}</p>
           {payload.map((entry, index) => (
             <p key={index} style={{ margin: '4px 0', color: entry.color, fontSize: '14px' }}>
               {entry.name}: {entry.value}件
@@ -262,20 +192,11 @@ const SalesTrendChart = ({ data, period }) => {
     return null;
   };
 
-  // カスタムツールチップ（顧客数用）
   const CustomerTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
       return (
-        <div style={{
-          background: 'white',
-          padding: '12px',
-          border: '1px solid #e5e7eb',
-          borderRadius: '8px',
-          boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
-        }}>
-          <p style={{ margin: '0 0 8px 0', fontWeight: 600, color: '#111827' }}>
-            {label}
-          </p>
+        <div style={{ background: 'white', padding: '12px', border: '1px solid #e5e7eb', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
+          <p style={{ margin: '0 0 8px 0', fontWeight: 600, color: '#111827' }}>{label}</p>
           {payload.map((entry, index) => (
             <p key={index} style={{ margin: '4px 0', color: entry.color, fontSize: '14px' }}>
               {entry.name}: {entry.value}人
@@ -287,6 +208,10 @@ const SalesTrendChart = ({ data, period }) => {
     return null;
   };
 
+  // 表示する期間のラベル
+  const periodLabel = period === 'daily' ? '日別' : '月別';
+  const displayTotals = period === 'daily' ? selectedTotals : totals;
+
   return (
     <div className="sales-trend">
       {/* サマリーメトリクス */}
@@ -294,37 +219,29 @@ const SalesTrendChart = ({ data, period }) => {
         <div className="analytics-metric">
           <span className="analytics-metric__label">
             <DollarSign size={16} style={{ display: 'inline', marginRight: '0.25rem' }} />
-            {period === 'monthly' && selectedMonthForTotal ? '月間' : '期間'}理想売上
+            {periodLabel}理想売上
           </span>
-          <span className="analytics-metric__value">
-            {formatCurrency(period === 'monthly' ? selectedMonthTotals.idealSales : totals.idealSales)}
-          </span>
+          <span className="analytics-metric__value">{formatCurrency(displayTotals.idealSales)}</span>
         </div>
 
         <div className="analytics-metric">
-          <span className="analytics-metric__label">{period === 'monthly' && selectedMonthForTotal ? '月間' : '期間'}現状売上</span>
-          <span className="analytics-metric__value">
-            {formatCurrency(period === 'monthly' ? selectedMonthTotals.actualSales : totals.actualSales)}
-          </span>
+          <span className="analytics-metric__label">{periodLabel}現状売上</span>
+          <span className="analytics-metric__value">{formatCurrency(displayTotals.actualSales)}</span>
         </div>
 
         <div className="analytics-metric">
           <span className="analytics-metric__label">差額</span>
           <span className="analytics-metric__value" style={{ 
-            color: (period === 'monthly' ? 
-              (selectedMonthTotals.idealSales - selectedMonthTotals.actualSales) : 
-              (totals.idealSales - totals.actualSales)) > 0 ? '#ef4444' : '#10b981' 
+            color: (displayTotals.idealSales - displayTotals.actualSales) > 0 ? '#ef4444' : '#10b981' 
           }}>
-            {formatCurrency(period === 'monthly' ? 
-              (selectedMonthTotals.idealSales - selectedMonthTotals.actualSales) : 
-              (totals.idealSales - totals.actualSales))}
+            {formatCurrency(displayTotals.idealSales - displayTotals.actualSales)}
           </span>
         </div>
 
         <div className="analytics-metric">
-          <span className="analytics-metric__label">{period === 'monthly' ? '月間' : '期間'}合計取引数</span>
+          <span className="analytics-metric__label">{periodLabel}取引数</span>
           <span className="analytics-metric__value">
-            {(period === 'monthly' ? selectedMonthTotals.transactions : totals.transactions).toLocaleString()}
+            {displayTotals.transactions.toLocaleString()}
             <span className="analytics-metric__unit">件</span>
           </span>
         </div>
@@ -335,79 +252,58 @@ const SalesTrendChart = ({ data, period }) => {
             ユニーク顧客数
           </span>
           <span className="analytics-metric__value">
-            {(period === 'monthly' ? selectedMonthTotals.customers : totals.customers)}
+            {displayTotals.customers}
             <span className="analytics-metric__unit">人</span>
           </span>
         </div>
       </div>
 
-      {/* 折れ線グラフ（全体売上推移） */}
-      <div className="analytics-card">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-          <h3 className="analytics-card__title">
-            <TrendingUp size={20} style={{ display: 'inline', marginRight: '0.25rem' }} />
-            全体売上金額推移
-          </h3>
-          
-          {/* 月選択ドロップダウン（月別表示の時のみ） */}
-          {period === 'monthly' && availableMonthsForTotal.length > 0 && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <label style={{ fontSize: '0.875rem', color: '#6b7280' }}>表示月:</label>
-              <select
-                value={selectedMonthForTotal || ''}
-                onChange={(e) => setSelectedMonthForTotal(e.target.value)}
-                style={{
-                  padding: '0.5rem 1rem',
-                  border: '1px solid #e5e7eb',
-                  borderRadius: '0.375rem',
-                  fontSize: '0.875rem',
-                  cursor: 'pointer',
-                  backgroundColor: 'white'
-                }}
-              >
-                {availableMonthsForTotal.map(month => {
-                  const [year, mon] = month.split('-');
-                  return (
-                    <option key={month} value={month}>
-                      {year}年{parseInt(mon)}月
-                    </option>
-                  );
-                })}
-              </select>
-            </div>
-          )}
+      {/* 月選択（日別表示の時のみ） */}
+      {period === 'daily' && availableMonths.length > 0 && (
+        <div className="analytics-card" style={{ marginBottom: '1rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <label style={{ fontSize: '0.875rem', color: '#6b7280' }}>表示月:</label>
+            <select
+              value={selectedMonthForTotal || ''}
+              onChange={(e) => setSelectedMonthForTotal(e.target.value)}
+              style={{
+                padding: '0.5rem 1rem',
+                border: '1px solid #e5e7eb',
+                borderRadius: '0.375rem',
+                fontSize: '0.875rem',
+                cursor: 'pointer',
+                backgroundColor: 'white'
+              }}
+            >
+              {availableMonths.map(month => {
+                const [year, mon] = month.split('-');
+                return (
+                  <option key={month} value={month}>
+                    {year}年{parseInt(mon)}月
+                  </option>
+                );
+              })}
+            </select>
+          </div>
         </div>
-        <div style={{ width: '100%', height: '450px', marginTop: '1rem' }}>
+      )}
+
+      {/* 売上推移グラフ */}
+      <div className="analytics-card">
+        <h3 className="analytics-card__title">
+          <TrendingUp size={20} style={{ display: 'inline', marginRight: '0.25rem' }} />
+          売上金額推移
+        </h3>
+        <div style={{ width: '100%', height: '400px', marginTop: '1rem' }}>
           <ResponsiveContainer>
             <LineChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
-              <XAxis 
-                dataKey={period === 'yearly' ? 'month' : 'day'}
-                tick={{ fontSize: 12, fill: '#6b7280' }}
-                stroke="#e5e7eb"
-              />
-              <YAxis 
-                tick={{ fontSize: 12, fill: '#6b7280' }}
-                stroke="#e5e7eb"
-                tickFormatter={(value) => `¥${(value / 10000).toFixed(0)}万`}
-              />
-              <Tooltip content={<CustomTooltip />} />
-              <Legend 
-                wrapperStyle={{ fontSize: '14px', paddingTop: '20px' }}
-                iconType="line"
-              />
+              <XAxis dataKey="label" tick={{ fontSize: 12, fill: '#6b7280' }} stroke="#e5e7eb" />
+              <YAxis tick={{ fontSize: 12, fill: '#6b7280' }} stroke="#e5e7eb" tickFormatter={(value) => `¥${(value / 10000).toFixed(0)}万`} />
+              <Tooltip content={<SalesTooltip />} />
+              <Legend wrapperStyle={{ fontSize: '14px', paddingTop: '20px' }} iconType="line" />
               {lines.map((line) => (
-                <Line 
-                  key={line.key}
-                  type="monotone" 
-                  dataKey={line.key}
-                  name={line.label}
-                  stroke={line.color}
-                  strokeWidth={2}
-                  dot={{ fill: line.color, r: 4 }}
-                  activeDot={{ r: 6 }}
-                  connectNulls
-                />
+                <Line key={line.key} type="monotone" dataKey={line.key} name={line.label} stroke={line.color} strokeWidth={2} dot={{ fill: line.color, r: 4 }} activeDot={{ r: 6 }} connectNulls />
               ))}
             </LineChart>
           </ResponsiveContainer>
@@ -416,101 +312,55 @@ const SalesTrendChart = ({ data, period }) => {
       
       {/* 取引数推移グラフ */}
       <div className="analytics-card">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-          <h3 className="analytics-card__title">
-            <TrendingUp size={20} style={{ display: 'inline', marginRight: '0.25rem' }} />
-            取引数推移グラフ
-          </h3>
-        </div>
-        <div style={{ width: '100%', height: '400px' }}>
+        <h3 className="analytics-card__title">
+          <TrendingUp size={20} style={{ display: 'inline', marginRight: '0.25rem' }} />
+          取引数推移
+        </h3>
+        <div style={{ width: '100%', height: '350px' }}>
           <ResponsiveContainer>
             <LineChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
-              <XAxis 
-                dataKey={period === 'yearly' ? 'month' : 'day'}
-                tick={{ fontSize: 12, fill: '#6b7280' }}
-                stroke="#e5e7eb"
-              />
-              <YAxis 
-                tick={{ fontSize: 12, fill: '#6b7280' }}
-                stroke="#e5e7eb"
-                tickFormatter={(value) => `${value}件`}
-              />
+              <XAxis dataKey="label" tick={{ fontSize: 12, fill: '#6b7280' }} stroke="#e5e7eb" />
+              <YAxis tick={{ fontSize: 12, fill: '#6b7280' }} stroke="#e5e7eb" tickFormatter={(value) => `${value}件`} />
               <Tooltip content={<TransactionTooltip />} />
-              <Legend 
-                wrapperStyle={{ fontSize: '14px', paddingTop: '20px' }}
-                iconType="line"
-              />
+              <Legend wrapperStyle={{ fontSize: '14px', paddingTop: '20px' }} iconType="line" />
               {transactionLines.map((line) => (
-                <Line 
-                  key={line.key}
-                  type="monotone" 
-                  dataKey={line.key}
-                  name={line.label}
-                  stroke={line.color}
-                  strokeWidth={2}
-                  dot={{ fill: line.color, r: 4 }}
-                  activeDot={{ r: 6 }}
-                  connectNulls
-                />
+                <Line key={line.key} type="monotone" dataKey={line.key} name={line.label} stroke={line.color} strokeWidth={2} dot={{ fill: line.color, r: 4 }} activeDot={{ r: 6 }} connectNulls />
               ))}
             </LineChart>
           </ResponsiveContainer>
         </div>
       </div>
 
-      {/* ユニーク顧客推移グラフ */}
+      {/* 顧客数推移グラフ */}
       <div className="analytics-card">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-          <h3 className="analytics-card__title">
-            <Users size={20} style={{ display: 'inline', marginRight: '0.25rem' }} />
-            ユニーク顧客推移グラフ
-          </h3>
-        </div>
-        <div style={{ width: '100%', height: '400px' }}>
+        <h3 className="analytics-card__title">
+          <Users size={20} style={{ display: 'inline', marginRight: '0.25rem' }} />
+          ユニーク顧客推移
+        </h3>
+        <div style={{ width: '100%', height: '350px' }}>
           <ResponsiveContainer>
             <LineChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
-              <XAxis 
-                dataKey={period === 'yearly' ? 'month' : 'day'}
-                tick={{ fontSize: 12, fill: '#6b7280' }}
-                stroke="#e5e7eb"
-              />
-              <YAxis 
-                tick={{ fontSize: 12, fill: '#6b7280' }}
-                stroke="#e5e7eb"
-                tickFormatter={(value) => `${value}人`}
-              />
+              <XAxis dataKey="label" tick={{ fontSize: 12, fill: '#6b7280' }} stroke="#e5e7eb" />
+              <YAxis tick={{ fontSize: 12, fill: '#6b7280' }} stroke="#e5e7eb" tickFormatter={(value) => `${value}人`} />
               <Tooltip content={<CustomerTooltip />} />
-              <Legend 
-                wrapperStyle={{ fontSize: '14px', paddingTop: '20px' }}
-                iconType="line"
-              />
+              <Legend wrapperStyle={{ fontSize: '14px', paddingTop: '20px' }} iconType="line" />
               {customerLines.map((line) => (
-                <Line 
-                  key={line.key}
-                  type="monotone" 
-                  dataKey={line.key}
-                  name={line.label}
-                  stroke={line.color}
-                  strokeWidth={2}
-                  dot={{ fill: line.color, r: 4 }}
-                  activeDot={{ r: 6 }}
-                  connectNulls
-                />
+                <Line key={line.key} type="monotone" dataKey={line.key} name={line.label} stroke={line.color} strokeWidth={2} dot={{ fill: line.color, r: 4 }} activeDot={{ r: 6 }} connectNulls />
               ))}
             </LineChart>
           </ResponsiveContainer>
         </div>
       </div>
 
-      {/* 推移テーブル */}
+      {/* データテーブル */}
       <div className="analytics-card">
         <h3 className="analytics-card__title">
           <TrendingUp size={20} style={{ display: 'inline', marginRight: '0.5rem' }} />
-          {period === 'yearly' ? '月別' : '日別'}売上推移データ
+          {periodLabel}売上データ
         </h3>
-        {salesData.length > 0 ? (
+        {filteredSalesData.length > 0 ? (
           <div className="sales-trend-table">
             <div className="sales-trend-row sales-trend-row--header">
               <div className="sales-trend-cell sales-trend-cell--period">期間</div>
@@ -527,24 +377,12 @@ const SalesTrendChart = ({ data, period }) => {
                 <div className="sales-trend-cell sales-trend-cell--period">
                   <strong>{row.period}</strong>
                 </div>
-                <div className="sales-trend-cell sales-trend-cell--number">
-                  {row.transaction_count}件
-                </div>
-                <div className="sales-trend-cell sales-trend-cell--number">
-                  {formatCurrency(row.ideal_sales)}
-                </div>
-                <div className="sales-trend-cell sales-trend-cell--number">
-                  {formatCurrency(row.actual_sales)}
-                </div>
-                <div className="sales-trend-cell sales-trend-cell--number">
-                  {formatCurrency(row.cash_sales)}
-                </div>
-                <div className="sales-trend-cell sales-trend-cell--number">
-                  {formatCurrency(row.card_sales)}
-                </div>
-                <div className="sales-trend-cell sales-trend-cell--number">
-                  {row.unique_customers}人
-                </div>
+                <div className="sales-trend-cell sales-trend-cell--number">{row.transaction_count}件</div>
+                <div className="sales-trend-cell sales-trend-cell--number">{formatCurrency(row.ideal_sales)}</div>
+                <div className="sales-trend-cell sales-trend-cell--number">{formatCurrency(row.actual_sales)}</div>
+                <div className="sales-trend-cell sales-trend-cell--number">{formatCurrency(row.cash_sales)}</div>
+                <div className="sales-trend-cell sales-trend-cell--number">{formatCurrency(row.card_sales)}</div>
+                <div className="sales-trend-cell sales-trend-cell--number">{row.unique_customers}人</div>
               </div>
             ))}
           </div>

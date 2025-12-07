@@ -16,7 +16,7 @@ const OptionAnalysis = ({ data, period }) => {
     );
   }
 
-  // 期間ごとにグループ化してランキング
+  // 期間ごとにグループ化してランキング（Number()で明示的に数値変換）
   const groupedByPeriod = data.reduce((acc, row) => {
     if (!acc[row.period]) {
       acc[row.period] = {};
@@ -33,11 +33,11 @@ const OptionAnalysis = ({ data, period }) => {
         paid_count: 0
       };
     }
-    acc[row.period][optionKey].usage_count += row.usage_count;
-    acc[row.period][optionKey].total_quantity += row.total_quantity;
-    acc[row.period][optionKey].total_revenue += row.total_revenue;
-    acc[row.period][optionKey].free_count += row.free_count;
-    acc[row.period][optionKey].paid_count += row.paid_count;
+    acc[row.period][optionKey].usage_count += Number(row.usage_count) || 0;
+    acc[row.period][optionKey].total_quantity += Number(row.total_quantity) || 0;
+    acc[row.period][optionKey].total_revenue += Number(row.total_revenue) || 0;
+    acc[row.period][optionKey].free_count += Number(row.free_count) || 0;
+    acc[row.period][optionKey].paid_count += Number(row.paid_count) || 0;
     return acc;
   }, {});
 
@@ -47,24 +47,24 @@ const OptionAnalysis = ({ data, period }) => {
     return { period, rankings: sortedOptions };
   }).sort((a, b) => b.period.localeCompare(a.period));
 
-  // 全期間通してのトップオプション
+  // 全期間通してのトップオプション（Number()で明示的に数値変換）
   const allOptionStats = data.reduce((acc, row) => {
     const existing = acc.find(o => o.option_name === row.option_name);
     if (existing) {
-      existing.usage_count += row.usage_count;
-      existing.total_quantity += row.total_quantity;
-      existing.total_revenue += row.total_revenue;
-      existing.free_count += row.free_count;
-      existing.paid_count += row.paid_count;
+      existing.usage_count += Number(row.usage_count) || 0;
+      existing.total_quantity += Number(row.total_quantity) || 0;
+      existing.total_revenue += Number(row.total_revenue) || 0;
+      existing.free_count += Number(row.free_count) || 0;
+      existing.paid_count += Number(row.paid_count) || 0;
     } else {
       acc.push({
         option_name: row.option_name,
         option_category: row.option_category,
-        usage_count: row.usage_count,
-        total_quantity: row.total_quantity,
-        total_revenue: row.total_revenue,
-        free_count: row.free_count,
-        paid_count: row.paid_count
+        usage_count: Number(row.usage_count) || 0,
+        total_quantity: Number(row.total_quantity) || 0,
+        total_revenue: Number(row.total_revenue) || 0,
+        free_count: Number(row.free_count) || 0,
+        paid_count: Number(row.paid_count) || 0
       });
     }
     return acc;
@@ -246,7 +246,7 @@ const OptionAnalysis = ({ data, period }) => {
 
         .option-row {
           display: grid;
-          grid-template-columns: 70px 2fr 1.2fr 1fr 0.8fr 1.2fr 0.8fr 0.8fr;
+          grid-template-columns: 70px 2fr 1.2fr 1fr 1.2fr 0.8fr 0.8fr;
           border-bottom: 1px solid #f3f4f6;
           transition: background 0.15s;
         }
@@ -343,7 +343,7 @@ const OptionAnalysis = ({ data, period }) => {
 
         @media (max-width: 1200px) {
           .option-row {
-            grid-template-columns: 60px 1.5fr 1fr 0.8fr 0.7fr 1fr 0.7fr 0.7fr;
+            grid-template-columns: 60px 1.5fr 1fr 0.8fr 1fr 0.7fr 0.7fr;
           }
 
           .option-cell {
@@ -362,7 +362,7 @@ const OptionAnalysis = ({ data, period }) => {
           }
 
           .option-row {
-            min-width: 1000px;
+            min-width: 800px;
           }
         }
       `}</style>
