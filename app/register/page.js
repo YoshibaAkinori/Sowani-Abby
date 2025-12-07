@@ -1650,6 +1650,26 @@ const RegisterPage = () => {
                       </div>
                     ))}
 
+                    {/* 回数券使用時の無料オプション表示 */}
+                    {selectedFreeOptions.length > 0 && (
+                      <>
+                        <div className="payment-summary__divider"></div>
+                        <div className="payment-summary__item">
+                          <span>自由選択オプション</span>
+                          <span></span>
+                        </div>
+                        {selectedFreeOptions.map(optionId => {
+                          const option = options.find(o => o.option_id === optionId);
+                          return option ? (
+                            <div key={optionId} className="payment-summary__item payment-summary__item--sub">
+                              <span>　{option.name}</span>
+                              <span>¥0</span>
+                            </div>
+                          ) : null;
+                        })}
+                      </>
+                    )}
+
                     {/* 回数券使用時も合計金額を表示 */}
                     {selectedPaidOptions.length > 0 && (
                       <>

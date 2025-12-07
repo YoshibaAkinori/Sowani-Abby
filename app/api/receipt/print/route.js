@@ -534,6 +534,26 @@ function generateReceiptHtml(data) {
   // 残金支払い or 回数券使用+残金支払いの場合
   if ((isRemainingPayment && remainingPaymentInfo) || (isTicketUseWithRemainingPayment && ticketUseWithRemainingInfo)) {
     const info = remainingPaymentInfo || ticketUseWithRemainingInfo;
+    
+    // オプション合計を計算
+    const optionsTotal = options.reduce((sum, opt) => sum + (opt.is_free ? 0 : opt.price), 0);
+    // 総合計（残金支払い + オプション）
+    const grandTotal = info.this_payment + optionsTotal;
+    
+    // オプションHTML生成
+    const optionsHtml = options.length > 0 ? `
+      <div class="divider"></div>
+      <div class="section-title">【オプション】</div>
+      <table class="items-table">
+        ${options.map(opt => `
+          <tr>
+            <td class="item-name">${opt.option_name}${opt.is_free ? ' <span class="free">(無料)</span>' : ''}</td>
+            <td class="item-price">${opt.is_free ? '¥0' : `¥${opt.price.toLocaleString()}`}</td>
+          </tr>
+        `).join('')}
+      </table>
+    ` : '';
+    
     return `
 <!DOCTYPE html>
 <html>
@@ -549,25 +569,33 @@ function generateReceiptHtml(data) {
     <div>担当: ${payment.staff_name || '-'}</div>
   </div>
   <div class="divider"></div>
-  <div class="service-name">${info.plan_name}(回数券購入)</div>
+  <div class="section-title">【回数券使用】</div>
   <table class="items-table">
-    <tr><td class="item-name"></td><td class="item-price">¥${info.full_price.toLocaleString()}</td></tr>
+    <tr><td class="item-name">${info.plan_name}</td><td class="item-price">¥0</td></tr>
+  </table>
+  ${optionsHtml}
+  <div class="divider"></div>
+  <div class="section-title">【回数券残金支払い】</div>
+  <div class="service-name">${info.plan_name}</div>
+  <table class="items-table">
+    <tr><td class="item-name">総額</td><td class="item-price">¥${info.full_price.toLocaleString()}</td></tr>
     <tr><td class="item-name">前回までのお預かり金額</td><td class="item-price">¥${info.previous_paid.toLocaleString()}</td></tr>
     <tr><td class="item-name">残り金額</td><td class="item-price">¥${(info.full_price - info.previous_paid).toLocaleString()}</td></tr>
     <tr><td class="item-name">今回お支払い</td><td class="item-price">¥${info.this_payment.toLocaleString()}</td></tr>
   </table>
   <div class="divider"></div>
   <table class="items-table">
-    <tr><td class="item-name">小計</td><td class="item-price">¥${info.this_payment.toLocaleString()}</td></tr>
+    <tr><td class="item-name">回数券残金支払い</td><td class="item-price">¥${info.this_payment.toLocaleString()}</td></tr>
+    ${optionsTotal > 0 ? `<tr><td class="item-name">オプション合計</td><td class="item-price">¥${optionsTotal.toLocaleString()}</td></tr>` : ''}
   </table>
   <div class="divider"></div>
   <div class="total-section">
-    <div class="total-row"><span>合計</span><span>¥${info.this_payment.toLocaleString()}</span></div>
+    <div class="total-row"><span>合計</span><span>¥${grandTotal.toLocaleString()}</span></div>
   </div>
   <div class="divider"></div>
   <div class="payment-methods">
-    ${payment.payment_method === 'cash' ? `<div class="payment-method"><span>現金</span><span>¥${info.this_payment.toLocaleString()}</span></div>` : ''}
-    ${payment.payment_method === 'card' ? `<div class="payment-method"><span>カード</span><span>¥${info.this_payment.toLocaleString()}</span></div>` : ''}
+    ${payment.payment_method === 'cash' ? `<div class="payment-method"><span>現金</span><span>¥${grandTotal.toLocaleString()}</span></div>` : ''}
+    ${payment.payment_method === 'card' ? `<div class="payment-method"><span>カード</span><span>¥${grandTotal.toLocaleString()}</span></div>` : ''}
     ${payment.payment_method === 'mixed' ? `
       <div class="payment-method"><span>現金</span><span>¥${payment.cash_amount.toLocaleString()}</span></div>
       <div class="payment-method"><span>カード</span><span>¥${payment.card_amount.toLocaleString()}</span></div>
