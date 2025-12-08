@@ -77,6 +77,7 @@ async function getReceiptData(paymentId) {
         ct.customer_ticket_id,
         ct.purchase_price,
         ct.sessions_remaining,
+        ct.expiry_date,
         tp.name as plan_name,
         tp.total_sessions,
         tp.price as full_price,
@@ -98,6 +99,7 @@ async function getReceiptData(paymentId) {
         total_sessions: info.total_sessions,
         service_name: info.service_name,
         sessions_remaining: info.sessions_remaining,
+        expiry_date: info.expiry_date,
         purchase_price: info.purchase_price,
         full_price: info.full_price,
         total_paid: info.total_paid
@@ -132,7 +134,8 @@ async function getReceiptData(paymentId) {
         sessions_remaining: payment.ticket_sessions_at_payment ?? ticketInfo.sessions_remaining,
         purchase_price: ticketInfo.purchase_price,
         remaining_balance: payment.ticket_balance_at_payment ?? 0,
-        amount: payment.total_amount
+        amount: payment.total_amount,
+        expiry_date: ticketInfo.expiry_date
       });
     }
   }
@@ -151,7 +154,8 @@ async function getReceiptData(paymentId) {
         sessions_remaining: payment.ticket_sessions_at_payment ?? ticketInfo.sessions_remaining,
         purchase_price: ticketInfo.purchase_price,
         remaining_balance: payment.ticket_balance_at_payment ?? 0,
-        remaining_payment: remainingPaymentAmount
+        remaining_payment: remainingPaymentAmount,
+        expiry_date: ticketInfo.expiry_date
       });
       
       // 残金支払いがある場合は合計に追加
@@ -436,6 +440,12 @@ function generateReceiptHtml(data) {
   }
 
   // 回数券使用HTML
+  const formatExpiry = (dateStr) => {
+    if (!dateStr) return '';
+    const d = new Date(dateStr);
+    return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`;
+  };
+
   let ticketUseHtml = '';
   if (ticketUses && ticketUses.length > 0) {
     ticketUseHtml = `
@@ -444,12 +454,9 @@ function generateReceiptHtml(data) {
         ${ticketUses.map(t => `
           <div class="ticket-item">
             <span>${t.plan_name || t.service_name}</span>
-            ${t.remaining_payment > 0 ? `<span class="remaining-payment">残金支払 ¥${t.remaining_payment.toLocaleString()}</span>` : ''}
           </div>
-          <div class="ticket-detail">
-            残り ${t.sessions_remaining}/${t.total_sessions} 回
-            ${t.remaining_balance === 0 ? ' ／ 支払完了' : ` ／ 残金 ¥${(t.remaining_balance || 0).toLocaleString()}`}
-          </div>
+          ${t.sessions_remaining !== null ? `<div class="ticket-detail">残り ${t.sessions_remaining}/${t.total_sessions} 回${t.expiry_date ? ` ／ 期限 ${formatExpiry(t.expiry_date)}` : ''}${t.remaining_balance === 0 ? ' ／ 支払完了' : (t.remaining_balance > 0 ? ` ／ 残金 ¥${t.remaining_balance?.toLocaleString()}` : '')}</div>` : ''}
+          ${t.remaining_payment > 0 ? `<div style="text-align: right; font-size: 11px; margin-top: 2px;">残金支払 ¥${t.remaining_payment.toLocaleString()}</div>` : ''}
         `).join('')}
       </div>
     `;
@@ -462,14 +469,8 @@ function generateReceiptHtml(data) {
       <div class="section">
         <div class="section-title">【回数券購入】</div>
         ${ticketPurchases.map(t => `
-          <div class="ticket-item">
-            <span>${t.plan_name || t.service_name}</span>
-            <span>¥${(t.amount || 0).toLocaleString()}</span>
-          </div>
-          <div class="ticket-detail">
-            残り ${t.sessions_remaining}/${t.total_sessions} 回
-            ${t.remaining_balance === 0 ? ' ／ 支払完了' : ` ／ 残金 ¥${(t.remaining_balance || 0).toLocaleString()}`}
-          </div>
+          <div class="ticket-item"><span>${t.plan_name || t.service_name}</span><span>¥${(t.amount || 0).toLocaleString()}</span></div>
+          ${t.sessions_remaining !== null ? `<div class="ticket-detail">残り ${t.sessions_remaining}/${t.total_sessions} 回${t.expiry_date ? ` ／ 期限 ${formatExpiry(t.expiry_date)}` : ''}${t.remaining_balance === 0 ? ' ／ 支払完了' : (t.remaining_balance > 0 ? ` ／ 残金 ¥${t.remaining_balance?.toLocaleString()}` : '')}</div>` : ''}
         `).join('')}
       </div>
     `;

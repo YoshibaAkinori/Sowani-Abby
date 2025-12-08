@@ -1,12 +1,14 @@
 "use client";
 import React, { useState } from 'react';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
+import AvailabilityModal from './AvailabilityModal';
 
 const CalendarModal = ({ isOpen, selectedDate, onDateSelect, onClose }) => {
   const [currentMonth, setCurrentMonth] = useState(() => {
     const date = new Date(selectedDate);
     return new Date(date.getFullYear(), date.getMonth(), 1);
   });
+  const [showAvailability, setShowAvailability] = useState(false);
 
   if (!isOpen) return null;
 
@@ -27,27 +29,27 @@ const CalendarModal = ({ isOpen, selectedDate, onDateSelect, onClose }) => {
   const generateCalendarDays = () => {
     const year = currentMonth.getFullYear();
     const month = currentMonth.getMonth();
-    
+
     // 月の最初と最後の日
     const firstDay = new Date(year, month, 1);
     const lastDay = new Date(year, month + 1, 0);
-    
+
     // 最初の週の開始日（日曜日から）
     const startDate = new Date(firstDay);
     startDate.setDate(startDate.getDate() - firstDay.getDay());
-    
+
     // 最後の週の終了日
     const endDate = new Date(lastDay);
     endDate.setDate(endDate.getDate() + (6 - lastDay.getDay()));
-    
+
     const days = [];
     const current = new Date(startDate);
-    
+
     while (current <= endDate) {
       days.push(new Date(current));
       current.setDate(current.getDate() + 1);
     }
-    
+
     return days;
   };
 
@@ -65,14 +67,14 @@ const CalendarModal = ({ isOpen, selectedDate, onDateSelect, onClose }) => {
     const isToday = date.toDateString() === today.toDateString();
     const isSelected = date.toDateString() === selectedDateObj.toDateString();
     const isPast = date < today && !isToday;
-    
+
     let classes = 'calendar-modal__date';
-    
+
     if (!isCurrentMonth) classes += ' calendar-modal__date--other-month';
     if (isToday) classes += ' calendar-modal__date--today';
     if (isSelected) classes += ' calendar-modal__date--selected';
     if (isPast) classes += ' calendar-modal__date--past';
-    
+
     return classes;
   };
 
@@ -85,9 +87,9 @@ const CalendarModal = ({ isOpen, selectedDate, onDateSelect, onClose }) => {
             <X size={20} />
           </button>
         </div>
-        
+
         <div className="calendar-modal__nav">
-          <button 
+          <button
             className="calendar-modal__nav-btn"
             onClick={() => changeMonth(-1)}
           >
@@ -96,7 +98,7 @@ const CalendarModal = ({ isOpen, selectedDate, onDateSelect, onClose }) => {
           <span className="calendar-modal__month-year">
             {getMonthName(currentMonth)}
           </span>
-          <button 
+          <button
             className="calendar-modal__nav-btn"
             onClick={() => changeMonth(1)}
           >
@@ -112,7 +114,7 @@ const CalendarModal = ({ isOpen, selectedDate, onDateSelect, onClose }) => {
               </div>
             ))}
           </div>
-          
+
           <div className="calendar-modal__dates">
             {calendarDays.map((date, index) => (
               <button
@@ -125,25 +127,26 @@ const CalendarModal = ({ isOpen, selectedDate, onDateSelect, onClose }) => {
             ))}
           </div>
         </div>
-        
+
         <div className="calendar-modal__footer">
-          <button 
+          <button
             className="calendar-modal__today-btn"
             onClick={() => handleDateClick(today)}
           >
             今日
           </button>
-          <button 
+          <button
             className="calendar-modal__availability-btn"
-            onClick={() => {
-              // 今月の空き時間を表示する処理（後で実装）
-              console.log('今月の空き時間を表示');
-            }}
+            onClick={() => setShowAvailability(true)}  // ← ここを変更
           >
             今月の空き時間
           </button>
         </div>
       </div>
+      <AvailabilityModal
+        isOpen={showAvailability}
+        onClose={() => setShowAvailability(false)}
+      />
     </div>
   );
 };
