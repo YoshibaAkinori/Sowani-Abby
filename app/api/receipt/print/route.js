@@ -2,31 +2,51 @@
 import { NextResponse } from 'next/server';
 import { getConnection } from '../../../../lib/db';
 import net from 'net';
+import { promises as fs } from 'fs';
+import path from 'path';
 
 // ESC/POSコマンド定義
 const ESC = '\x1b';
 const GS = '\x1d';
 const COMMANDS = {
-  INIT: ESC + '@',
-  CENTER: ESC + 'a' + '\x01',
-  LEFT: ESC + 'a' + '\x00',
-  RIGHT: ESC + 'a' + '\x02',
-  BOLD_ON: ESC + 'E' + '\x01',
-  BOLD_OFF: ESC + 'E' + '\x00',
-  DOUBLE_HEIGHT: GS + '!' + '\x10',
-  DOUBLE_WIDTH: GS + '!' + '\x20',
-  DOUBLE_SIZE: GS + '!' + '\x30',
-  NORMAL_SIZE: GS + '!' + '\x00',
-  CUT: GS + 'V' + '\x00',
-  PARTIAL_CUT: GS + 'V' + '\x01',
-  FEED: ESC + 'd' + '\x03',
+    INIT: ESC + '@',
+    CENTER: ESC + 'a' + '\x01',
+    LEFT: ESC + 'a' + '\x00',
+    RIGHT: ESC + 'a' + '\x02',
+    BOLD_ON: ESC + 'E' + '\x01',
+    BOLD_OFF: ESC + 'E' + '\x00',
+    DOUBLE_HEIGHT: GS + '!' + '\x10',
+    DOUBLE_WIDTH: GS + '!' + '\x20',
+    DOUBLE_SIZE: GS + '!' + '\x30',
+    NORMAL_SIZE: GS + '!' + '\x00',
+    CUT: GS + 'V' + '\x00',
+    PARTIAL_CUT: GS + 'V' + '\x01',
+    FEED: ESC + 'd' + '\x03',
 };
+
+async function loadPrinterConfig() {
+    const CONFIG_PATH = path.join(process.cwd(), 'config', 'printer.json');
+    const DEFAULT_CONFIG = {
+        printer_type: 'browser',
+        printer_ip: '',
+        printer_port: 9100,
+        shop_name: '美骨小顔サロン ABBY',
+        shop_message: 'ありがとうございました\nまたのご来店をお待ちしております'
+    };
+
+    try {
+        const data = await fs.readFile(CONFIG_PATH, 'utf-8');
+        return { ...DEFAULT_CONFIG, ...JSON.parse(data) };
+    } catch (error) {
+        return DEFAULT_CONFIG;
+    }
+}
 
 // レシートデータ取得
 async function getReceiptData(paymentId) {
-  const pool = await getConnection();
-  
-  const [payments] = await pool.execute(`
+    const pool = await getConnection();
+
+    const [payments] = await pool.execute(`
     SELECT 
       p.*,
       c.last_name, c.first_name,
@@ -37,42 +57,42 @@ async function getReceiptData(paymentId) {
     WHERE p.payment_id = ?
   `, [paymentId]);
 
-  if (payments.length === 0) {
-    return null;
-  }
+    if (payments.length === 0) {
+        return null;
+    }
 
-  const payment = payments[0];
+    const payment = payments[0];
 
-  const [options] = await pool.execute(`
+    const [options] = await pool.execute(`
     SELECT * FROM payment_options WHERE payment_id = ?
   `, [paymentId]);
 
-  const [childPayments] = await pool.execute(`
+    const [childPayments] = await pool.execute(`
     SELECT p.*
     FROM payments p
     WHERE p.related_payment_id = ?
   `, [paymentId]);
 
-  const childIds = childPayments.map(c => c.payment_id);
-  let grandchildPayments = [];
-  if (childIds.length > 0) {
-    const placeholders = childIds.map(() => '?').join(',');
-    const [grandchildren] = await pool.execute(`
+    const childIds = childPayments.map(c => c.payment_id);
+    let grandchildPayments = [];
+    if (childIds.length > 0) {
+        const placeholders = childIds.map(() => '?').join(',');
+        const [grandchildren] = await pool.execute(`
       SELECT p.*
       FROM payments p
       WHERE p.related_payment_id IN (${placeholders})
     `, childIds);
-    grandchildPayments = grandchildren;
-  }
+        grandchildPayments = grandchildren;
+    }
 
-  // チケット基本情報を取得
-  const allPayments = [payment, ...childPayments, ...grandchildPayments];
-  const ticketIds = [...new Set(allPayments.filter(p => p.ticket_id).map(p => p.ticket_id))];
-  let ticketInfoMap = new Map();
+    // チケット基本情報を取得
+    const allPayments = [payment, ...childPayments, ...grandchildPayments];
+    const ticketIds = [...new Set(allPayments.filter(p => p.ticket_id).map(p => p.ticket_id))];
+    let ticketInfoMap = new Map();
 
-  if (ticketIds.length > 0) {
-    const placeholders = ticketIds.map(() => '?').join(',');
-    const [ticketInfo] = await pool.execute(`
+    if (ticketIds.length > 0) {
+        const placeholders = ticketIds.map(() => '?').join(',');
+        const [ticketInfo] = await pool.execute(`
       SELECT 
         ct.customer_ticket_id,
         ct.purchase_price,
@@ -92,307 +112,331 @@ async function getReceiptData(paymentId) {
       LEFT JOIN services s ON tp.service_id = s.service_id
       WHERE ct.customer_ticket_id IN (${placeholders})
     `, ticketIds);
-    
-    ticketInfo.forEach(info => {
-      ticketInfoMap.set(info.customer_ticket_id, {
-        plan_name: info.plan_name,
-        total_sessions: info.total_sessions,
-        service_name: info.service_name,
-        sessions_remaining: info.sessions_remaining,
-        expiry_date: info.expiry_date,
-        purchase_price: info.purchase_price,
-        full_price: info.full_price,
-        total_paid: info.total_paid
-      });
-    });
-  }
 
-  // フラグ判定
-  const toBoolean = (val) => val === 1 || val === true;
-  
-  const isParentTicketPurchase = toBoolean(payment.is_ticket_purchase);
-  const isParentRemainingPayment = toBoolean(payment.is_remaining_payment);
-  const isParentTicketUse = payment.ticket_id && !isParentTicketPurchase && !isParentRemainingPayment;
-  
-  // 子に残金支払いがあるかチェック
-  const childRemainingPayment = childPayments.find(child => toBoolean(child.is_remaining_payment));
-  const isTicketUseWithRemainingPayment = isParentTicketUse && childRemainingPayment;
-
-  // データ整理
-  const ticketPurchases = [];
-  const ticketUses = [];
-  let totalAmount = payment.total_amount || 0;
-
-  // ★★★ 回数券購入の場合 ★★★
-  if (isParentTicketPurchase && payment.ticket_id) {
-    const ticketInfo = ticketInfoMap.get(payment.ticket_id);
-    if (ticketInfo) {
-      ticketPurchases.push({
-        plan_name: ticketInfo.plan_name,
-        service_name: ticketInfo.service_name,
-        total_sessions: ticketInfo.total_sessions,
-        sessions_remaining: payment.ticket_sessions_at_payment ?? ticketInfo.sessions_remaining,
-        purchase_price: ticketInfo.purchase_price,
-        remaining_balance: payment.ticket_balance_at_payment ?? 0,
-        amount: payment.total_amount,
-        expiry_date: ticketInfo.expiry_date
-      });
-    }
-  }
-
-  // ★★★ 回数券使用の場合（残金支払いがあっても統一様式） ★★★
-  if (isParentTicketUse && payment.ticket_id) {
-    const ticketInfo = ticketInfoMap.get(payment.ticket_id);
-    if (ticketInfo) {
-      // 残金支払い額を取得
-      const remainingPaymentAmount = childRemainingPayment?.payment_amount || payment.payment_amount || 0;
-      
-      ticketUses.push({
-        plan_name: ticketInfo.plan_name,
-        service_name: ticketInfo.service_name,
-        total_sessions: ticketInfo.total_sessions,
-        sessions_remaining: payment.ticket_sessions_at_payment ?? ticketInfo.sessions_remaining,
-        purchase_price: ticketInfo.purchase_price,
-        remaining_balance: payment.ticket_balance_at_payment ?? 0,
-        remaining_payment: remainingPaymentAmount,
-        expiry_date: ticketInfo.expiry_date
-      });
-      
-      // 残金支払いがある場合は合計に追加
-      if (remainingPaymentAmount > 0) {
-        totalAmount += remainingPaymentAmount;
-      }
-    }
-  }
-
-  // 子支払いの処理（回数券購入）
-  for (const child of childPayments) {
-    if (toBoolean(child.is_ticket_purchase)) {
-      const ticketInfo = ticketInfoMap.get(child.ticket_id);
-      ticketPurchases.push({
-        plan_name: ticketInfo?.plan_name || child.service_name,
-        service_name: ticketInfo?.service_name || '',
-        total_sessions: ticketInfo?.total_sessions || 0,
-        sessions_remaining: child.ticket_sessions_at_payment ?? ticketInfo?.sessions_remaining ?? 0,
-        purchase_price: ticketInfo?.purchase_price || 0,
-        remaining_balance: child.ticket_balance_at_payment ?? 0,
-        amount: child.total_amount
-      });
-      totalAmount += child.total_amount || 0;
-    }
-    // 回数券使用（親と同じticket_idでない場合のみ追加）
-    else if (child.payment_type === 'ticket' && child.ticket_id && child.ticket_id !== payment.ticket_id) {
-      const ticketInfo = ticketInfoMap.get(child.ticket_id);
-      if (ticketInfo && !toBoolean(child.is_remaining_payment)) {
-        ticketUses.push({
-          plan_name: ticketInfo.plan_name,
-          service_name: ticketInfo.service_name,
-          total_sessions: ticketInfo.total_sessions,
-          sessions_remaining: child.ticket_sessions_at_payment ?? ticketInfo.sessions_remaining,
-          purchase_price: ticketInfo.purchase_price,
-          remaining_balance: child.ticket_balance_at_payment ?? 0,
-          remaining_payment: child.payment_amount || 0
+        ticketInfo.forEach(info => {
+            ticketInfoMap.set(info.customer_ticket_id, {
+                plan_name: info.plan_name,
+                total_sessions: info.total_sessions,
+                service_name: info.service_name,
+                sessions_remaining: info.sessions_remaining,
+                expiry_date: info.expiry_date,
+                purchase_price: info.purchase_price,
+                full_price: info.full_price,
+                total_paid: info.total_paid
+            });
         });
-      }
     }
-  }
 
-  // 孫支払いの処理
-  for (const grandchild of grandchildPayments) {
-    if (toBoolean(grandchild.is_ticket_purchase)) {
-      const ticketInfo = ticketInfoMap.get(grandchild.ticket_id);
-      ticketPurchases.push({
-        plan_name: ticketInfo?.plan_name || grandchild.service_name,
-        service_name: ticketInfo?.service_name || '',
-        total_sessions: ticketInfo?.total_sessions || 0,
-        sessions_remaining: grandchild.ticket_sessions_at_payment ?? ticketInfo?.sessions_remaining ?? 0,
-        purchase_price: ticketInfo?.purchase_price || 0,
-        remaining_balance: grandchild.ticket_balance_at_payment ?? 0,
-        amount: grandchild.total_amount
-      });
-      totalAmount += grandchild.total_amount || 0;
+    // フラグ判定
+    const toBoolean = (val) => val === 1 || val === true;
+
+    const isParentTicketPurchase = toBoolean(payment.is_ticket_purchase);
+    const isParentRemainingPayment = toBoolean(payment.is_remaining_payment);
+    const isParentTicketUse = payment.ticket_id && !isParentTicketPurchase && !isParentRemainingPayment;
+
+    // 子に残金支払いがあるかチェック
+    const childRemainingPayment = childPayments.find(child => toBoolean(child.is_remaining_payment));
+    const isTicketUseWithRemainingPayment = isParentTicketUse && childRemainingPayment;
+
+    // データ整理
+    const ticketPurchases = [];
+    const ticketUses = [];
+    let totalAmount = payment.total_amount || 0;
+
+    // ★★★ 回数券購入の場合 ★★★
+    if (isParentTicketPurchase && payment.ticket_id) {
+        const ticketInfo = ticketInfoMap.get(payment.ticket_id);
+        if (ticketInfo) {
+            ticketPurchases.push({
+                plan_name: ticketInfo.plan_name,
+                service_name: ticketInfo.service_name,
+                total_sessions: ticketInfo.total_sessions,
+                sessions_remaining: payment.ticket_sessions_at_payment ?? ticketInfo.sessions_remaining,
+                purchase_price: ticketInfo.purchase_price,
+                remaining_balance: payment.ticket_balance_at_payment ?? 0,
+                amount: payment.total_amount,
+                expiry_date: ticketInfo.expiry_date
+            });
+        }
     }
-  }
 
-  // 合計金額の集計（現金・カード別）
-  let totalCash = payment.cash_amount || 0;
-  let totalCard = payment.card_amount || 0;
+    // ★★★ 回数券使用の場合（残金支払いがあっても統一様式） ★★★
+    if (isParentTicketUse && payment.ticket_id) {
+        const ticketInfo = ticketInfoMap.get(payment.ticket_id);
+        if (ticketInfo) {
+            // 残金支払い額を取得
+            const remainingPaymentAmount = childRemainingPayment?.payment_amount || payment.payment_amount || 0;
 
-  for (const child of childPayments) {
-    // 回数券購入は親に含まれるため加算しない
-    if (!toBoolean(child.is_ticket_purchase)) {
-      totalCash += child.cash_amount || 0;
-      totalCard += child.card_amount || 0;
+            ticketUses.push({
+                plan_name: ticketInfo.plan_name,
+                service_name: ticketInfo.service_name,
+                total_sessions: ticketInfo.total_sessions,
+                sessions_remaining: payment.ticket_sessions_at_payment ?? ticketInfo.sessions_remaining,
+                purchase_price: ticketInfo.purchase_price,
+                remaining_balance: payment.ticket_balance_at_payment ?? 0,
+                remaining_payment: remainingPaymentAmount,
+                expiry_date: ticketInfo.expiry_date
+            });
+
+            // 残金支払いがある場合は合計に追加
+            if (remainingPaymentAmount > 0) {
+                totalAmount += remainingPaymentAmount;
+            }
+        }
     }
-  }
-  for (const grandchild of grandchildPayments) {
-    if (!toBoolean(grandchild.is_ticket_purchase)) {
-      totalCash += grandchild.cash_amount || 0;
-      totalCard += grandchild.card_amount || 0;
+
+    // 子支払いの処理（回数券購入）
+    for (const child of childPayments) {
+        if (toBoolean(child.is_ticket_purchase)) {
+            const ticketInfo = ticketInfoMap.get(child.ticket_id);
+            ticketPurchases.push({
+                plan_name: ticketInfo?.plan_name || child.service_name,
+                service_name: ticketInfo?.service_name || '',
+                total_sessions: ticketInfo?.total_sessions || 0,
+                sessions_remaining: child.ticket_sessions_at_payment ?? ticketInfo?.sessions_remaining ?? 0,
+                purchase_price: ticketInfo?.purchase_price || 0,
+                remaining_balance: child.ticket_balance_at_payment ?? 0,
+                amount: child.total_amount,
+                expiry_date: ticketInfo?.expiry_date
+            });
+            totalAmount += child.total_amount || 0;
+        }
+        // 回数券使用（親と同じticket_idでない場合のみ追加）
+        else if (child.payment_type === 'ticket' && child.ticket_id && child.ticket_id !== payment.ticket_id) {
+            const ticketInfo = ticketInfoMap.get(child.ticket_id);
+            if (ticketInfo && !toBoolean(child.is_remaining_payment)) {
+                ticketUses.push({
+                    plan_name: ticketInfo.plan_name,
+                    service_name: ticketInfo.service_name,
+                    total_sessions: ticketInfo.total_sessions,
+                    sessions_remaining: child.ticket_sessions_at_payment ?? ticketInfo.sessions_remaining,
+                    purchase_price: ticketInfo.purchase_price,
+                    remaining_balance: child.ticket_balance_at_payment ?? 0,
+                    remaining_payment: child.payment_amount || 0,
+                    expiry_date: ticketInfo?.expiry_date
+                });
+            }
+        }
     }
-  }
 
-  let paymentMethod = 'cash';
-  if (totalCash > 0 && totalCard > 0) {
-    paymentMethod = 'mixed';
-  } else if (totalCard > 0) {
-    paymentMethod = 'card';
-  }
+    // 孫支払いの処理
+    for (const grandchild of grandchildPayments) {
+        if (toBoolean(grandchild.is_ticket_purchase)) {
+            const ticketInfo = ticketInfoMap.get(grandchild.ticket_id);
+            ticketPurchases.push({
+                plan_name: ticketInfo?.plan_name || grandchild.service_name,
+                service_name: ticketInfo?.service_name || '',
+                total_sessions: ticketInfo?.total_sessions || 0,
+                sessions_remaining: grandchild.ticket_sessions_at_payment ?? ticketInfo?.sessions_remaining ?? 0,
+                purchase_price: ticketInfo?.purchase_price || 0,
+                remaining_balance: grandchild.ticket_balance_at_payment ?? 0,
+                amount: grandchild.total_amount,
+                expiry_date: ticketInfo?.expiry_date
+            });
+            totalAmount += grandchild.total_amount || 0;
+        }
+    }
 
-  return {
-    payment: {
-      ...payment,
-      total_amount: totalAmount,
-      cash_amount: totalCash,
-      card_amount: totalCard,
-      payment_method: paymentMethod
-    },
-    options,
-    ticketPurchases,
-    ticketUses,
-    childPayments,
-    grandchildPayments,
-    isParentTicketPurchase,
-    ticketInfoMap
-  };
+    // 合計金額の集計（現金・カード別）
+    let totalCash = payment.cash_amount || 0;
+    let totalCard = payment.card_amount || 0;
+
+    for (const child of childPayments) {
+        // 回数券購入は親に含まれるため加算しない
+        if (!toBoolean(child.is_ticket_purchase)) {
+            totalCash += child.cash_amount || 0;
+            totalCard += child.card_amount || 0;
+        }
+    }
+    for (const grandchild of grandchildPayments) {
+        if (!toBoolean(grandchild.is_ticket_purchase)) {
+            totalCash += grandchild.cash_amount || 0;
+            totalCard += grandchild.card_amount || 0;
+        }
+    }
+
+    let paymentMethod = 'cash';
+    if (totalCash > 0 && totalCard > 0) {
+        paymentMethod = 'mixed';
+    } else if (totalCard > 0) {
+        paymentMethod = 'card';
+    }
+
+    return {
+        payment: {
+            ...payment,
+            total_amount: totalAmount,
+            cash_amount: totalCash,
+            card_amount: totalCard,
+            payment_method: paymentMethod
+        },
+        options,
+        ticketPurchases,
+        ticketUses,
+        childPayments,
+        grandchildPayments,
+        isParentTicketPurchase,
+        ticketInfoMap
+    };
 }
 
 // 行フォーマット
 function formatLine(label, amount) {
-  const amountStr = `¥${Number(amount).toLocaleString()}`;
-  const totalWidth = 32;
-  const spaces = totalWidth - label.length - amountStr.length;
-  return label + ' '.repeat(Math.max(1, spaces)) + amountStr + '\n';
+    const amountStr = `¥${Number(amount).toLocaleString()}`;
+    const totalWidth = 32;
+    const spaces = totalWidth - label.length - amountStr.length;
+    return label + ' '.repeat(Math.max(1, spaces)) + amountStr + '\n';
+}
+
+// 有効期限フォーマット
+function formatExpiry(dateStr) {
+    if (!dateStr) return '';
+    const d = new Date(dateStr);
+    return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`;
 }
 
 // ESC/POSコマンド生成（統一様式）
-function generateEscPosCommands(data) {
-  const { payment, options, ticketPurchases, ticketUses } = data;
-  let commands = '';
+function generateEscPosCommands(data, printerConfig = {}) {
+    const { payment, options, ticketPurchases, ticketUses } = data;
+    let commands = '';
 
-  commands += COMMANDS.INIT;
-  commands += COMMANDS.CENTER;
-  commands += COMMANDS.DOUBLE_SIZE;
-  commands += COMMANDS.BOLD_ON;
-  commands += 'Sowani ABBY\n';
-  commands += COMMANDS.NORMAL_SIZE;
-  commands += COMMANDS.BOLD_OFF;
-  commands += '\n';
+    const shopName = printerConfig.shop_name || '美骨小顔サロン ABBY';
+    const shopMessage = printerConfig.shop_message || 'ありがとうございました\nまたのご来店をお待ちしております';
 
-  const date = new Date(payment.payment_date);
-  commands += COMMANDS.CENTER;
-  commands += date.toLocaleString('ja-JP', {
-    year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit'
-  }) + '\n\n';
+    commands += COMMANDS.INIT;
+    commands += COMMANDS.CENTER;
+    commands += COMMANDS.DOUBLE_SIZE;
+    commands += COMMANDS.BOLD_ON;
+    commands += shopName + '\n';
+    commands += COMMANDS.NORMAL_SIZE;
+    commands += COMMANDS.BOLD_OFF;
+    commands += '\n';
 
-  commands += '--------------------------------\n';
-  commands += COMMANDS.LEFT;
-  commands += `お客様: ${payment.last_name} ${payment.first_name} 様\n`;
-  commands += `担当: ${payment.staff_name || '-'}\n`;
-  commands += '--------------------------------\n';
+    const date = new Date(payment.payment_date);
+    commands += COMMANDS.CENTER;
+    commands += date.toLocaleString('ja-JP', {
+        year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit'
+    }) + '\n\n';
 
-  // 施術内容
-  commands += COMMANDS.BOLD_ON;
-  commands += `${payment.service_name || '施術'}\n`;
-  commands += COMMANDS.BOLD_OFF;
-
-  if (payment.service_subtotal > 0) {
-    commands += formatLine('  小計', payment.service_subtotal);
-  }
-
-  // オプション
-  if (options && options.length > 0) {
-    for (const opt of options) {
-      const price = opt.is_free ? 0 : opt.price;
-      const suffix = opt.is_free ? '(無料)' : '';
-      commands += formatLine(`  ${opt.option_name}${suffix}`, price);
-    }
-  }
-
-  // 割引
-  if (payment.discount_amount > 0) {
-    commands += formatLine('  割引', -payment.discount_amount);
-  }
-
-  // 回数券使用
-  if (ticketUses && ticketUses.length > 0) {
     commands += '--------------------------------\n';
-    commands += '【回数券使用】\n';
-    for (const t of ticketUses) {
-      commands += `${t.plan_name || t.service_name}\n`;
-      if (t.remaining_payment > 0) {
-        commands += formatLine('  残金支払', t.remaining_payment);
-      }
-      commands += `  残り ${t.sessions_remaining}/${t.total_sessions} 回`;
-      commands += t.remaining_balance === 0 ? ' / 支払完了\n' : ` / 残金 ¥${t.remaining_balance?.toLocaleString()}\n`;
-    }
-  }
-
-  // 回数券購入
-  if (ticketPurchases && ticketPurchases.length > 0) {
+    commands += COMMANDS.LEFT;
+    commands += `お客様: ${payment.last_name} ${payment.first_name} 様\n`;
+    commands += `担当: ${payment.staff_name || '-'}\n`;
     commands += '--------------------------------\n';
-    commands += '【回数券購入】\n';
-    for (const t of ticketPurchases) {
-      commands += `${t.plan_name || t.service_name}\n`;
-      commands += formatLine('  金額', t.amount || 0);
-      commands += `  残り ${t.sessions_remaining}/${t.total_sessions} 回`;
-      commands += t.remaining_balance === 0 ? ' / 支払完了\n' : ` / 残金 ¥${t.remaining_balance?.toLocaleString()}\n`;
+
+    // 施術内容
+    commands += COMMANDS.BOLD_ON;
+    commands += `${payment.service_name || '施術'}\n`;
+    commands += COMMANDS.BOLD_OFF;
+
+    if (payment.service_subtotal > 0) {
+        commands += formatLine('  小計', payment.service_subtotal);
     }
-  }
 
-  commands += '--------------------------------\n';
-  commands += COMMANDS.BOLD_ON;
-  commands += COMMANDS.DOUBLE_HEIGHT;
-  commands += formatLine('合計', payment.total_amount);
-  commands += COMMANDS.NORMAL_SIZE;
-  commands += COMMANDS.BOLD_OFF;
-  commands += '--------------------------------\n';
+    // オプション
+    if (options && options.length > 0) {
+        for (const opt of options) {
+            const price = opt.is_free ? 0 : opt.price;
+            const suffix = opt.is_free ? '(無料)' : '';
+            commands += formatLine(`  ${opt.option_name}${suffix}`, price);
+        }
+    }
 
-  // 支払方法
-  if (payment.payment_method === 'cash') {
-    commands += formatLine('現金', payment.cash_amount);
-  } else if (payment.payment_method === 'card') {
-    commands += formatLine('カード', payment.card_amount);
-  } else {
-    commands += formatLine('現金', payment.cash_amount);
-    commands += formatLine('カード', payment.card_amount);
-  }
+    // 割引
+    if (payment.discount_amount > 0) {
+        commands += formatLine('  割引', -payment.discount_amount);
+    }
 
-  commands += '\n';
-  commands += COMMANDS.CENTER;
-  commands += 'ありがとうございました\n';
-  commands += 'またのご来店をお待ちしております\n\n';
-  commands += COMMANDS.FEED;
-  commands += COMMANDS.PARTIAL_CUT;
+    // 回数券使用
+    if (ticketUses && ticketUses.length > 0) {
+        commands += '--------------------------------\n';
+        commands += '【回数券使用】\n';
+        for (const t of ticketUses) {
+            commands += `${t.plan_name || t.service_name}\n`;
+            commands += `  残り ${t.sessions_remaining}/${t.total_sessions} 回`;
+            if (t.expiry_date) {
+                commands += ` / 期限 ${formatExpiry(t.expiry_date)}`;
+            }
+            commands += t.remaining_balance === 0 ? ' / 支払完了\n' : ` / 残金 ¥${t.remaining_balance?.toLocaleString()}\n`;
+            if (t.remaining_payment > 0) {
+                commands += `                    残金支払 ¥${t.remaining_payment.toLocaleString()}\n`;
+            }
+        }
+    }
 
-  return commands;
+    // 回数券購入
+    if (ticketPurchases && ticketPurchases.length > 0) {
+        commands += '--------------------------------\n';
+        commands += '【回数券購入】\n';
+        for (const t of ticketPurchases) {
+            commands += `${t.plan_name || t.service_name}\n`;
+            commands += formatLine('  金額', t.amount || 0);
+            commands += `  残り ${t.sessions_remaining}/${t.total_sessions} 回`;
+            if (t.expiry_date) {
+                commands += ` / 期限 ${formatExpiry(t.expiry_date)}`;
+            }
+            commands += t.remaining_balance === 0 ? ' / 支払完了\n' : ` / 残金 ¥${t.remaining_balance?.toLocaleString()}\n`;
+        }
+    }
+
+    commands += '--------------------------------\n';
+    commands += COMMANDS.BOLD_ON;
+    commands += COMMANDS.DOUBLE_HEIGHT;
+    commands += formatLine('合計', payment.total_amount);
+    commands += COMMANDS.NORMAL_SIZE;
+    commands += COMMANDS.BOLD_OFF;
+    commands += '--------------------------------\n';
+
+    // 支払方法
+    if (payment.payment_method === 'cash') {
+        commands += formatLine('現金', payment.cash_amount);
+    } else if (payment.payment_method === 'card') {
+        commands += formatLine('カード', payment.card_amount);
+    } else {
+        commands += formatLine('現金', payment.cash_amount);
+        commands += formatLine('カード', payment.card_amount);
+    }
+
+    commands += '\n';
+    commands += COMMANDS.CENTER;
+    const messageLines = shopMessage.split('\n');
+    messageLines.forEach(line => {
+        commands += line + '\n';
+    });
+    commands += COMMANDS.FEED;
+    commands += COMMANDS.PARTIAL_CUT;
+
+    return commands;
 }
 
 // ネットワーク印刷
 async function printToNetwork(commands, ip, port = 9100) {
-  return new Promise((resolve, reject) => {
-    const client = new net.Socket();
-    client.setTimeout(5000);
-    
-    client.connect(port, ip, () => {
-      const iconv = require('iconv-lite');
-      const encoded = iconv.encode(commands, 'Shift_JIS');
-      client.write(encoded);
-      client.end();
-    });
+    return new Promise((resolve, reject) => {
+        const client = new net.Socket();
+        client.setTimeout(5000);
 
-    client.on('close', () => resolve({ success: true }));
-    client.on('error', (err) => reject(err));
-    client.on('timeout', () => { client.destroy(); reject(new Error('Connection timeout')); });
-  });
+        client.connect(port, ip, () => {
+            const iconv = require('iconv-lite');
+            const encoded = iconv.encode(commands, 'Shift_JIS');
+            client.write(encoded);
+            client.end();
+        });
+
+        client.on('close', () => resolve({ success: true }));
+        client.on('error', (err) => reject(err));
+        client.on('timeout', () => { client.destroy(); reject(new Error('Connection timeout')); });
+    });
 }
 
 // HTML生成（統一様式 - 残金支払い専用分岐を削除）
-function generateReceiptHtml(data) {
-  const { payment, options, ticketPurchases, ticketUses } = data;
-  const date = new Date(payment.payment_date);
+function generateReceiptHtml(data, printerConfig = {}) {
+    const { payment, options, ticketPurchases, ticketUses } = data;
+    const date = new Date(payment.payment_date);
 
-  const baseStyle = `
+    const shopName = printerConfig.shop_name || '美骨小顔サロン ABBY';
+    const shopMessage = printerConfig.shop_message || 'ありがとうございました\nまたのご来店をお待ちしております';
+
+    const baseStyle = `
     <style>
       @page { size: 80mm auto; margin: 0; }
       * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -415,7 +459,7 @@ function generateReceiptHtml(data) {
       .item-name { text-align: left; }
       .item-price { text-align: right; white-space: nowrap; }
       .free { font-size: 10px; color: #666; }
-      .discount { color: #c00; }
+      .discount { color: #000; }
       .total-section { margin-top: 5px; }
       .total-row { display: flex; justify-content: space-between; font-weight: bold; font-size: 16px; padding: 5px 0; }
       .payment-method { display: flex; justify-content: space-between; padding: 2px 0; }
@@ -423,32 +467,26 @@ function generateReceiptHtml(data) {
       .section-title { font-weight: bold; margin-bottom: 5px; }
       .ticket-item { display: flex; justify-content: space-between; font-size: 11px; }
       .footer { text-align: center; margin-top: 15px; font-size: 11px; }
-      .ticket-detail { font-size: 10px; color: #666; margin-left: 10px; margin-bottom: 5px; }
-      .remaining-payment { }
+      .ticket-detail { font-size: 10px; color: #000; margin-left: 10px; margin-bottom: 5px; }
+      .ticket-payment-line { text-align: right; font-size: 11px; color: #000; margin-top: 2px; }
       @media print { body { width: 80mm; } }
     </style>
   `;
 
-  // オプションHTML
-  let optionsHtml = '';
-  if (options && options.length > 0) {
-    optionsHtml = options.map(opt => {
-      const price = opt.is_free ? 0 : opt.price;
-      const suffix = opt.is_free ? '<span class="free">(無料)</span>' : '';
-      return `<tr><td class="item-name">${opt.option_name}${suffix}</td><td class="item-price">¥${price.toLocaleString()}</td></tr>`;
-    }).join('');
-  }
+    // オプションHTML
+    let optionsHtml = '';
+    if (options && options.length > 0) {
+        optionsHtml = options.map(opt => {
+            const price = opt.is_free ? 0 : opt.price;
+            const suffix = opt.is_free ? '<span class="free">(無料)</span>' : '';
+            return `<tr><td class="item-name">${opt.option_name}${suffix}</td><td class="item-price">¥${price.toLocaleString()}</td></tr>`;
+        }).join('');
+    }
 
-  // 回数券使用HTML
-  const formatExpiry = (dateStr) => {
-    if (!dateStr) return '';
-    const d = new Date(dateStr);
-    return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`;
-  };
-
-  let ticketUseHtml = '';
-  if (ticketUses && ticketUses.length > 0) {
-    ticketUseHtml = `
+    // 回数券使用HTML
+    let ticketUseHtml = '';
+    if (ticketUses && ticketUses.length > 0) {
+        ticketUseHtml = `
       <div class="section">
         <div class="section-title">【回数券使用】</div>
         ${ticketUses.map(t => `
@@ -456,16 +494,16 @@ function generateReceiptHtml(data) {
             <span>${t.plan_name || t.service_name}</span>
           </div>
           ${t.sessions_remaining !== null ? `<div class="ticket-detail">残り ${t.sessions_remaining}/${t.total_sessions} 回${t.expiry_date ? ` ／ 期限 ${formatExpiry(t.expiry_date)}` : ''}${t.remaining_balance === 0 ? ' ／ 支払完了' : (t.remaining_balance > 0 ? ` ／ 残金 ¥${t.remaining_balance?.toLocaleString()}` : '')}</div>` : ''}
-          ${t.remaining_payment > 0 ? `<div style="text-align: right; font-size: 11px; margin-top: 2px;">残金支払 ¥${t.remaining_payment.toLocaleString()}</div>` : ''}
+          ${t.remaining_payment > 0 ? `<div class="ticket-payment-line">残金支払 ¥${t.remaining_payment.toLocaleString()}</div>` : ''}
         `).join('')}
       </div>
     `;
-  }
+    }
 
-  // 回数券購入HTML
-  let ticketPurchaseHtml = '';
-  if (ticketPurchases && ticketPurchases.length > 0) {
-    ticketPurchaseHtml = `
+    // 回数券購入HTML
+    let ticketPurchaseHtml = '';
+    if (ticketPurchases && ticketPurchases.length > 0) {
+        ticketPurchaseHtml = `
       <div class="section">
         <div class="section-title">【回数券購入】</div>
         ${ticketPurchases.map(t => `
@@ -474,15 +512,18 @@ function generateReceiptHtml(data) {
         `).join('')}
       </div>
     `;
-  }
+    }
 
-  return `
+    // フッターHTML
+    const footerHtml = shopMessage.split('\n').map(line => `<p>${line}</p>`).join('');
+
+    return `
 <!DOCTYPE html>
 <html>
 <head><meta charset="UTF-8"><title>レシート</title>${baseStyle}</head>
 <body>
   <div class="header">
-    <div class="shop-name">Sowani ABBY</div>
+    <div class="shop-name">${shopName}</div>
     <div class="date">${date.toLocaleString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</div>
   </div>
   <div class="divider"></div>
@@ -513,8 +554,7 @@ function generateReceiptHtml(data) {
     ` : ''}
   </div>
   <div class="footer">
-    <p>ありがとうございました</p>
-    <p>またのご来店をお待ちしております</p>
+    ${footerHtml}
   </div>
 </body>
 </html>`;
@@ -522,63 +562,68 @@ function generateReceiptHtml(data) {
 
 // POST: レシート印刷
 export async function POST(request) {
-  try {
-    const body = await request.json();
-    const { payment_id, print_type } = body;
+    try {
+        const body = await request.json();
+        const { payment_id, print_type } = body;
 
-    if (!payment_id) {
-      return NextResponse.json({ success: false, error: 'payment_id is required' }, { status: 400 });
+        if (!payment_id) {
+            return NextResponse.json({ success: false, error: 'payment_id is required' }, { status: 400 });
+        }
+
+        const receiptData = await getReceiptData(payment_id);
+        if (!receiptData) {
+            return NextResponse.json({ success: false, error: 'Payment not found' }, { status: 404 });
+        }
+
+        // 保存された設定を読み込む
+        const printerConfig = await loadPrinterConfig();
+        const printerType = printerConfig.printer_type;
+        const printerIp = printerConfig.printer_ip;
+        const printerPort = printerConfig.printer_port;
+
+        // ネットワーク印刷
+        if ((print_type === 'network' || printerType === 'network') && printerIp) {
+            try {
+                const commands = generateEscPosCommands(receiptData, printerConfig);
+                await printToNetwork(commands, printerIp, printerPort);
+                return NextResponse.json({ success: true, message: 'レシートを印刷しました', type: 'network' });
+            } catch (err) {
+                console.error('Network print error:', err);
+                // ネットワーク印刷失敗時はブラウザ印刷にフォールバック
+                const html = generateReceiptHtml(receiptData, printerConfig);
+                return NextResponse.json({ success: true, type: 'browser', html, fallback: true, error: err.message });
+            }
+        }
+
+        // ブラウザ印刷
+        const html = generateReceiptHtml(receiptData, printerConfig);
+        return NextResponse.json({ success: true, type: 'browser', html });
+
+    } catch (error) {
+        console.error('Receipt print error:', error);
+        return NextResponse.json({ success: false, error: error.message }, { status: 500 });
     }
-
-    const receiptData = await getReceiptData(payment_id);
-    if (!receiptData) {
-      return NextResponse.json({ success: false, error: 'Payment not found' }, { status: 404 });
-    }
-
-    const printerType = process.env.PRINTER_TYPE || 'browser';
-    const printerIp = process.env.PRINTER_IP;
-    const printerPort = parseInt(process.env.PRINTER_PORT || '9100');
-
-    if ((print_type === 'network' || printerType === 'network') && printerIp) {
-      try {
-        const commands = generateEscPosCommands(receiptData);
-        await printToNetwork(commands, printerIp, printerPort);
-        return NextResponse.json({ success: true, message: 'レシートを印刷しました', type: 'network' });
-      } catch (err) {
-        console.error('Network print error:', err);
-        const html = generateReceiptHtml(receiptData);
-        return NextResponse.json({ success: true, type: 'browser', html, fallback: true, error: err.message });
-      }
-    }
-
-    const html = generateReceiptHtml(receiptData);
-    return NextResponse.json({ success: true, type: 'browser', html });
-
-  } catch (error) {
-    console.error('Receipt print error:', error);
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
-  }
 }
 
 // GET: レシートデータ取得
 export async function GET(request) {
-  try {
-    const { searchParams } = new URL(request.url);
-    const paymentId = searchParams.get('payment_id');
+    try {
+        const { searchParams } = new URL(request.url);
+        const paymentId = searchParams.get('payment_id');
 
-    if (!paymentId) {
-      return NextResponse.json({ success: false, error: 'payment_id is required' }, { status: 400 });
+        if (!paymentId) {
+            return NextResponse.json({ success: false, error: 'payment_id is required' }, { status: 400 });
+        }
+
+        const receiptData = await getReceiptData(paymentId);
+        if (!receiptData) {
+            return NextResponse.json({ success: false, error: 'Payment not found' }, { status: 404 });
+        }
+
+        return NextResponse.json({ success: true, data: receiptData });
+
+    } catch (error) {
+        console.error('Receipt get error:', error);
+        return NextResponse.json({ success: false, error: error.message }, { status: 500 });
     }
-
-    const receiptData = await getReceiptData(paymentId);
-    if (!receiptData) {
-      return NextResponse.json({ success: false, error: 'Payment not found' }, { status: 404 });
-    }
-
-    return NextResponse.json({ success: true, data: receiptData });
-
-  } catch (error) {
-    console.error('Receipt get error:', error);
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
-  }
 }

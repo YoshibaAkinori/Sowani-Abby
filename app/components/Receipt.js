@@ -196,7 +196,7 @@ export default function Receipt({ paymentId, onClose, autoPrint = false }) {
                         <div className="receipt" ref={receiptRef}>
                             {/* ヘッダー */}
                             <div className="receipt__header">
-                                <div className="receipt__shop-name">Sowani ABBY</div>
+                                <div className="receipt__shop-name">美骨小顔サロン ABBY</div>
                                 <div className="receipt__date">{formatDate(payment.payment_date)}</div>
                             </div>
 

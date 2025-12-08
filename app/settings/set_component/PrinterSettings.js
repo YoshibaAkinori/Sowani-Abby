@@ -10,9 +10,8 @@ export default function PrinterSettings() {
     printer_type: 'browser',
     printer_ip: '',
     printer_port: 9100,
-    auto_print: true,
-    shop_name: 'Sowani ABBY',
-    shop_message: 'ありがとうございました\nまたのご来店をお待ちしております'
+    shop_name: '',
+    shop_message: ''
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -29,7 +28,13 @@ export default function PrinterSettings() {
       const response = await fetch('/api/settings/printer');
       const result = await response.json();
       if (result.success) {
-        setConfig(result.data);
+        setConfig({
+          printer_type: result.data.printer_type || 'browser',
+          printer_ip: result.data.printer_ip || '',
+          printer_port: result.data.printer_port || 9100,
+          shop_name: result.data.shop_name || '',
+          shop_message: result.data.shop_message || ''
+        });
       }
     } catch (err) {
       console.error('設定読み込みエラー:', err);
@@ -68,6 +73,7 @@ export default function PrinterSettings() {
   const handleTestConnection = async () => {
     if (!config.printer_ip) {
       setMessage({ type: 'error', text: 'IPアドレスを入力してください' });
+      setTimeout(() => setMessage({ type: '', text: '' }), 3000);
       return;
     }
 
@@ -100,10 +106,10 @@ export default function PrinterSettings() {
 
   // 入力変更
   const handleChange = (e) => {
-    const { name, value, type, checked } = e.target;
+    const { name, value } = e.target;
     setConfig(prev => ({
       ...prev,
-      [name]: type === 'checkbox' ? checked : value
+      [name]: name === 'printer_port' ? Number(value) : value
     }));
   };
 
@@ -197,20 +203,7 @@ export default function PrinterSettings() {
       )}
 
       <div className="printer-settings__section">
-        <h3>印刷オプション</h3>
-        <label className="printer-settings__checkbox">
-          <input
-            type="checkbox"
-            name="auto_print"
-            checked={config.auto_print}
-            onChange={handleChange}
-          />
-          <span>会計完了時に自動でレシートを印刷する</span>
-        </label>
-      </div>
-
-      <div className="printer-settings__section">
-        <h3>レシート設定</h3>
+        <h3>レシート表示設定</h3>
         <div className="printer-settings__form-group">
           <label>店舗名</label>
           <input
@@ -218,6 +211,7 @@ export default function PrinterSettings() {
             name="shop_name"
             value={config.shop_name}
             onChange={handleChange}
+            placeholder="店舗名を入力"
             className="printer-settings__input"
           />
         </div>
@@ -227,6 +221,7 @@ export default function PrinterSettings() {
             name="shop_message"
             value={config.shop_message}
             onChange={handleChange}
+            placeholder="ありがとうございました&#10;またのご来店をお待ちしております"
             rows={3}
             className="printer-settings__textarea"
           />
