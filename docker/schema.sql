@@ -657,6 +657,7 @@ CREATE TABLE `ticket_plans` (
   `total_sessions` int NOT NULL,
   `price` int NOT NULL,
   `validity_days` int NOT NULL,
+  `is_active` tinyint(1) DEFAULT '1' COMMENT '有効フラグ',
   `service_category` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '新規' COMMENT 'カテゴリ（新規/会員/体験など）',
   `gender_restriction` enum('all','female','male') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'all' COMMENT '性別制限',
   PRIMARY KEY (`plan_id`),
@@ -674,4 +675,4 @@ CREATE TABLE `ticket_plans` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2025-12-07 21:54:30
+-- Dump completed on 2025-12-09 13:33:50
