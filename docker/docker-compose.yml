@@ -37,8 +37,8 @@ services:
       TZ: 'Asia/Tokyo'
     volumes:
       - salon_db_data:/var/lib/mysql
-      - ./mysql/init:/docker-entrypoint-initdb.d
-      - ./mysql/my.cnf:/etc/mysql/conf.d/my.cnf
+      #- ./mysql/init:/docker-entrypoint-initdb.d
+      #- ./mysql/my.cnf:/etc/mysql/conf.d/my.cnf
     ports:
       - "${DB_PORT:-3306}:3306"
     networks:
