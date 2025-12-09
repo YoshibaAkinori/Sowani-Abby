@@ -1,4 +1,29 @@
 services:
+  app:
+    container_name: salon_app
+    build:
+      context: ..            # 1つ上の階層(ルート)のDockerfileを見に行く設定
+      dockerfile: Dockerfile
+    restart: always          # 落ちても自動再起動
+    ports:
+      - "3000:3000"          # ブラウザでアクセスするポート
+    environment:
+      # アプリがDBに接続するための情報
+      DB_HOST: db
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: ${DB_NAME}
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - salon_network
+    # ログが溜まりすぎてディスク100%になるのを防ぐ設定
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
   db:
     build:
       context: ./mysql
