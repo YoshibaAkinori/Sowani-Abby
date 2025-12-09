@@ -144,6 +144,120 @@ LOCK TABLES `options` WRITE;
 INSERT INTO `options` VALUES ('456e8974-9cd0-11f0-8e8d-b2353c7546ec','石膏パック【リフトアップ・保湿・美白】','フェイシャル',30,4000,NULL,1,'2025-09-29 01:04:38'),('481992c1-9cd0-11f0-8e8d-b2353c7546ec','炭酸パック【抗酸化・抗炎症・保湿】','フェイシャル',30,4000,NULL,1,'2025-09-29 01:04:42'),('4b1dbb70-9cd0-11f0-8e8d-b2353c7546ec','MFIP機器【エイジング・くすみ・むくみ】','フェイシャル',30,4000,NULL,1,'2025-09-29 01:04:47'),('4e4f9f3a-9cd0-11f0-8e8d-b2353c7546ec','ラジオ波フェイス【新陳代謝UP・脂肪燃焼】','フェイシャル',30,4000,NULL,1,'2025-09-29 01:04:52'),('50d04dd7-9cd0-11f0-8e8d-b2353c7546ec','ドライヘッド【眼精疲労・自律神経・脳疲労】','ボディ',30,4000,NULL,1,'2025-09-29 01:04:57'),('613aa78b-9d47-11f0-8e8d-b2353c7546ec','ネックセラピー【スマホ首・首こり・血行促進】','ボディ',30,4000,NULL,1,'2025-09-29 15:17:14'),('6391b43c-9d47-11f0-8e8d-b2353c7546ec','肩甲骨リフレ【姿勢改善・肩こり・可動域UP】','ボディ',30,4000,NULL,1,'2025-09-29 15:17:18'),('660166d8-9d47-11f0-8e8d-b2353c7546ec','背中コルギ【背中疲労・腰痛・肩こり】','ボディ',30,4000,NULL,1,'2025-09-29 15:17:22'),('7029a61f-9d47-11f0-8e8d-b2353c7546ec','美脚リンパ【浮腫・セルライト・疲労回復】','ボディ',30,4000,NULL,1,'2025-09-29 15:17:39'),('78236ed9-9d47-11f0-8e8d-b2353c7546ec','カッピング【背中疲労・冷え・むくみ】','ボディ',30,4000,NULL,1,'2025-09-29 15:17:53'),('7ac088dc-9d47-11f0-8e8d-b2353c7546ec','足つぼ【内臓機能・冷え性・むくみ】','ボディ',30,4000,NULL,1,'2025-09-29 15:17:57'),('d5f10ed4-a2b1-11f0-89d9-420dd1dcc76b','キャビテーション [お腹]','その他',0,0,NULL,1,'2025-10-06 12:41:53'),('e2370141-a2b1-11f0-89d9-420dd1dcc76b','キャビテーション [背中]','その他',0,0,NULL,1,'2025-10-06 12:42:13'),('ffcfa11e-a2b1-11f0-89d9-420dd1dcc76b','キャビテーション [脚]','その他',0,0,NULL,1,'2025-10-06 12:43:03');
 /*!40000 ALTER TABLE `options` ENABLE KEYS */;
 UNLOCK TABLES;
+
+--
+-- Table structure for table `coupons`
+--
+
+DROP TABLE IF EXISTS `coupons`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `coupons` (
+  `coupon_id` char(36) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT (uuid()),
+  `name` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'クーポン名',
+  `description` text COLLATE utf8mb4_unicode_ci COMMENT '説明',
+  `total_duration_minutes` int DEFAULT '0' COMMENT 'クーポン全体の施術時間（分）',
+  `base_service_id` char(36) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'ベースとなる施術',
+  `free_option_count` int DEFAULT '0' COMMENT '自由選択できるオプション数',
+  `total_price` int NOT NULL COMMENT 'パック価格',
+  `validity_days` int DEFAULT '180' COMMENT '有効期限（日数）',
+  `usage_limit` int DEFAULT NULL COMMENT '使用回数上限',
+  `used_count` int DEFAULT '0' COMMENT '使用済み回数',
+  `is_active` tinyint(1) DEFAULT '1' COMMENT '有効フラグ',
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`coupon_id`),
+  KEY `idx_service` (`base_service_id`),
+  KEY `idx_active` (`is_active`),
+  CONSTRAINT `coupons_ibfk_1` FOREIGN KEY (`base_service_id`) REFERENCES `services` (`service_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `coupons`
+--
+
+LOCK TABLES `coupons` WRITE;
+/*!40000 ALTER TABLE `coupons` DISABLE KEYS */;
+INSERT INTO `coupons` VALUES ('01c2971b-a1f0-11f0-9274-6e14d9ac68da','[当店自慢/精密分析/男女共通] 上半身ケア+小顔コルギ 50分','',90,NULL,0,5000,365,1,0,1,'2025-10-05 13:34:24','2025-10-05 13:34:24'),('2f661023-a1f0-11f0-9274-6e14d9ac68da','[男女共通] 上半身ケア+小顔コルギ+当日選べるオプション 80分','',120,NULL,1,6000,365,1,0,1,'2025-10-05 13:35:40','2025-10-05 13:35:40'),('475e0cb1-a1a9-11f0-9274-6e14d9ac68da',' [男女共通] ドライヘッドスパ 25分','',25,NULL,0,4000,365,NULL,0,1,'2025-10-05 05:08:06','2025-10-05 05:08:56'),('55123bb1-a1f1-11f0-9274-6e14d9ac68da','キャビテーション×ラジオ波 [背中・お腹・脚] 40分','',60,'2ffd7ad2-9eae-11f0-a8d1-362b931374cc',0,6000,365,NULL,0,1,'2025-10-05 13:43:53','2025-10-05 13:43:59'),('5cf093fb-a1f0-11f0-9274-6e14d9ac68da','[男女共通人気NO.1] 上半身ケア+小顔コルギ+背中コルギ 80分','',120,NULL,0,6000,365,1,0,1,'2025-10-05 13:36:57','2025-10-05 13:36:57'),('70497111-a1f0-11f0-9274-6e14d9ac68da','[男女共通人気NO.2] 上半身ケア+小顔コルギ+石膏パック 80分','',120,NULL,0,6000,365,1,0,1,'2025-10-05 13:37:29','2025-10-05 13:37:29'),('7684c24d-a1f1-11f0-9274-6e14d9ac68da','[背中美人コース] キャビテーション×ラジオ波','',60,'2ffd7ad2-9eae-11f0-a8d1-362b931374cc',0,4500,365,1,2,1,'2025-10-05 13:44:49','2025-10-18 01:30:46'),('8215bc1d-a1f0-11f0-9274-6e14d9ac68da','[男女共通人気NO.3] 上半身ケア+小顔コルギ+ドライヘッド 80分','',120,NULL,0,6000,365,1,0,1,'2025-10-05 13:37:59','2025-10-05 13:37:59'),('8969dd43-a1f1-11f0-9274-6e14d9ac68da','[美脚コース] キャビテーション×ラジオ波','',60,'2ffd7ad2-9eae-11f0-a8d1-362b931374cc',0,4500,365,1,0,1,'2025-10-05 13:45:21','2025-10-05 13:45:21'),('8af200b0-a1ef-11f0-9274-6e14d9ac68da','[朝割/女性限定/担当スタッフ:星野] 上半身ケア+小顔コルギ 50分','',90,NULL,0,3000,365,1,0,1,'2025-10-05 13:31:04','2025-10-05 13:31:04'),('9cf74bd6-a1f1-11f0-9274-6e14d9ac68da','[ウエスト集中コース] キャビテーション×ラジオ波','',60,'2ffd7ad2-9eae-11f0-a8d1-362b931374cc',0,4500,365,1,1,1,'2025-10-05 13:45:54','2025-10-13 02:23:43'),('cb459c8b-a1f1-11f0-9274-6e14d9ac68da','[男女共通クーポン] 背中コルギ+下半身ストレッチ 初回8000円','',60,NULL,0,8000,365,1,4,1,'2025-10-05 13:47:11','2025-12-07 12:08:15'),('cebacf97-a1f0-11f0-9274-6e14d9ac68da','[ブライダル] 上半身ケア+小顔コルギ+ボディオプション2つ 120分','',150,NULL,2,11800,365,1,0,1,'2025-10-05 13:40:08','2025-10-05 13:40:08'),('d7e4e9bf-a1ef-11f0-9274-6e14d9ac68da','[当日割り/男女共通] 効果重視!! 即効性有り◆ 上半身ケア+小顔コルギ 50分','',90,NULL,0,4000,365,1,0,1,'2025-10-05 13:33:13','2025-10-05 13:33:13'),('eb4a7ac5-a1f1-11f0-9274-6e14d9ac68da','[ギフトカード持参の方] 美骨小顔コルギ','',90,NULL,0,0,365,1,0,1,'2025-10-05 13:48:05','2025-10-05 13:48:05'),('f6f5af85-a1f0-11f0-9274-6e14d9ac68da','[ブライダル] 上半身ケア+小顔コルギ+キャビテーション 90分','',130,NULL,0,13000,365,1,0,1,'2025-10-05 13:41:15','2025-10-05 13:41:15');
+/*!40000 ALTER TABLE `coupons` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `coupon_included_options`
+--
+
+DROP TABLE IF EXISTS `coupon_included_options`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `coupon_included_options` (
+  `coupon_option_id` char(36) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT (uuid()),
+  `coupon_id` char(36) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `option_id` char(36) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `quantity` int DEFAULT '1' COMMENT 'オプションの個数',
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`coupon_option_id`),
+  UNIQUE KEY `unique_coupon_option` (`coupon_id`,`option_id`),
+  KEY `idx_coupon` (`coupon_id`),
+  KEY `idx_option` (`option_id`),
+  CONSTRAINT `coupon_included_options_ibfk_1` FOREIGN KEY (`coupon_id`) REFERENCES `coupons` (`coupon_id`) ON DELETE CASCADE,
+  CONSTRAINT `coupon_included_options_ibfk_2` FOREIGN KEY (`option_id`) REFERENCES `options` (`option_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `coupon_included_options`
+--
+
+LOCK TABLES `coupon_included_options` WRITE;
+/*!40000 ALTER TABLE `coupon_included_options` DISABLE KEYS */;
+INSERT INTO `coupon_included_options` VALUES ('0ffebf61-a2b2-11f0-89d9-420dd1dcc76b','8969dd43-a1f1-11f0-9274-6e14d9ac68da','ffcfa11e-a2b1-11f0-89d9-420dd1dcc76b',1,'2025-10-06 12:43:30'),('1664e4b4-a2b2-11f0-89d9-420dd1dcc76b','9cf74bd6-a1f1-11f0-9274-6e14d9ac68da','d5f10ed4-a2b1-11f0-89d9-420dd1dcc76b',1,'2025-10-06 12:43:41'),('1c8cdc21-a2b2-11f0-89d9-420dd1dcc76b','7684c24d-a1f1-11f0-9274-6e14d9ac68da','e2370141-a2b1-11f0-89d9-420dd1dcc76b',1,'2025-10-06 12:43:51'),('f90d45eb-a1ee-11f0-9274-6e14d9ac68da','475e0cb1-a1a9-11f0-9274-6e14d9ac68da','50d04dd7-9cd0-11f0-8e8d-b2353c7546ec',1,'2025-10-05 13:27:00');
+/*!40000 ALTER TABLE `coupon_included_options` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `limited_offers`
+--
+
+DROP TABLE IF EXISTS `limited_offers`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `limited_offers` (
+  `offer_id` char(36) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT (uuid()),
+  `offer_type` enum('service','ticket') COLLATE utf8mb4_unicode_ci DEFAULT 'service' COMMENT 'オファー種別',
+  `name` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'メニュー名',
+  `description` text COLLATE utf8mb4_unicode_ci COMMENT '説明',
+  `category` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'カテゴリ',
+  `base_plan_id` char(36) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '元の回数券プランID',
+  `duration_minutes` int DEFAULT '60' COMMENT '施術時間',
+  `original_price` int NOT NULL COMMENT '通常価格',
+  `special_price` int DEFAULT NULL COMMENT '特別価格（回数券の場合）',
+  `total_sessions` int NOT NULL COMMENT '回数',
+  `validity_days` int DEFAULT '180' COMMENT '有効期限（回数券の場合）',
+  `start_date` date NOT NULL COMMENT '開始日',
+  `end_date` date NOT NULL COMMENT '終了日',
+  `max_bookings` int DEFAULT NULL COMMENT '最大予約数',
+  `max_sales` int DEFAULT NULL COMMENT '最大販売数',
+  `current_sales` int DEFAULT '0' COMMENT '現在の販売数',
+  `current_bookings` int DEFAULT '0' COMMENT '現在の予約数',
+  `is_active` tinyint(1) DEFAULT '1' COMMENT '有効フラグ',
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`offer_id`),
+  KEY `idx_dates` (`start_date`,`end_date`),
+  KEY `idx_active` (`is_active`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `limited_offers`
+--
+
+LOCK TABLES `limited_offers` WRITE;
+/*!40000 ALTER TABLE `limited_offers` DISABLE KEYS */;
+INSERT INTO `limited_offers` VALUES ('7711b976-9c6f-11f0-920b-ea6a75f16246','ticket','夏季限定クールダウンコース','暑い夏を乗り切る特別コース','ボディトリート',NULL,90,15000,10000,1,180,'2025-07-01','2025-08-31',NULL,NULL,0,0,1,'2025-09-28 13:31:40','2025-10-15 14:13:23'),('7711bad2-9c6f-11f0-920b-ea6a75f16246','ticket','新春特別フェイシャル','新年の特別フェイシャルコース','フェイシャル',NULL,60,10000,7000,1,180,'2025-01-01','2025-01-31',NULL,NULL,0,0,1,'2025-09-28 13:31:40','2025-10-15 14:13:28');
+/*!40000 ALTER TABLE `limited_offers` ENABLE KEYS */;
+UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 
 /*!40101 SET SQL_MODE=@OLD_SQL_MODE */;
@@ -154,4 +268,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2025-12-09 13:33:56
+-- Dump completed on 2025-12-09 14:29:23
