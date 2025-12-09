@@ -26,6 +26,7 @@ export async function GET(request) {
         c.total_duration_minutes
       FROM coupons c
       LEFT JOIN services s ON c.base_service_id = s.service_id
+      WHERE c.is_active = TRUE
       ORDER BY c.created_at DESC`
     );
 

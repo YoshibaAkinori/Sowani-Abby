@@ -17,6 +17,7 @@ export async function GET(request) {
         is_active,
         created_at
       FROM options
+      WHERE is_active = TRUE
       ORDER BY 
         CASE category
           WHEN 'フェイシャル' THEN 1

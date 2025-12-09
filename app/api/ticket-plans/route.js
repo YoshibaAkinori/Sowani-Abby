@@ -8,7 +8,7 @@ export async function GET(request) {
     const pool = await getConnection();
     const { searchParams } = new URL(request.url);
     const serviceId = searchParams.get('serviceId');
-    
+
     let query = `
       SELECT 
         tp.plan_id,
@@ -25,13 +25,14 @@ export async function GET(request) {
       FROM ticket_plans tp
       JOIN services s ON tp.service_id = s.service_id
     `;
-    
+
+    query += ' WHERE tp.is_active = TRUE';
     const params = [];
     if (serviceId) {
-      query += ' WHERE tp.service_id = ?';
+      query += ' AND tp.service_id = ?';
       params.push(serviceId);
     }
-    
+
     // ソート順を変更: カテゴリ → 性別 → サービス名 → 回数
     query += ` ORDER BY 
       tp.service_category,
@@ -43,7 +44,7 @@ export async function GET(request) {
       END,
       s.name,
       tp.total_sessions`;
-    
+
     const [rows] = await pool.execute(query, params);
 
     // 1回あたりの価格を計算
@@ -70,11 +71,11 @@ export async function GET(request) {
 // 回数券プラン新規登録
 export async function POST(request) {
   let connection;
-  
+
   try {
     const pool = await getConnection();
     connection = await pool.getConnection();
-    
+
     const body = await request.json();
 
     const {
@@ -117,16 +118,16 @@ export async function POST(request) {
 
     // 同じサービス・回数・性別の重複チェック
     const [existing] = await connection.execute(
-  'SELECT plan_id FROM ticket_plans WHERE service_id = ? AND total_sessions = ? AND gender_restriction = ? AND service_category = ?',
-  [service_id, total_sessions, gender_restriction, service_category]
-);
+      'SELECT plan_id FROM ticket_plans WHERE service_id = ? AND total_sessions = ? AND gender_restriction = ? AND service_category = ?',
+      [service_id, total_sessions, gender_restriction, service_category]
+    );
 
-if (existing.length > 0) {
-  return NextResponse.json(
-    { success: false, error: '同じ条件のプランが既に存在します' },
-    { status: 400 }
-  );
-}
+    if (existing.length > 0) {
+      return NextResponse.json(
+        { success: false, error: '同じ条件のプランが既に存在します' },
+        { status: 400 }
+      );
+    }
 
     // 挿入
     await connection.execute(
@@ -141,12 +142,12 @@ if (existing.length > 0) {
         validity_days
       ) VALUES (UUID(), ?, ?, ?, ?, ?, ?, ?)`,
       [
-        service_id, 
-        name, 
+        service_id,
+        name,
         service_category,
-        gender_restriction, 
-        total_sessions, 
-        price, 
+        gender_restriction,
+        total_sessions,
+        price,
         validity_days
       ]
     );
@@ -169,11 +170,11 @@ if (existing.length > 0) {
 // 回数券プラン更新
 export async function PUT(request) {
   let connection;
-  
+
   try {
     const pool = await getConnection();
     connection = await pool.getConnection();
-    
+
     const body = await request.json();
 
     const {
@@ -225,12 +226,12 @@ export async function PUT(request) {
            validity_days = ?
        WHERE plan_id = ?`,
       [
-        name, 
+        name,
         service_category,
-        gender_restriction || 'all', 
-        total_sessions, 
-        price, 
-        validity_days, 
+        gender_restriction || 'all',
+        total_sessions,
+        price,
+        validity_days,
         plan_id
       ]
     );

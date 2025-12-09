@@ -31,6 +31,7 @@ export async function GET(request) {
       FROM limited_offers lo
       LEFT JOIN ticket_plans tp ON lo.base_plan_id = tp.plan_id
       LEFT JOIN services s ON tp.service_id = s.service_id
+      WHERE lo.is_active = TRUE
       ORDER BY lo.created_at DESC`
     );
 

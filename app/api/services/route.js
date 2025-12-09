@@ -23,6 +23,7 @@ export async function GET(request) {
         is_active,
         created_at
       FROM services
+      WHERE is_active = TRUE
       ORDER BY category, name`
     );
 

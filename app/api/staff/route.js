@@ -18,6 +18,7 @@ export async function GET(request) {
         is_active,
         created_at
       FROM staff
+      WHERE is_active = TRUE
       ORDER BY created_at ASC`  
     );
 
