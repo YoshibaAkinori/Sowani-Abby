@@ -279,14 +279,25 @@ async function getReceiptData(paymentId) {
         ticketInfoMap
     };
 }
+// 文字の表示幅を計算（全角=2、半角=1）
+function getDisplayWidth(str) {
+    let width = 0;
+    for (const char of str) {
+        width += char.charCodeAt(0) > 255 ? 2 : 1;
+    }
+    return width;
+}
 
-// 行フォーマット
+// 行フォーマット（全角対応・金額右寄せ）
 function formatLine(label, amount) {
     const amountStr = `¥${Number(amount).toLocaleString()}`;
-    const totalWidth = 32;
-    const spaces = totalWidth - label.length - amountStr.length;
+    const totalWidth = 48;  // 32→48に変更
+    const labelWidth = getDisplayWidth(label);
+    const amountWidth = getDisplayWidth(amountStr);
+    const spaces = totalWidth - labelWidth - amountWidth;
     return label + ' '.repeat(Math.max(1, spaces)) + amountStr + '\n';
 }
+
 
 // 有効期限フォーマット
 function formatExpiry(dateStr) {
@@ -305,11 +316,11 @@ function generateEscPosCommands(data, printerConfig = {}) {
 
     commands += COMMANDS.INIT;
     commands += COMMANDS.CENTER;
-    commands += COMMANDS.DOUBLE_SIZE;
     commands += COMMANDS.BOLD_ON;
+    commands += COMMANDS.DOUBLE_WIDTH;
     commands += shopName + '\n';
-    commands += COMMANDS.NORMAL_SIZE;
     commands += COMMANDS.BOLD_OFF;
+    commands += COMMANDS.NORMAL_SIZE;
     commands += '\n';
 
     const date = new Date(payment.payment_date);
@@ -318,11 +329,10 @@ function generateEscPosCommands(data, printerConfig = {}) {
         year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit'
     }) + '\n\n';
 
-    commands += '--------------------------------\n';
-    commands += COMMANDS.LEFT;
+   commands += '------------------------------------------------\n';
     commands += `お客様: ${payment.last_name} ${payment.first_name} 様\n`;
     commands += `担当: ${payment.staff_name || '-'}\n`;
-    commands += '--------------------------------\n';
+    commands += '------------------------------------------------\n';
 
     // 施術内容
     commands += COMMANDS.BOLD_ON;
@@ -349,7 +359,7 @@ function generateEscPosCommands(data, printerConfig = {}) {
 
     // 回数券使用
     if (ticketUses && ticketUses.length > 0) {
-        commands += '--------------------------------\n';
+       commands += '------------------------------------------------\n';
         commands += '【回数券使用】\n';
         for (const t of ticketUses) {
             commands += `${t.plan_name || t.service_name}\n`;
@@ -366,7 +376,7 @@ function generateEscPosCommands(data, printerConfig = {}) {
 
     // 回数券購入
     if (ticketPurchases && ticketPurchases.length > 0) {
-        commands += '--------------------------------\n';
+        commands += '------------------------------------------------\n';
         commands += '【回数券購入】\n';
         for (const t of ticketPurchases) {
             commands += `${t.plan_name || t.service_name}\n`;
@@ -379,13 +389,13 @@ function generateEscPosCommands(data, printerConfig = {}) {
         }
     }
 
-    commands += '--------------------------------\n';
+    commands += '------------------------------------------------\n';
     commands += COMMANDS.BOLD_ON;
     commands += COMMANDS.DOUBLE_HEIGHT;
     commands += formatLine('合計', payment.total_amount);
     commands += COMMANDS.NORMAL_SIZE;
     commands += COMMANDS.BOLD_OFF;
-    commands += '--------------------------------\n';
+    commands += '------------------------------------------------\n';
 
     // 支払方法
     if (payment.payment_method === 'cash') {

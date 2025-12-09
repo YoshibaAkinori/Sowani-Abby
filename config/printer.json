@@ -1,8 +1,8 @@
 {
-  "printer_type": "browser",
-  "printer_ip": "",
+  "printer_type": "network",
+  "printer_ip": "192.168.3.151",
   "printer_port": 9100,
   "auto_print": true,
-  "shop_name": "美骨小顔サロン ABBY",
+  "shop_name": "美骨小顔サロン\nABBY",
   "shop_message": "ありがとうございました\nまたのご来店をお待ちしております"
 }
