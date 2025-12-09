@@ -9,6 +9,7 @@ import OptionsManagement from './set_component/OptionsManagement';
 import RegisterClosing from './set_component/RegisterClosing';
 import BackupManagement from './set_component/Backupmanagement';
 import PrinterSettings from './set_component/PrinterSettings';
+import LineMarketing from './set_component/LineMarketing'; // 追加
 import './settings.css';
 
 const SettingsPage = () => {
@@ -22,7 +23,7 @@ const SettingsPage = () => {
     { id: 'register-close', label: 'レジ締め管理', icon: Calculator, description: '日次売上締め・集計管理' },
     { id: 'printer', label: 'プリンター設定', icon: Printer, description: 'レシート印刷・プリンター接続設定' },
     { id: 'coupon', label: 'クーポン送信管理', icon: Gift, description: 'クーポン作成・配信・管理' },
-    { id: 'documents', label: '各種書類作成', icon: FileText, description: '売上報告書・レシート管理' },
+    //{ id: 'documents', label: '各種書類作成', icon: FileText, description: '売上報告書・レシート管理' },
     { id: 'backup', label: 'バックアップ管理', icon: Database, description: 'データバックアップ・復元管理' },
   ];
 
@@ -94,10 +95,11 @@ const SettingsPage = () => {
             <h2 className="settings__content-title">クーポン送信管理</h2>
             <div className="settings__content-card">
               <p className="settings__content-description">顧客向けクーポンの作成・配信・管理を行います。割引率の設定、有効期限管理、利用状況の追跡、メール・SMS配信機能を提供します。</p>
-              <div className="settings__content-status">※ 機能実装中</div>
+              <LineMarketing />
             </div>
           </div>
         );
+      /*
       case 'documents':
         return (
           <div>
@@ -108,6 +110,7 @@ const SettingsPage = () => {
             </div>
           </div>
         );
+      */
       case 'backup':
         return (
           <div>
