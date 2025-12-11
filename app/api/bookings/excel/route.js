@@ -1,11 +1,7 @@
 // app/api/bookings/excel/route.js
 import { NextResponse } from 'next/server';
 import { getConnection } from '../../../../lib/db';
-import { exec } from 'child_process';
-import { promisify } from 'util';
-
-
-const execAsync = promisify(exec);
+import { updateExcel } from '../../../../lib/updateExcel';
 
 export async function POST(request) {
   const pool = await getConnection();
@@ -30,7 +26,7 @@ export async function POST(request) {
           b.customer_ticket_id,
           c.last_name,
           c.first_name,
-          c.visit_count,
+          c.base_visit_count,
           s.name as staff_name,
           tp.service_category as ticket_category
         FROM bookings b
@@ -51,31 +47,39 @@ export async function POST(request) {
 
     const booking = bookingRows[0];
 
-    // 来店回数: 回数券使用予定がある場合のみ +1
-    const currentVisitCount = booking.visit_count || 0;
-    const totalVisitCount = (booking.customer_ticket_id && booking.ticket_category !== 'その他')
-      ? currentVisitCount + 1
-      : currentVisitCount;
+    // 来店回数: customersテーブルのvisit_countを取得
+    const [customerRows] = await pool.execute(
+      `SELECT visit_count FROM customers WHERE customer_id = ?`,
+      [booking.customer_id]
+    );
+    const currentVisitCount = parseInt(customerRows[0]?.visit_count) || 0;
 
-    // 予約データをJSON形式で準備
+    // 回数券使用予約かつservice_categoryが「その他」以外の場合のみ+1
+    let shouldCountVisit = false;
+    if (booking.customer_ticket_id && booking.ticket_category !== 'その他') {
+      shouldCountVisit = true;
+    }
+
+    const totalVisitCount = shouldCountVisit ? currentVisitCount + 1 : currentVisitCount;
+
+    // 日付をYYYY-MM-DD形式に変換
+    let dateStr = booking.date;
+    if (booking.date instanceof Date) {
+      dateStr = booking.date.toISOString().split('T')[0];
+    } else if (typeof booking.date === 'string' && booking.date.includes('T')) {
+      dateStr = booking.date.split('T')[0];
+    }
+
+    // 予約データを準備
     const bookingData = {
-      date: booking.date,
+      date: dateStr,
       customer_name: `${booking.last_name} ${booking.first_name}`,
       staff_name: booking.staff_name || '未設定',
       visit_count: totalVisitCount
     };
 
-    // Pythonスクリプトを実行してExcelを更新
-    const scriptPath = '/home/claude/update_excel.py';
-    const command = `python3 ${scriptPath} '${JSON.stringify(bookingData)}'`;
-
-    const { stdout, stderr } = await execAsync(command);
-
-    if (stderr) {
-      console.error('Python stderr:', stderr);
-    }
-
-    const result = JSON.parse(stdout);
+    // Node.js版でExcel更新
+    const result = await updateExcel(bookingData);
 
     if (!result.success) {
       throw new Error(result.error || 'Excel更新に失敗しました');

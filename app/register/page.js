@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { ArrowLeft, CreditCard, Users, Package, Check, AlertCircle, Sparkles, X, UserPlus } from 'lucide-react';
 import './register.css';
 import NumericKeypad from './Numerickeypad';
-import { printReceipt } from '../components/Receipt';
+import CheckoutCompleteModal from '../components/CheckoutCompleteModal';
 
 const RegisterPage = () => {
   // 顧客選択
@@ -20,6 +20,8 @@ const RegisterPage = () => {
   const [ticketUseOnPurchase, setTicketUseOnPurchase] = useState({});
   const [ticketCustomPrices, setTicketCustomPrices] = useState({});
   const [useMonitorPrice, setUseMonitorPrice] = useState({});
+  const [showCheckoutComplete, setShowCheckoutComplete] = useState(false);
+  const [completedPaymentId, setCompletedPaymentId] = useState(null);
 
 
   // 新規顧客登録フォーム
@@ -903,13 +905,9 @@ const RegisterPage = () => {
 
         setSuccess('回数券を購入しました!');
 
-        // レシート印刷
         if (firstTicketPaymentId) {
-          try {
-            await printReceipt(firstTicketPaymentId);
-          } catch (printErr) {
-            console.error('レシート印刷エラー:', printErr);
-          }
+          setCompletedPaymentId(firstTicketPaymentId);
+          setShowCheckoutComplete(true);
         }
 
         setTimeout(() => {
@@ -1162,18 +1160,14 @@ const RegisterPage = () => {
       // =====================================================
       setSuccess('お会計が完了しました!');
 
-      // レシート自動印刷
+      // ★ 会計完了モーダルを表示
       if (mainPaymentId) {
-        try {
-          await printReceipt(mainPaymentId);
-        } catch (printErr) {
-          console.error('レシート印刷エラー:', printErr);
-        }
+        setCompletedPaymentId(mainPaymentId);
+        setShowCheckoutComplete(true);
       }
 
       setTimeout(() => {
         setSuccess('');
-        resetForm();
       }, 2000);
 
     } catch (err) {
@@ -1220,6 +1214,11 @@ const RegisterPage = () => {
   } else if (selectedMenuType === 'coupon' && selectedMenu?.free_option_count) {
     maxFreeOptions = selectedMenu.free_option_count;
   }
+  const handleCloseCheckoutComplete = () => {
+    setShowCheckoutComplete(false);
+    setCompletedPaymentId(null);
+    resetForm();
+  };
 
   return (
     <div className="register-page">
@@ -2213,6 +2212,13 @@ const RegisterPage = () => {
           onChange={handleKeypadChange}
           onClose={() => setShowKeypad(false)}
           position={keypadPosition}
+        />
+      )}
+      {/* 会計完了モーダル */}
+      {showCheckoutComplete && completedPaymentId && (
+        <CheckoutCompleteModal
+          paymentId={completedPaymentId}
+          onClose={handleCloseCheckoutComplete}
         />
       )}
     </div>

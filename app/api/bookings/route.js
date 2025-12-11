@@ -1,16 +1,7 @@
 // app/api/bookings/route.js
 import { NextResponse } from 'next/server';
 import { getConnection } from '../../../lib/db';
-import { exec } from 'child_process';
-import { promisify } from 'util';
-import path from 'path';
-
-const execAsync = promisify(exec);
-// ★本番環境用: プロジェクトルートからスクリプトパスを取得
-const getScriptPath = () => {
-  const projectRoot = process.cwd();
-  return path.join(projectRoot, 'scripts', 'update_excel.py');
-};
+import { updateExcel } from '../../../lib/updateExcel';
 
 // 予約一覧取得（N+1問題を解決）
 export async function GET(request) {
@@ -99,74 +90,41 @@ export async function GET(request) {
 
     const [rows] = await pool.execute(query, params);
 
-    // ★改善ポイント1: 全予約IDを取得
-    const bookingIds = rows.map(b => b.booking_id);
-
-    if (bookingIds.length === 0) {
-      return NextResponse.json({
-        success: true,
-        data: []
-      });
+    if (rows.length === 0) {
+      return NextResponse.json({ success: true, data: [] });
     }
 
-    // ★改善ポイント2: オプション情報を一括取得
+    // 関連オプション、チケット、期間限定オファーを一括取得
+    const bookingIds = rows.map(r => r.booking_id);
     const placeholders = bookingIds.map(() => '?').join(',');
+
     const [allOptions] = await pool.execute(
-      `SELECT 
-        bo.booking_id,
-        bo.booking_option_id,
-        o.option_id,
-        o.name as option_name,
-        o.category as option_category,
-        o.price,
-        o.duration_minutes
-      FROM booking_options bo
-      JOIN options o ON bo.option_id = o.option_id
-      WHERE bo.booking_id IN (${placeholders})`,
+      `SELECT bo.booking_id, o.option_id, o.name, o.duration_minutes, o.price
+       FROM booking_options bo
+       JOIN options o ON bo.option_id = o.option_id
+       WHERE bo.booking_id IN (${placeholders})`,
       bookingIds
     );
 
-    // ★改善ポイント3: チケット情報を一括取得
     const [allTickets] = await pool.execute(
-      `SELECT 
-        bt.booking_id,
-        bt.booking_ticket_id,
-        bt.customer_ticket_id,
-        ct.customer_id,
-        tp.name as plan_name,
-        tp.total_sessions,
-        ct.sessions_remaining,
-        ct.expiry_date,
-        s.name as service_name,
-        s.category as service_category,
-        s.duration_minutes,
-        s.price
-      FROM booking_tickets bt
-      JOIN customer_tickets ct ON bt.customer_ticket_id = ct.customer_ticket_id
-      JOIN ticket_plans tp ON ct.plan_id = tp.plan_id
-      JOIN services s ON tp.service_id = s.service_id
-      WHERE bt.booking_id IN (${placeholders})`,
+      `SELECT bt.booking_id, ct.customer_ticket_id, tp.name as plan_name, 
+              ct.sessions_remaining, tp.total_sessions
+       FROM booking_tickets bt
+       JOIN customer_tickets ct ON bt.customer_ticket_id = ct.customer_ticket_id
+       JOIN ticket_plans tp ON ct.plan_id = tp.plan_id
+       WHERE bt.booking_id IN (${placeholders})`,
       bookingIds
     );
 
-    // ★改善ポイント4: 期間限定オファー情報を一括取得
     const [allLimitedOffers] = await pool.execute(
-      `SELECT 
-        blo.booking_id,
-        blo.booking_limited_offer_id,
-        blo.offer_id,
-        lo.offer_type,
-        lo.name,
-        lo.description,
-        lo.special_price,
-        lo.total_sessions
-      FROM booking_limited_offers blo
-      JOIN limited_offers lo ON blo.offer_id = lo.offer_id
-      WHERE blo.booking_id IN (${placeholders})`,
+      `SELECT blo.booking_id, lo.offer_id, lo.name, lo.special_price
+       FROM booking_limited_offers blo
+       JOIN limited_offers lo ON blo.offer_id = lo.offer_id
+       WHERE blo.booking_id IN (${placeholders})`,
       bookingIds
     );
 
-    // ★改善ポイント5: 予約ごとにグループ化
+    // マップ化
     const optionsMap = new Map();
     const ticketsMap = new Map();
     const limitedOffersMap = new Map();
@@ -192,7 +150,7 @@ export async function GET(request) {
       limitedOffersMap.get(offer.booking_id).push(offer);
     });
 
-    // ★改善ポイント6: 各予約に関連情報を付与
+    // 各予約に関連情報を付与
     const bookingsWithDetails = rows.map(booking => ({
       ...booking,
       options: optionsMap.get(booking.booking_id) || [],
@@ -275,6 +233,7 @@ export async function POST(request) {
 
     let finalCustomerId = customer_id;
 
+    // 新規顧客の場合
     if (type === 'booking' && !customer_id && body.last_name && body.first_name) {
       await connection.execute(
         `INSERT INTO customers (
@@ -307,6 +266,7 @@ export async function POST(request) {
       finalCustomerId = customerRow[0].customer_id;
     }
 
+    // 予約を登録
     await connection.execute(
       `INSERT INTO bookings (
         booking_id,
@@ -349,6 +309,7 @@ export async function POST(request) {
     );
     const bookingId = bookingRow[0].booking_id;
 
+    // 回数券を紐付け
     if (customer_ticket_ids && customer_ticket_ids.length > 0) {
       for (const ticketId of customer_ticket_ids) {
         await connection.execute(
@@ -359,6 +320,7 @@ export async function POST(request) {
       }
     }
 
+    // 期間限定オファーを紐付け
     if (limited_offer_ids && limited_offer_ids.length > 0) {
       for (const offerId of limited_offer_ids) {
         await connection.execute(
@@ -372,6 +334,7 @@ export async function POST(request) {
       }
     }
 
+    // オプションを紐付け
     if (type === 'booking' && option_ids && option_ids.length > 0) {
       for (const optionId of option_ids) {
         await connection.execute(
@@ -387,13 +350,13 @@ export async function POST(request) {
 
     await connection.commit();
 
-    // ★Excel更新処理（本番環境用パス）
+    // ★Excel更新処理（Node.js版）
     if (type === 'booking' && finalCustomerId) {
       try {
-        const [bookingDetail] = await connection.execute(
+        const [bookingDetail] = await pool.execute(
           `SELECT 
             b.date,
-           c.last_name,
+            c.last_name,
             c.first_name,
             c.base_visit_count,
             s.name as staff_name
@@ -407,29 +370,50 @@ export async function POST(request) {
         if (bookingDetail.length > 0) {
           const booking = bookingDetail[0];
 
-          const [visitCountRows] = await connection.execute(
-            `SELECT COUNT(DISTINCT DATE(payment_date)) as actual_visit_count 
-             FROM payments 
-             WHERE customer_id = ? AND is_cancelled = FALSE`,
+          // 来店回数: customersテーブルのvisit_countを取得
+          const [customerRows] = await pool.execute(
+            `SELECT visit_count FROM customers WHERE customer_id = ?`,
             [finalCustomerId]
           );
-          
-          const actualVisitCount = parseInt(visitCountRows[0].actual_visit_count) || 0;
-          const baseVisitCount = parseInt(booking.base_visit_count) || 0;
-          const totalVisitCount = baseVisitCount + actualVisitCount + 1;
+          const currentVisitCount = parseInt(customerRows[0]?.visit_count) || 0;
+
+          // 回数券使用予約かつservice_categoryが「その他」以外の場合のみ+1
+          let shouldCountVisit = false;
+          if (customer_ticket_ids && customer_ticket_ids.length > 0) {
+            const [ticketInfo] = await pool.execute(
+              `SELECT tp.service_category 
+               FROM customer_tickets ct
+               JOIN ticket_plans tp ON ct.plan_id = tp.plan_id
+               WHERE ct.customer_ticket_id = ?`,
+              [customer_ticket_ids[0]]
+            );
+            if (ticketInfo.length > 0 && ticketInfo[0].service_category !== 'その他') {
+              shouldCountVisit = true;
+            }
+          }
+
+          const totalVisitCount = shouldCountVisit ? currentVisitCount + 1 : currentVisitCount;
+
+          // 日付をYYYY-MM-DD形式に変換
+          let dateStr = booking.date;
+          if (booking.date instanceof Date) {
+            dateStr = booking.date.toISOString().split('T')[0];
+          } else if (typeof booking.date === 'string' && booking.date.includes('T')) {
+            dateStr = booking.date.split('T')[0];
+          }
 
           const bookingData = {
-            date: booking.date,
+            date: dateStr,
             customer_name: `${booking.last_name} ${booking.first_name}`,
             staff_name: booking.staff_name || '未設定',
             visit_count: totalVisitCount
           };
 
-          // ★本番環境用: 動的にスクリプトパスを取得
-          const scriptPath = getScriptPath();
-          const command = `python3 "${scriptPath}" '${JSON.stringify(bookingData)}'`;
-          
-          await execAsync(command);
+          // Node.js版でExcel更新
+          const result = await updateExcel(bookingData);
+          if (!result.success) {
+            console.error('Excel更新エラー:', result.error);
+          }
         }
       } catch (excelError) {
         console.error('Excel更新エラー（予約は登録済み）:', excelError);
@@ -443,7 +427,7 @@ export async function POST(request) {
         booking_id: bookingId,
         customer_id: finalCustomerId
       }
-   });
+    });
 
   } catch (error) {
     await connection.rollback();

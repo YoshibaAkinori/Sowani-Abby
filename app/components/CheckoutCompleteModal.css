@@ -1,0 +1,89 @@
+/* app/components/CheckoutCompleteModal.css */
+
+.checkout-complete-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.checkout-complete-modal__overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.checkout-complete-modal__content {
+  position: relative;
+  background: white;
+  border-radius: 20px;
+  padding: 32px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  text-align: center;
+  min-width: 280px;
+}
+
+.checkout-complete-modal__title {
+  font-size: 20px;
+  font-weight: 700;
+  color: #111827;
+  margin-bottom: 28px;
+}
+
+.checkout-complete-modal__buttons {
+  display: flex;
+  gap: 24px;
+  justify-content: center;
+}
+
+.checkout-complete-modal__btn {
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all 0.2s;
+  font-weight: 600;
+  font-size: 12px;
+}
+
+.checkout-complete-modal__btn:hover {
+  transform: scale(1.05);
+}
+
+.checkout-complete-modal__btn:active {
+  transform: scale(0.95);
+}
+
+.checkout-complete-modal__btn--print {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  color: white;
+  box-shadow: 0 8px 20px rgba(59, 130, 246, 0.4);
+}
+
+.checkout-complete-modal__btn--print:hover {
+  box-shadow: 0 12px 28px rgba(59, 130, 246, 0.5);
+}
+
+.checkout-complete-modal__btn--close {
+  background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);
+  color: white;
+  box-shadow: 0 8px 20px rgba(107, 114, 128, 0.4);
+}
+
+.checkout-complete-modal__btn--close:hover {
+  box-shadow: 0 12px 28px rgba(107, 114, 128, 0.5);
+}

@@ -2,7 +2,7 @@
 "use client";
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, BarChart3, TrendingUp, Package, Settings2, Users, Tag, Clock, Calendar, Ban } from 'lucide-react';
+import { ArrowLeft, BarChart3, TrendingUp, Package, Settings2, Users, Tag, Clock, Calendar, Ban, Target } from 'lucide-react';
 import SummarySection from './components/SummarySection';
 import SalesAnalysis from './components/SalesTrendChart';
 import ServiceAnalysis from './components/ServiceAnalysis';
@@ -12,6 +12,7 @@ import CustomerAnalysis from './components/CustomerAnalysis';
 import CouponAnalysis from './components/CouponAnalysis';
 import LimitedOfferAnalysis from './components/LimitedOfferAnalysis';
 import CancelAnalysis from './components/CancelAnalysis';
+import SalesTargetSection from './components/SalesTargetSection';
 import './analytics.css';
 
 const AnalyticsPage = () => {
@@ -30,7 +31,7 @@ const AnalyticsPage = () => {
   // 期間切り替えが必要なタブ
   const tabsWithPeriodToggle = ['sales', 'service', 'option', 'staff', 'coupon', 'limited'];
   
-  // 売上推移タブは3つの期間（日別・月別・年別）
+  // 売上推移タブは日別・月別の2つ
   const isSalesTab = activeTab === 'sales';
 
   // プリセット期間の計算
@@ -118,6 +119,9 @@ const AnalyticsPage = () => {
 
   // データ取得
   useEffect(() => {
+    // targetタブは独自でデータ取得するのでスキップ
+    if (activeTab === 'target') return;
+    
     if (dateRange.startDate && dateRange.endDate) {
       fetchData();
     }
@@ -185,7 +189,7 @@ const AnalyticsPage = () => {
           <div className="analytics__header-nav">
             <Link href="/" className="analytics__back-link">
               <ArrowLeft className="analytics__back-icon" />
-              <span>ダッシュボードに戻る</span>
+              <span>予約一覧に戻る</span>
             </Link>
           </div>
           <div className="analytics__header-title">
@@ -197,74 +201,76 @@ const AnalyticsPage = () => {
 
       {/* メインコンテンツ */}
       <main className="analytics__main">
-        {/* コントロールパネル */}
-        <div className="analytics__controls">
-          {/* 期間選択ボタン */}
-          <div className="analytics__preset-buttons">
-            <button
-              className={`analytics__preset-btn ${datePreset === 'thisYear' ? 'analytics__preset-btn--active' : ''}`}
-              onClick={() => handlePresetChange('thisYear')}
-            >
-              今年
-            </button>
-            <button
-              className={`analytics__preset-btn ${datePreset === 'lastYear' ? 'analytics__preset-btn--active' : ''}`}
-              onClick={() => handlePresetChange('lastYear')}
-            >
-              去年
-            </button>
-            <button
-              className={`analytics__preset-btn ${datePreset === 'past3Years' ? 'analytics__preset-btn--active' : ''}`}
-              onClick={() => handlePresetChange('past3Years')}
-            >
-              過去3年
-            </button>
-            <button
-              className={`analytics__preset-btn ${datePreset === 'custom' ? 'analytics__preset-btn--active' : ''}`}
-              onClick={() => handlePresetChange('custom')}
-            >
-              カスタム期間
-            </button>
-          </div>
-
-          {/* 期間切り替え（タブによって表示/非表示） */}
-          {tabsWithPeriodToggle.includes(activeTab) && (
-            <div className="analytics__period-toggle">
-              {/* 売上推移タブは日別・月別の2つ */}
-              {isSalesTab ? (
-                <>
-                  <button
-                    className={`analytics__period-btn ${period === 'daily' ? 'analytics__period-btn--active' : ''}`}
-                    onClick={() => setPeriod('daily')}
-                  >
-                    日別
-                  </button>
-                  <button
-                    className={`analytics__period-btn ${period === 'monthly' ? 'analytics__period-btn--active' : ''}`}
-                    onClick={() => setPeriod('monthly')}
-                  >
-                    月別
-                  </button>
-                </>
-              ) : (
-                <>
-                  <button
-                    className={`analytics__period-btn ${period === 'monthly' ? 'analytics__period-btn--active' : ''}`}
-                    onClick={() => setPeriod('monthly')}
-                  >
-                    月別
-                  </button>
-                  <button
-                    className={`analytics__period-btn ${period === 'yearly' ? 'analytics__period-btn--active' : ''}`}
-                    onClick={() => setPeriod('yearly')}
-                  >
-                    年別
-                  </button>
-                </>
-              )}
+        {/* コントロールパネル（目標タブ以外で表示） */}
+        {activeTab !== 'target' && (
+          <div className="analytics__controls">
+            {/* 期間選択ボタン */}
+            <div className="analytics__preset-buttons">
+              <button
+                className={`analytics__preset-btn ${datePreset === 'thisYear' ? 'analytics__preset-btn--active' : ''}`}
+                onClick={() => handlePresetChange('thisYear')}
+              >
+                今年
+              </button>
+              <button
+                className={`analytics__preset-btn ${datePreset === 'lastYear' ? 'analytics__preset-btn--active' : ''}`}
+                onClick={() => handlePresetChange('lastYear')}
+              >
+                去年
+              </button>
+              <button
+                className={`analytics__preset-btn ${datePreset === 'past3Years' ? 'analytics__preset-btn--active' : ''}`}
+                onClick={() => handlePresetChange('past3Years')}
+              >
+                過去3年
+              </button>
+              <button
+                className={`analytics__preset-btn ${datePreset === 'custom' ? 'analytics__preset-btn--active' : ''}`}
+                onClick={() => handlePresetChange('custom')}
+              >
+                カスタム期間
+              </button>
             </div>
-          )}
-        </div>
+
+            {/* 期間切り替え（タブによって表示/非表示） */}
+            {tabsWithPeriodToggle.includes(activeTab) && (
+              <div className="analytics__period-toggle">
+                {/* 売上推移タブは日別・月別の2つ */}
+                {isSalesTab ? (
+                  <>
+                    <button
+                      className={`analytics__period-btn ${period === 'daily' ? 'analytics__period-btn--active' : ''}`}
+                      onClick={() => setPeriod('daily')}
+                    >
+                      日別
+                    </button>
+                    <button
+                      className={`analytics__period-btn ${period === 'monthly' ? 'analytics__period-btn--active' : ''}`}
+                      onClick={() => setPeriod('monthly')}
+                    >
+                      月別
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      className={`analytics__period-btn ${period === 'monthly' ? 'analytics__period-btn--active' : ''}`}
+                      onClick={() => setPeriod('monthly')}
+                    >
+                      月別
+                    </button>
+                    <button
+                      className={`analytics__period-btn ${period === 'yearly' ? 'analytics__period-btn--active' : ''}`}
+                      onClick={() => setPeriod('yearly')}
+                    >
+                      年別
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* タブナビゲーション */}
         <div className="analytics__tabs">
@@ -274,6 +280,13 @@ const AnalyticsPage = () => {
           >
             <BarChart3 size={18} />
             サマリー
+          </button>
+          <button
+            className={`analytics__tab ${activeTab === 'target' ? 'analytics__tab--active' : ''}`}
+            onClick={() => handleTabChange('target')}
+          >
+            <Target size={18} />
+            目標
           </button>
           <button
             className={`analytics__tab ${activeTab === 'sales' ? 'analytics__tab--active' : ''}`}
@@ -335,7 +348,9 @@ const AnalyticsPage = () => {
 
         {/* コンテンツエリア */}
         <div className="analytics__content">
-          {isLoading ? (
+          {activeTab === 'target' ? (
+            <SalesTargetSection />
+          ) : isLoading ? (
             <div className="analytics__loading">
               <p>データを読み込み中...</p>
             </div>

@@ -439,6 +439,29 @@ CREATE TABLE `messaging_log` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
+-- Table structure for table `monthly_targets`
+--
+
+DROP TABLE IF EXISTS `monthly_targets`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `monthly_targets` (
+  `target_id` char(36) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT (uuid()),
+  `year` int NOT NULL,
+  `month` int NOT NULL,
+  `staff_id` char(36) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'NULLの場合は店舗全体の目標',
+  `target_amount` int NOT NULL DEFAULT '0',
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`target_id`),
+  UNIQUE KEY `unique_monthly_target` (`year`,`month`,(coalesce(`staff_id`,_utf8mb4'00000000-0000-0000-0000-000000000000'))),
+  KEY `staff_id` (`staff_id`),
+  KEY `idx_year_month` (`year`,`month`),
+  CONSTRAINT `monthly_targets_ibfk_1` FOREIGN KEY (`staff_id`) REFERENCES `staff` (`staff_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
 -- Table structure for table `options`
 --
 
@@ -675,4 +698,4 @@ CREATE TABLE `ticket_plans` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2025-12-09 13:33:50
+-- Dump completed on 2025-12-10 16:08:03
