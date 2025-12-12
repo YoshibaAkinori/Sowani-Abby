@@ -49,7 +49,7 @@ const SettingsPage = () => {
           <div>
             <h2 className="settings__content-title">シフト管理</h2>
             <div className="settings__content-card">
-              <p className="settings__content-description">スタッフのシフトスケジュール、勤務時間の設定・管理を行います。週間・月間シフトの作成から勤務実績の確認まで対応します。</p>
+              <p className="settings__content-description">スタッフのシフトスケジュール作成・勤務実績の確認</p>
               <ShiftManagement />
 
             </div>

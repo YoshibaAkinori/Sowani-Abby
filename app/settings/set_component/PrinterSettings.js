@@ -2,12 +2,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Printer, Wifi, Monitor, Save, TestTube, Check, AlertCircle } from 'lucide-react';
+import { Save, TestTube, Check, AlertCircle } from 'lucide-react';
 import './PrinterSettings.css';
 
 export default function PrinterSettings() {
   const [config, setConfig] = useState({
-    printer_type: 'browser',
     printer_ip: '',
     printer_port: 9100,
     shop_name: '',
@@ -18,7 +17,6 @@ export default function PrinterSettings() {
   const [testing, setTesting] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
 
-  // 設定読み込み
   useEffect(() => {
     fetchConfig();
   }, []);
@@ -29,7 +27,6 @@ export default function PrinterSettings() {
       const result = await response.json();
       if (result.success) {
         setConfig({
-          printer_type: result.data.printer_type || 'browser',
           printer_ip: result.data.printer_ip || '',
           printer_port: result.data.printer_port || 9100,
           shop_name: result.data.shop_name || '',
@@ -43,8 +40,13 @@ export default function PrinterSettings() {
     }
   };
 
-  // 設定保存
   const handleSave = async () => {
+    if (!config.printer_ip) {
+      setMessage({ type: 'error', text: 'IPアドレスを入力してください' });
+      setTimeout(() => setMessage({ type: '', text: '' }), 3000);
+      return;
+    }
+
     setSaving(true);
     setMessage({ type: '', text: '' });
 
@@ -52,7 +54,10 @@ export default function PrinterSettings() {
       const response = await fetch('/api/settings/printer', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(config)
+        body: JSON.stringify({
+          printer_type: 'network',
+          ...config
+        })
       });
       const result = await response.json();
 
@@ -69,7 +74,6 @@ export default function PrinterSettings() {
     }
   };
 
-  // 接続テスト
   const handleTestConnection = async () => {
     if (!config.printer_ip) {
       setMessage({ type: 'error', text: 'IPアドレスを入力してください' });
@@ -104,7 +108,6 @@ export default function PrinterSettings() {
     }
   };
 
-  // 入力変更
   const handleChange = (e) => {
     const { name, value } = e.target;
     setConfig(prev => ({
@@ -119,11 +122,6 @@ export default function PrinterSettings() {
 
   return (
     <div className="printer-settings">
-      <div className="printer-settings__header">
-        <Printer size={24} />
-        <h2>プリンター設定</h2>
-      </div>
-
       {message.text && (
         <div className={`printer-settings__message printer-settings__message--${message.type}`}>
           {message.type === 'success' ? <Check size={18} /> : <AlertCircle size={18} />}
@@ -131,46 +129,10 @@ export default function PrinterSettings() {
         </div>
       )}
 
-      <div className="printer-settings__section">
-        <h3>接続方式</h3>
-        <div className="printer-settings__radio-group">
-          <label className={`printer-settings__radio ${config.printer_type === 'browser' ? 'printer-settings__radio--selected' : ''}`}>
-            <input
-              type="radio"
-              name="printer_type"
-              value="browser"
-              checked={config.printer_type === 'browser'}
-              onChange={handleChange}
-            />
-            <Monitor size={20} />
-            <div>
-              <div className="printer-settings__radio-title">ブラウザ印刷（USB接続）</div>
-              <div className="printer-settings__radio-desc">Windowsプリンターとして登録されたプリンターを使用</div>
-            </div>
-          </label>
-
-          <label className={`printer-settings__radio ${config.printer_type === 'network' ? 'printer-settings__radio--selected' : ''}`}>
-            <input
-              type="radio"
-              name="printer_type"
-              value="network"
-              checked={config.printer_type === 'network'}
-              onChange={handleChange}
-            />
-            <Wifi size={20} />
-            <div>
-              <div className="printer-settings__radio-title">ネットワーク印刷（WiFi/有線LAN）</div>
-              <div className="printer-settings__radio-desc">IPアドレスを指定して直接印刷</div>
-            </div>
-          </label>
-        </div>
-      </div>
-
-      {config.printer_type === 'network' && (
-        <div className="printer-settings__section">
-          <h3>ネットワーク設定</h3>
-          <div className="printer-settings__form-group">
-            <label>プリンターIPアドレス</label>
+      <div className="printer-settings__grid">
+        <div className="printer-settings__group">
+          <label>プリンターIPアドレス</label>
+          <div className="printer-settings__ip-row">
             <input
               type="text"
               name="printer_ip"
@@ -179,32 +141,27 @@ export default function PrinterSettings() {
               placeholder="192.168.1.100"
               className="printer-settings__input"
             />
-          </div>
-          <div className="printer-settings__form-group">
-            <label>ポート番号</label>
+            <span className="printer-settings__colon">:</span>
             <input
               type="number"
               name="printer_port"
               value={config.printer_port}
               onChange={handleChange}
               placeholder="9100"
-              className="printer-settings__input printer-settings__input--small"
+              className="printer-settings__input printer-settings__input--port"
             />
+            <button
+              onClick={handleTestConnection}
+              disabled={testing}
+              className="printer-settings__btn printer-settings__btn--test"
+            >
+              <TestTube size={16} />
+              {testing ? 'テスト中...' : '接続テスト'}
+            </button>
           </div>
-          <button
-            onClick={handleTestConnection}
-            disabled={testing}
-            className="printer-settings__btn printer-settings__btn--test"
-          >
-            <TestTube size={16} />
-            {testing ? 'テスト中...' : '接続テスト'}
-          </button>
         </div>
-      )}
 
-      <div className="printer-settings__section">
-        <h3>レシート表示設定</h3>
-        <div className="printer-settings__form-group">
+        <div className="printer-settings__group">
           <label>店舗名</label>
           <input
             type="text"
@@ -215,7 +172,8 @@ export default function PrinterSettings() {
             className="printer-settings__input"
           />
         </div>
-        <div className="printer-settings__form-group">
+
+        <div className="printer-settings__group">
           <label>フッターメッセージ</label>
           <textarea
             name="shop_message"

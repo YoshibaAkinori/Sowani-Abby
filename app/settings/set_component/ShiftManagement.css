@@ -457,3 +457,13 @@
     justify-content: flex-end;
   }
 }
+
+/* 印刷用コンテナ（通常は普通に表示） */
+.shift-print-container {
+  display: contents;
+}
+
+/* 印刷用タイトル（通常時は非表示、iframe印刷では不要） */
+.shift-print-title {
+  display: none;
+}

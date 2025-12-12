@@ -1,4 +1,4 @@
-// app/components/settings/StaffManagement.js
+// app/settings/set_component/StaffManagement.js
 "use client";
 import React, { useState, useEffect } from 'react';
 import { Plus, Edit2, Trash2, Save, X, Check, User } from 'lucide-react';
@@ -51,7 +51,6 @@ const StaffManagement = () => {
       }
     } catch (err) {
       console.error('スタッフデータの取得に失敗:', err);
-      // デモデータを使用
       setStaff([
         { staff_id: '1', name: '佐野 智里', color: '#FF69B4', role: 'セラピスト', is_active: true, hourly_wage: 1500, transport_allowance: 900 },
         { staff_id: '2', name: '星野 加奈恵', color: '#9370DB', role: 'セラピスト', is_active: true, hourly_wage: 1500, transport_allowance: 900 },
@@ -100,7 +99,6 @@ const StaffManagement = () => {
         throw new Error('登録に失敗しました');
       }
     } catch (err) {
-      // デモモード: ローカルで追加
       const newStaff = {
         staff_id: Date.now().toString(),
         ...formData
@@ -157,7 +155,6 @@ const StaffManagement = () => {
         throw new Error('更新に失敗しました');
       }
     } catch (err) {
-      // デモモード: ローカルで更新
       setStaff(prev => prev.map(s =>
         s.staff_id === staffId ? { ...s, ...formData } : s
       ));
@@ -171,15 +168,11 @@ const StaffManagement = () => {
 
   // 削除
   const handleDelete = async (staffId) => {
-    if (!window.confirm('このスタッフを削除してもよろしいですか？')) {
-      return;
-    }
+    if (!confirm('このスタッフを削除しますか？')) return;
 
     setIsLoading(true);
-    setError('');
-
     try {
-      const response = await fetch(`/api/staff?id=${staffId}`, {
+      const response = await fetch(`/api/staff?staff_id=${staffId}`, {
         method: 'DELETE'
       });
 
@@ -190,13 +183,19 @@ const StaffManagement = () => {
         throw new Error('削除に失敗しました');
       }
     } catch (err) {
-      // デモモード: ローカルで削除
       setStaff(prev => prev.filter(s => s.staff_id !== staffId));
       setSuccess('削除しました（ローカル保存）');
     } finally {
       setIsLoading(false);
       setTimeout(() => setSuccess(''), 3000);
     }
+  };
+
+  // キャンセル
+  const handleCancel = () => {
+    setEditingId(null);
+    setShowAddForm(false);
+    resetForm();
   };
 
   // フォームリセット
@@ -211,57 +210,46 @@ const StaffManagement = () => {
     });
   };
 
-  // キャンセル
-  const handleCancel = () => {
-    setEditingId(null);
-    setShowAddForm(false);
-    resetForm();
-    setError('');
-  };
-
   return (
     <div className="settings__staff-management">
-      {/* アラート表示 */}
+      {/* アラート */}
       {error && (
         <div className="settings__alert settings__alert--error">
-          <span>{error}</span>
+          {error}
         </div>
       )}
       {success && (
         <div className="settings__alert settings__alert--success">
-          <Check size={16} />
-          <span>{success}</span>
+          {success}
         </div>
       )}
 
-      {/* ヘッダー */}
+      {/* セクションヘッダー */}
       <div className="settings__section-header">
-        <h2 className="settings__section-title">スタッフ一覧</h2>
-        {!showAddForm && (
-          <button
-            onClick={() => setShowAddForm(true)}
-            className="settings__btn settings__btn--primary"
-            disabled={isLoading}
-          >
-            <Plus size={16} />
-            新規追加
-          </button>
-        )}
+        <h3 className="settings__section-title">スタッフ一覧</h3>
+        <button
+          onClick={() => setShowAddForm(true)}
+          className="settings__btn settings__btn--primary"
+          disabled={showAddForm || isLoading}
+        >
+          <Plus size={16} />
+          新規追加
+        </button>
       </div>
 
-      {/* 新規追加フォーム */}
+      {/* 追加フォーム */}
       {showAddForm && (
         <div className="settings__add-form">
           <div className="settings__form-grid">
             <div className="settings__form-group">
-              <label className="settings__form-label">スタッフ名 *</label>
+              <label className="settings__form-label">スタッフ名</label>
               <input
                 type="text"
                 name="name"
                 value={formData.name}
                 onChange={handleInputChange}
                 className="settings__form-input"
-                placeholder="例: 山田 太郎"
+                placeholder="例: 山田 花子"
               />
             </div>
 
@@ -465,9 +453,11 @@ const StaffManagement = () => {
                         style={{ backgroundColor: member.color }}
                       />
                     </td>
-                    <td className="settings__table-name">
-                      <User size={16} />
-                      {member.name}
+                    <td>
+                      <div className="settings__table-name">
+                        <User size={16} />
+                        {member.name}
+                      </div>
                     </td>
                     <td>{member.role}</td>
                     <td>¥{(member.hourly_wage || 1500).toLocaleString()}</td>

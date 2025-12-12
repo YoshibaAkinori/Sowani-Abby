@@ -432,6 +432,8 @@
   height: 2.25rem;
   border-radius: 50%;
   border: 2px solid #e5e7eb;
+  display: inline-block; 
+  vertical-align: middle;
 }
 
 /* テーブル */
@@ -466,6 +468,7 @@
   padding: 1.25rem;
   border-bottom: 1px solid #f3f4f6;
   font-size: 1.0625rem;
+  vertical-align: middle;
 }
 
 .settings__table td:first-child {
@@ -489,7 +492,7 @@
 }
 
 .settings__table-name {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 0.5rem;
   font-weight: 500;

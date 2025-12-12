@@ -1,7 +1,7 @@
-// app/components/settings/ShiftManagement.js
+// app/settings/set_component/ShiftManagement.js
 "use client";
 import React, { useState, useEffect } from 'react';
-import { Calendar, ChevronLeft, ChevronRight, Save, Edit2, Download, Upload, AlertCircle } from 'lucide-react';
+import { Calendar, ChevronLeft, ChevronRight, Save, Edit2, Download, Upload, AlertCircle, FileText } from 'lucide-react';
 import './ShiftManagement.css';
 
 const ShiftManagement = () => {
@@ -440,6 +440,227 @@ const ShiftManagement = () => {
     setHasUnsavedChanges(false);
   };
 
+  // PDF出力（iframe方式で印刷）
+  const exportToPDF = () => {
+    const staffName = staff.find(s => s.staff_id === selectedStaff)?.name || '';
+    const year = selectedMonth.getFullYear();
+    const month = selectedMonth.getMonth() + 1;
+    const totals = calculateMonthlyTotals();
+    
+    // 各日のデータを生成
+    let rowsHtml = '';
+    for (let day = 1; day <= daysInMonth; day++) {
+      const dateKey = getDateKey(day);
+      const shift = shifts[dateKey];
+      const dayOfWeek = getDayOfWeek(day);
+      const workHours = calculateWorkHours(shift?.startTime, shift?.endTime, shift?.breakMinutes || 0);
+      const dailyWage = calculateDailyWage(workHours);
+      
+      let rowClass = '';
+      let weekdayClass = '';
+      if (dayOfWeek === '土') {
+        rowClass = 'saturday';
+        weekdayClass = 'saturday';
+      } else if (dayOfWeek === '日') {
+        rowClass = 'sunday';
+        weekdayClass = 'sunday';
+      }
+      
+      rowsHtml += `
+        <tr class="${rowClass}">
+          <td>${day}日</td>
+          <td class="${weekdayClass}">${dayOfWeek}</td>
+          <td>${shift?.startTime || '--:--'}</td>
+          <td>${shift?.endTime || '--:--'}</td>
+          <td>${formatMinutesToHHMM(shift?.breakMinutes || 0) || '--:--'}</td>
+          <td>${workHours > 0 ? formatHoursToHHMM(workHours) : '0:00'}</td>
+          <td>${shift?.transportCost || transportAllowance}</td>
+          <td>¥ ${dailyWage > 0 ? dailyWage.toLocaleString() : '-'}</td>
+        </tr>
+      `;
+    }
+
+    const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>勤務表 - ${staffName}</title>
+  <style>
+    @page {
+      size: A4 portrait;
+      margin: 8mm;
+    }
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", "Meiryo", sans-serif;
+      font-size: 9pt;
+      line-height: 1.3;
+    }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 3mm;
+      padding-bottom: 2mm;
+      border-bottom: 1px solid #333;
+    }
+    .header-right {
+      font-size: 8pt;
+      color: #666;
+    }
+    .title {
+      font-size: 16pt;
+      font-weight: bold;
+      text-align: center;
+      margin: 4mm 0;
+      letter-spacing: 3px;
+    }
+    .subtitle {
+      font-size: 11pt;
+      text-align: center;
+      margin-bottom: 4mm;
+      color: #333;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      border: 1.5px solid #333;
+    }
+    th {
+      background: #e8e8e8;
+      font-weight: bold;
+      padding: 2mm 1.5mm;
+      border: 0.5px solid #666;
+      font-size: 8pt;
+    }
+    td {
+      padding: 1.5mm 1.5mm;
+      border: 0.5px solid #ccc;
+      text-align: center;
+      font-size: 8pt;
+    }
+    tr.saturday {
+      background: #fff8e1;
+    }
+    tr.sunday {
+      background: #ffebee;
+    }
+    td.saturday {
+      color: #1565c0;
+      font-weight: bold;
+    }
+    td.sunday {
+      color: #c62828;
+      font-weight: bold;
+    }
+    .total-row {
+      background: #e3f2fd;
+      font-weight: bold;
+    }
+    .total-row td {
+      border: 0.5px solid #666;
+      padding: 2mm 1.5mm;
+    }
+    .total-label {
+      text-align: right;
+    }
+    .total-final {
+      font-size: 10pt;
+      color: #c62828;
+    }
+    .footer {
+      margin-top: 5mm;
+      display: flex;
+      justify-content: flex-end;
+      gap: 10mm;
+    }
+    .signature-box {
+      text-align: center;
+    }
+    .signature-label {
+      font-size: 8pt;
+      color: #666;
+      margin-bottom: 1mm;
+    }
+    .signature-line {
+      width: 22mm;
+      height: 12mm;
+      border: 1px solid #999;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div></div>
+    <div class="header-right">作成日: ${new Date().toLocaleDateString('ja-JP')}</div>
+  </div>
+  
+  <div class="title">勤 務 表</div>
+  <div class="subtitle">${year}年${month}月　${staffName}</div>
+  
+  <table>
+    <thead>
+      <tr>
+        <th>日付</th>
+        <th>曜日</th>
+        <th>出勤</th>
+        <th>退勤</th>
+        <th>休憩</th>
+        <th>時間</th>
+        <th>交通費</th>
+        <th>日当 (時給${hourlyWage}円)</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${rowsHtml}
+    </tbody>
+    <tfoot>
+      <tr class="total-row">
+        <td colspan="5" class="total-label">合計時間</td>
+        <td>${formatHoursToHHMM(totals.totalHours)}</td>
+        <td class="total-label">交通費</td>
+        <td>¥ ${totals.totalTransport.toLocaleString()}</td>
+      </tr>
+      <tr class="total-row">
+        <td colspan="7" class="total-label">合計金額 (交通費込)</td>
+        <td class="total-final">¥ ${totals.grandTotal.toLocaleString()}</td>
+      </tr>
+    </tfoot>
+  </table>
+</body>
+</html>
+    `;
+
+    // iframe を作成して印刷
+    const printFrame = document.createElement('iframe');
+    printFrame.style.position = 'absolute';
+    printFrame.style.top = '-9999px';
+    printFrame.style.left = '-9999px';
+    printFrame.style.width = '210mm';
+    printFrame.style.height = '297mm';
+    document.body.appendChild(printFrame);
+
+    const doc = printFrame.contentWindow.document;
+    doc.open();
+    doc.write(html);
+    doc.close();
+
+    // 印刷実行
+    setTimeout(() => {
+      printFrame.contentWindow.focus();
+      printFrame.contentWindow.print();
+      // 印刷後にiframeを削除
+      setTimeout(() => {
+        document.body.removeChild(printFrame);
+      }, 1000);
+    }, 250);
+  };
+
   const monthlyTotals = calculateMonthlyTotals();
   const daysInMonth = getDaysInMonth();
 
@@ -492,6 +713,9 @@ const ShiftManagement = () => {
         </div>
 
         <div className="shift-actions">
+          <button onClick={exportToPDF} className="shift-btn shift-btn-secondary">
+            <FileText size={16} /> PDF出力
+          </button>
           {hasUnsavedChanges && (
             <>
               <button onClick={handleDiscardChanges} className="shift-btn shift-btn-secondary">変更を破棄</button>
@@ -502,73 +726,79 @@ const ShiftManagement = () => {
           )}
         </div>
       </div>
+      {/* 印刷用コンテナ（タイトル+テーブルを一体化） */}
+      <div className="shift-print-container">
+        <div className="shift-print-title">
+          {selectedMonth.getFullYear()}年{selectedMonth.getMonth() + 1}月 シフト表 - {staff.find(s => s.staff_id === selectedStaff)?.name || ''}
+        </div>
 
-      {/* シフト表 */}
-      <div className="shift-table-container">
-        <table className="shift-table">
-          <thead>
-            <tr>
-              <th className="shift-th-day">日付</th>
-              <th className="shift-th-weekday">曜日</th>
-              <th className="shift-th-time">出勤</th>
-              <th className="shift-th-time">退勤</th>
-              <th className="shift-th-hours">休憩</th>
-              <th className="shift-th-hours">時間</th>
-              <th className="shift-th-transport">交通費</th>
-              <th className="shift-th-wage">日当 (時給{hourlyWage}円)</th>
-            </tr>
-          </thead>
-          <tbody>
-            {Array.from({ length: daysInMonth }, (_, i) => i + 1).map(day => {
-              const dateKey = getDateKey(day);
-              const shift = shifts[dateKey];
-              const isChanged = JSON.stringify(shift) !== JSON.stringify(savedShifts[dateKey]);
-              const workHours = calculateWorkHours(shift?.startTime, shift?.endTime, shift?.breakMinutes || 0);
-              const dailyWage = calculateDailyWage(workHours);
+        {/* シフト表 */}
+        <div className="shift-table-container">
+          <table className="shift-table">
+            <thead>
+              <tr>
+                <th className="shift-th-day">日付</th>
+                <th className="shift-th-weekday">曜日</th>
+                <th className="shift-th-time">出勤</th>
+                <th className="shift-th-time">退勤</th>
+                <th className="shift-th-hours">休憩</th>
+                <th className="shift-th-hours">時間</th>
+                <th className="shift-th-transport">交通費</th>
+                <th className="shift-th-wage">日当 (時給{hourlyWage}円)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {Array.from({ length: daysInMonth }, (_, i) => i + 1).map(day => {
+                const dateKey = getDateKey(day);
+                const shift = shifts[dateKey];
+                const isChanged = JSON.stringify(shift) !== JSON.stringify(savedShifts[dateKey]);
+                const workHours = calculateWorkHours(shift?.startTime, shift?.endTime, shift?.breakMinutes || 0);
+                const dailyWage = calculateDailyWage(workHours);
 
-              return (
-                <tr key={day} className={`shift-row ${getDayClass(day)} ${isChanged ? 'shift-row--changed' : ''}`}>
-                  <td className="shift-td-day">{day}日</td>
-                  <td className={`shift-td-weekday ${getDayClass(day)}`}>{getDayOfWeek(day)}</td>
-                  <td>
-                    <input type="time" value={shift?.startTime || ''} onChange={(e) => handleShiftChange(day, 'startTime', e.target.value)} className="shift-input-time" />
-                  </td>
-                  <td>
-                    <input type="time" value={shift?.endTime || ''} onChange={(e) => handleShiftChange(day, 'endTime', e.target.value)} className="shift-input-time" />
-                  </td>
-                  <td>
-                    <input
-                      type="time"
-                      value={formatMinutesToHHMM(shift?.breakMinutes || 0)}
-                      onChange={(e) => {
-                        const minutes = parseHHMMToMinutes(e.target.value);
-                        handleShiftChange(day, 'breakMinutes', minutes);
-                      }}
-                      className="shift-input-time"
-                    />
-                  </td>
-                  <td>{workHours > 0 ? formatHoursToHHMM(workHours) : '0:00'}</td>
-                  <td>
-                    <input type="number" value={shift?.transportCost ?? ''} onChange={(e) => handleShiftChange(day, 'transportCost', e.target.value)} className="shift-input-transport" placeholder={transportAllowance} />
-                  </td>
-                  <td>¥ {dailyWage > 0 ? dailyWage.toLocaleString() : '-'}</td>
-                </tr>
-              );
-            })}
-          </tbody>
-          <tfoot>
-            <tr className="shift-total-row">
-              <td colSpan="5" className="shift-total-label">合計時間</td>
-              <td>{formatHoursToHHMM(monthlyTotals.totalHours)}</td>
-              <td className="shift-total-label">交通費</td>
-              <td>¥ {monthlyTotals.totalTransport.toLocaleString()}</td>
-            </tr>
-            <tr className="shift-total-row">
-              <td colSpan="7" className="shift-total-label">合計金額 (交通費込)</td>
-              <td className="shift-total-final">¥ {monthlyTotals.grandTotal.toLocaleString()}</td>
-            </tr>
-          </tfoot>
-        </table>
+                return (
+                  <tr key={day} className={`shift-row ${getDayClass(day)} ${isChanged ? 'shift-row--changed' : ''}`}>
+                    <td className="shift-td-day">{day}日</td>
+                    <td className={`shift-td-weekday ${getDayClass(day)}`}>{getDayOfWeek(day)}</td>
+                    <td>
+                      <input type="time" value={shift?.startTime || ''} onChange={(e) => handleShiftChange(day, 'startTime', e.target.value)} className="shift-input-time" />
+                    </td>
+                    <td>
+                      <input type="time" value={shift?.endTime || ''} onChange={(e) => handleShiftChange(day, 'endTime', e.target.value)} className="shift-input-time" />
+                    </td>
+                    <td>
+                      <input
+                        type="time"
+                        value={formatMinutesToHHMM(shift?.breakMinutes || 0)}
+                        onChange={(e) => {
+                          const minutes = parseHHMMToMinutes(e.target.value);
+                          handleShiftChange(day, 'breakMinutes', minutes);
+                        }}
+                        className="shift-input-time"
+                      />
+                    </td>
+                    <td>{workHours > 0 ? formatHoursToHHMM(workHours) : '0:00'}</td>
+                    <td>
+                      <input type="number" value={shift?.transportCost ?? ''} onChange={(e) => handleShiftChange(day, 'transportCost', e.target.value)} className="shift-input-transport" placeholder={transportAllowance} />
+                    </td>
+                    <td>¥ {dailyWage > 0 ? dailyWage.toLocaleString() : '-'}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+            <tfoot>
+              <tr className="shift-total-row">
+                <td colSpan="5" className="shift-total-label">合計時間</td>
+                <td>{formatHoursToHHMM(monthlyTotals.totalHours)}</td>
+                <td className="shift-total-label">交通費</td>
+                <td>¥ {monthlyTotals.totalTransport.toLocaleString()}</td>
+              </tr>
+              <tr className="shift-total-row">
+                <td colSpan="7" className="shift-total-label">合計金額 (交通費込)</td>
+                <td className="shift-total-final">¥ {monthlyTotals.grandTotal.toLocaleString()}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
       </div>
     </div>
   );

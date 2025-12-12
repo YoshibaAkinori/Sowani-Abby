@@ -47,14 +47,14 @@
 }
 
 /* タブ切り替え */
-.tabs {
+.line-marketing-container .tabs {
   display: flex;
   gap: 0.5rem;
   margin-bottom: 1.5rem;
   flex-wrap: wrap;
 }
 
-.tabs button {
+.line-marketing-container .tabs button {
   display: flex;
   align-items: center;
   gap: 0.375rem;
@@ -69,13 +69,13 @@
   transition: all 0.2s;
 }
 
-.tabs button:hover {
+.line-marketing-container .tabs button:hover {
   background: #f3f4f6;
   color: #374151;
   border-color: #d1d5db;
 }
 
-.tabs button.active {
+.line-marketing-container .tabs button.active {
   background: #3b82f6;
   color: white;
   border-color: #3b82f6;
@@ -139,7 +139,7 @@
 }
 
 .send-btn {
-  background: #06c755; /* LINE緑色 */
+  background: #06c755;
 }
 
 .send-btn:hover:not(:disabled) {
@@ -336,12 +336,12 @@
     padding: 1rem;
   }
   
-  .tabs {
+  .line-marketing-container .tabs {
     flex-direction: column;
     gap: 0.5rem;
   }
   
-  .tabs button {
+  .line-marketing-container .tabs button {
     width: 100%;
     justify-content: flex-start;
   }
