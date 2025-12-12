@@ -815,6 +815,7 @@
     justify-content: center;
   }
 }
+
 .menu-tab-badge {
   display: inline-flex;
   align-items: center;
@@ -832,6 +833,7 @@
 .menu-type-tab:not(.active) .menu-tab-badge {
   background: #6b7280;
 }
+
 /* キャンセルモーダル */
 .cancel-modal-overlay {
   position: fixed;
@@ -874,7 +876,7 @@
   margin-bottom: 1.5rem;
 }
 
-.cancel-modal-content > p {
+.cancel-modal-content>p {
   margin-bottom: 1rem;
   color: #6b7280;
 }
@@ -942,6 +944,7 @@
   background: #fca5a5;
   cursor: not-allowed;
 }
+
 /* 予約情報表示(編集モード用) */
 .booking-info-display {
   display: flex;
@@ -1003,4 +1006,205 @@
   background: #f9fafb;
   color: #9ca3af;
   border-color: #e5e7eb;
+}
+
+/* 施術完了モード用スタイル - BookingModal.cssに追加 */
+
+/* ヘッダー */
+.completed-header-left {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.completed-header-left h2 {
+  margin: 0;
+}
+
+.completed-customer-inline {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #374151;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.completed-header-right {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.visit-count-badge {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  padding: 0.25rem 0.625rem;
+  background-color: #dbeafe;
+  color: #1d4ed8;
+  border-radius: 1rem;
+}
+
+.completed-status-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.375rem 0.875rem;
+  background-color: #dcfce7;
+  color: #15803d;
+  border-radius: 1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+/* メインコンテンツ */
+.completed-content {
+  padding: 1rem 0.5rem;
+}
+
+/* カード */
+.completed-card {
+  background-color: #f9fafb;
+  border-radius: 0.75rem;
+  padding: 1.25rem 1.5rem;
+  margin-bottom: 1.25rem;
+}
+
+.completed-card--payment {
+  background-color: #fefce8;
+  border: 1px solid #fef08a;
+}
+
+.completed-card-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 0;
+}
+
+.completed-card-row:not(:last-child) {
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.completed-card--payment .completed-card-row:not(:last-child) {
+  border-bottom: 1px solid #fef08a;
+}
+
+.completed-card-row--total {
+  margin-top: 0.5rem;
+  padding-top: 1rem !important;
+  border-top: 2px solid #d1d5db !important;
+  border-bottom: none !important;
+}
+
+.completed-card--payment .completed-card-row--total {
+  border-top-color: #facc15 !important;
+}
+
+.completed-card-label {
+  font-size: 1rem;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.completed-card-value {
+  font-size: 1.0625rem;
+  color: #1f2937;
+  font-weight: 600;
+  text-align: right;
+}
+
+.completed-card-value--discount {
+  color: #dc2626;
+}
+
+.completed-card-value--total {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #1f2937;
+}
+
+/* 備考セクション */
+.completed-notes-section {
+  margin-top: 1rem;
+}
+
+.completed-notes-label {
+  font-size: 1rem;
+  color: #6b7280;
+  font-weight: 500;
+  margin-bottom: 0.5rem;
+}
+
+.completed-notes-text {
+  background-color: #f9fafb;
+  padding: 1rem;
+  border-radius: 0.5rem;
+  font-size: 1rem;
+  color: #374151;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+/* ========================================
+   お客様情報カード（編集モード用）
+   ======================================== */
+
+.customer-info-card {
+  background-color: #f9fafb;
+  border-radius: 0.75rem;
+  overflow: hidden;
+}
+
+.customer-info-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.25rem;
+  background-color: #f3f4f6;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.customer-name {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: #1f2937;
+}
+
+.customer-visit-badge {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  padding: 0.25rem 0.75rem;
+  background-color: #dbeafe;
+  color: #1d4ed8;
+  border-radius: 1rem;
+}
+
+.customer-info-body {
+  padding: 0.5rem 1.25rem;
+}
+
+.customer-info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.625rem 0;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.customer-info-row:last-child {
+  border-bottom: none;
+}
+
+.customer-info-label {
+  font-size: 0.875rem;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.customer-info-value {
+  font-size: 0.9375rem;
+  color: #1f2937;
+  font-weight: 500;
+  text-align: right;
 }

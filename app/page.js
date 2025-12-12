@@ -220,11 +220,16 @@ const SalonBoard = () => {
     try {
       const response = await fetch(`/api/bookings?id=${bookingId}`);
       const data = await response.json();
-      if (data.success && data.data.length > 0) {
-        const booking = data.data[0];
+      if (data.success && data.data) {
+        const booking = Array.isArray(data.data) ? data.data[0] : data.data;
+        
+        // 支払い済み（completed）かどうか判定
+        const isCompleted = booking.status === 'completed';
+        
         setSelectedSlot({
           bookingId: booking.booking_id,
-          isEdit: true,
+          isEdit: !isCompleted,  // completedの場合は編集モードではない
+          isCompleted: isCompleted,  // 施術完了フラグを追加
           staffId: booking.staff_id,
           staffName: booking.staff_name,
           date: booking.date.split('T')[0],

@@ -337,8 +337,8 @@ const RegisterPage = () => {
 
       console.log('予約詳細API レスポンス:', data);
 
-      if (data.success && data.data && data.data.length > 0) {
-        const bookingDetail = data.data[0];
+      if (data.success && data.data) {
+        const bookingDetail = Array.isArray(data.data) ? data.data[0] : data.data;
         console.log('予約詳細:', bookingDetail);
         console.log('tickets配列:', bookingDetail.tickets);
         console.log('limited_offers配列:', bookingDetail.limited_offers);

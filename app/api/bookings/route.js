@@ -1,7 +1,7 @@
 // app/api/bookings/route.js
 import { NextResponse } from 'next/server';
 import { getConnection } from '../../../lib/db';
-import { updateExcel } from '../../../lib/updateExcel';
+import { updateExcel, deleteExcelRow } from '../../../lib/updateExcel';
 
 // 予約一覧取得（N+1問題を解決）
 export async function GET(request) {
@@ -150,17 +150,17 @@ export async function GET(request) {
       limitedOffersMap.get(offer.booking_id).push(offer);
     });
 
-    // 各予約に関連情報を付与
-    const bookingsWithDetails = rows.map(booking => ({
-      ...booking,
-      options: optionsMap.get(booking.booking_id) || [],
-      tickets: ticketsMap.get(booking.booking_id) || [],
-      limitedOffers: limitedOffersMap.get(booking.booking_id) || []
+    // 結果を整形
+    const formattedRows = rows.map(row => ({
+      ...row,
+      options: optionsMap.get(row.booking_id) || [],
+      tickets: ticketsMap.get(row.booking_id) || [],
+      limited_offers: limitedOffersMap.get(row.booking_id) || []
     }));
 
     return NextResponse.json({
       success: true,
-      data: bookingsWithDetails
+      data: bookingId ? formattedRows[0] : formattedRows
     });
   } catch (error) {
     console.error('予約取得エラー:', error);
@@ -171,7 +171,7 @@ export async function GET(request) {
   }
 }
 
-// 予約・予定新規登録
+// 予約新規登録
 export async function POST(request) {
   const pool = await getConnection();
   const connection = await pool.getConnection();
@@ -181,61 +181,29 @@ export async function POST(request) {
 
     const {
       customer_id,
+      new_customer,
       staff_id,
       service_id,
       customer_ticket_ids,
       coupon_id,
       limited_offer_ids,
+      option_ids,
       date,
       start_time,
       end_time,
       bed_id,
       type = 'booking',
       status = 'confirmed',
-      notes = '',
-      option_ids = []
+      notes
     } = body;
-
-    if (type === 'schedule') {
-      if (!staff_id || !date || !start_time || !end_time) {
-        return NextResponse.json(
-          { success: false, error: 'スタッフと日時を入力してください' },
-          { status: 400 }
-        );
-      }
-    } else {
-      if (!staff_id || !date || !start_time || !end_time) {
-        return NextResponse.json(
-          { success: false, error: '必須項目を入力してください' },
-          { status: 400 }
-        );
-      }
-
-      if (!customer_id && !body.last_name && !body.first_name) {
-        return NextResponse.json(
-          { success: false, error: '顧客情報を入力してください' },
-          { status: 400 }
-        );
-      }
-
-      const hasTickets = customer_ticket_ids && customer_ticket_ids.length > 0;
-      const hasLimitedOffers = limited_offer_ids && limited_offer_ids.length > 0;
-
-      if (!service_id && !hasTickets && !coupon_id && !hasLimitedOffers) {
-        return NextResponse.json(
-          { success: false, error: '施術メニューを選択してください' },
-          { status: 400 }
-        );
-      }
-    }
 
     await connection.beginTransaction();
 
     let finalCustomerId = customer_id;
 
-    // 新規顧客の場合
-    if (type === 'booking' && !customer_id && body.last_name && body.first_name) {
-      await connection.execute(
+    // 新規顧客の場合は先に登録
+    if (!customer_id && new_customer) {
+      const [customerResult] = await connection.execute(
         `INSERT INTO customers (
           customer_id,
           last_name,
@@ -248,25 +216,27 @@ export async function POST(request) {
           gender
         ) VALUES (UUID(), ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
-          body.last_name,
-          body.first_name,
-          body.last_name_kana || '',
-          body.first_name_kana || '',
-          body.phone_number || '',
-          body.email || '',
-          body.birth_date || null,
-          body.gender || 'not_specified'
+          new_customer.lastName,
+          new_customer.firstName,
+          new_customer.lastNameKana || null,
+          new_customer.firstNameKana || null,
+          new_customer.phoneNumber || null,
+          new_customer.email || null,
+          new_customer.birthDate || null,
+          new_customer.gender || 'not_specified'
         ]
       );
 
-      const [customerRow] = await connection.execute(
-        'SELECT customer_id FROM customers WHERE phone_number = ? ORDER BY created_at DESC LIMIT 1',
-        [body.phone_number]
+      const [newCustomer] = await connection.execute(
+        `SELECT customer_id FROM customers 
+         WHERE last_name = ? AND first_name = ? 
+         ORDER BY created_at DESC LIMIT 1`,
+        [new_customer.lastName, new_customer.firstName]
       );
-      finalCustomerId = customerRow[0].customer_id;
+      finalCustomerId = newCustomer[0].customer_id;
     }
 
-    // 予約を登録
+    // 予約登録
     await connection.execute(
       `INSERT INTO bookings (
         booking_id,
@@ -283,7 +253,9 @@ export async function POST(request) {
         type,
         status,
         notes
-      ) VALUES (UUID(), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (
+        UUID(), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+      )`,
       [
         finalCustomerId,
         staff_id,
@@ -443,7 +415,7 @@ export async function POST(request) {
   }
 }
 
-// 予約更新
+// 予約更新（施術メニュー変更対応）
 export async function PUT(request) {
   const pool = await getConnection();
   const connection = await pool.getConnection();
@@ -459,7 +431,13 @@ export async function PUT(request) {
       staff_id,
       bed_id,
       status,
-      notes
+      notes,
+      // 施術メニュー関連（新規追加）
+      service_id,
+      customer_ticket_ids,
+      coupon_id,
+      limited_offer_ids,
+      option_ids
     } = body;
 
     if (!booking_id) {
@@ -471,8 +449,16 @@ export async function PUT(request) {
 
     await connection.beginTransaction();
 
+    // 更新前のデータを取得
     const [beforeData] = await connection.execute(
-      'SELECT * FROM bookings WHERE booking_id = ?',
+      `SELECT b.*, c.last_name, c.first_name, c.visit_count, s.name as staff_name,
+              tp.service_category as ticket_service_category
+       FROM bookings b
+       LEFT JOIN customers c ON b.customer_id = c.customer_id
+       LEFT JOIN staff s ON b.staff_id = s.staff_id
+       LEFT JOIN customer_tickets ct ON b.customer_ticket_id = ct.customer_ticket_id
+       LEFT JOIN ticket_plans tp ON ct.plan_id = tp.plan_id
+       WHERE b.booking_id = ?`,
       [booking_id]
     );
 
@@ -485,6 +471,7 @@ export async function PUT(request) {
 
     const before = beforeData[0];
 
+    // 基本情報の更新
     await connection.execute(
       `UPDATE bookings 
        SET date = ?,
@@ -493,11 +480,89 @@ export async function PUT(request) {
            staff_id = ?,
            bed_id = ?,
            status = ?,
-           notes = ?
+           notes = ?,
+           service_id = ?,
+           coupon_id = ?,
+           customer_ticket_id = ?,
+           limited_offer_id = ?
        WHERE booking_id = ?`,
-      [date, start_time, end_time, staff_id, bed_id, status, notes, booking_id]
+      [
+        date,
+        start_time,
+        end_time,
+        staff_id,
+        bed_id,
+        status,
+        notes,
+        service_id ?? null,
+        coupon_id ?? null,
+        customer_ticket_ids && customer_ticket_ids.length > 0 ? customer_ticket_ids[0] : null,
+        limited_offer_ids && limited_offer_ids.length > 0 ? limited_offer_ids[0] : null,
+        booking_id
+      ]
     );
 
+    // 回数券の更新（既存を削除して再登録）
+    if (customer_ticket_ids !== undefined) {
+      await connection.execute(
+        'DELETE FROM booking_tickets WHERE booking_id = ?',
+        [booking_id]
+      );
+      
+      if (customer_ticket_ids && customer_ticket_ids.length > 0) {
+        for (const ticketId of customer_ticket_ids) {
+          await connection.execute(
+            `INSERT INTO booking_tickets (booking_id, customer_ticket_id)
+             VALUES (?, ?)`,
+            [booking_id, ticketId]
+          );
+        }
+      }
+    }
+
+    // 期間限定オファーの更新
+    if (limited_offer_ids !== undefined) {
+      await connection.execute(
+        'DELETE FROM booking_limited_offers WHERE booking_id = ?',
+        [booking_id]
+      );
+      
+      if (limited_offer_ids && limited_offer_ids.length > 0) {
+        for (const offerId of limited_offer_ids) {
+          await connection.execute(
+            `INSERT INTO booking_limited_offers (
+              booking_limited_offer_id,
+              booking_id,
+              offer_id
+            ) VALUES (UUID(), ?, ?)`,
+            [booking_id, offerId]
+          );
+        }
+      }
+    }
+
+    // オプションの更新
+    if (option_ids !== undefined) {
+      await connection.execute(
+        'DELETE FROM booking_options WHERE booking_id = ?',
+        [booking_id]
+      );
+      
+      if (option_ids && option_ids.length > 0) {
+        for (const optionId of option_ids) {
+          await connection.execute(
+            `INSERT INTO booking_options (
+              booking_option_id,
+              booking_id,
+              option_id
+            ) VALUES (UUID(), ?, ?)`,
+            [booking_id, optionId]
+          );
+        }
+      }
+    }
+
+    // 変更履歴を記録
     const changes = {
       before: {
         date: before.date,
@@ -506,7 +571,11 @@ export async function PUT(request) {
         staff_id: before.staff_id,
         bed_id: before.bed_id,
         status: before.status,
-        notes: before.notes
+        notes: before.notes,
+        service_id: before.service_id,
+        coupon_id: before.coupon_id,
+        customer_ticket_id: before.customer_ticket_id,
+        limited_offer_id: before.limited_offer_id
       },
       after: {
         date,
@@ -515,7 +584,11 @@ export async function PUT(request) {
         staff_id,
         bed_id,
         status,
-        notes
+        notes,
+        service_id: service_id ?? null,
+        coupon_id: coupon_id ?? null,
+        customer_ticket_id: customer_ticket_ids?.[0] ?? null,
+        limited_offer_id: limited_offer_ids?.[0] ?? null
       }
     };
 
@@ -530,6 +603,71 @@ export async function PUT(request) {
     );
 
     await connection.commit();
+
+    // ★Excel更新処理（スタッフ名が変わった場合など）
+    if (before.customer_id && before.type === 'booking') {
+      try {
+        // 新しいスタッフ名を取得
+        const [newStaffData] = await pool.execute(
+          'SELECT name FROM staff WHERE staff_id = ?',
+          [staff_id]
+        );
+        const newStaffName = newStaffData[0]?.name || '未設定';
+
+        // 日付をYYYY-MM-DD形式に変換
+        let oldDateStr = before.date;
+        if (before.date instanceof Date) {
+          oldDateStr = before.date.toISOString().split('T')[0];
+        } else if (typeof before.date === 'string' && before.date.includes('T')) {
+          oldDateStr = before.date.split('T')[0];
+        }
+
+        let newDateStr = date;
+        if (typeof date === 'string' && date.includes('T')) {
+          newDateStr = date.split('T')[0];
+        }
+
+        const customerName = `${before.last_name} ${before.first_name}`;
+        
+        // ★変更前の予約が「回数券」かつ「その他以外」なら+1して検索
+        const baseVisitCount = parseInt(before.visit_count) || 0;
+        const beforeWasTicketWithVisitCount = before.customer_ticket_id && 
+          before.ticket_service_category && 
+          before.ticket_service_category !== 'その他';
+        const searchVisitCount = beforeWasTicketWithVisitCount ? baseVisitCount + 1 : baseVisitCount;
+
+        // 旧データでExcelから削除
+        await deleteExcelRow(oldDateStr, customerName, searchVisitCount);
+
+        // ★新しい予約が「回数券」かつ「その他以外」なら+1して追加
+        let newVisitCount = baseVisitCount;
+        if (customer_ticket_ids && customer_ticket_ids.length > 0) {
+          // 新しい回数券のカテゴリを確認
+          const [newTicketInfo] = await pool.execute(
+            `SELECT tp.service_category 
+             FROM customer_tickets ct
+             JOIN ticket_plans tp ON ct.plan_id = tp.plan_id
+             WHERE ct.customer_ticket_id = ?`,
+            [customer_ticket_ids[0]]
+          );
+          if (newTicketInfo.length > 0 && newTicketInfo[0].service_category !== 'その他') {
+            newVisitCount = baseVisitCount + 1;
+          }
+        }
+
+        // 新データでExcelに追加
+        const newBookingData = {
+          date: newDateStr,
+          customer_name: customerName,
+          staff_name: newStaffName,
+          visit_count: newVisitCount
+        };
+        
+        await updateExcel(newBookingData);
+      } catch (excelError) {
+        console.error('Excel更新エラー（予約は更新済み）:', excelError);
+      }
+    }
 
     return NextResponse.json({
       success: true,
@@ -568,8 +706,15 @@ export async function DELETE(request) {
 
     await connection.beginTransaction();
 
+    // 予約情報を取得（Excel削除用に顧客情報も取得）
     const [booking] = await connection.execute(
-      'SELECT * FROM bookings WHERE booking_id = ?',
+      `SELECT b.*, c.last_name, c.first_name, c.visit_count,
+              tp.service_category as ticket_service_category
+       FROM bookings b
+       LEFT JOIN customers c ON b.customer_id = c.customer_id
+       LEFT JOIN customer_tickets ct ON b.customer_ticket_id = ct.customer_ticket_id
+       LEFT JOIN ticket_plans tp ON ct.plan_id = tp.plan_id
+       WHERE b.booking_id = ?`,
       [bookingId]
     );
 
@@ -610,6 +755,35 @@ export async function DELETE(request) {
     );
 
     await connection.commit();
+
+    // ★Excelから該当行を削除
+    if (bookingData.customer_id && bookingData.type === 'booking') {
+      try {
+        // 日付をYYYY-MM-DD形式に変換
+        let dateStr = bookingData.date;
+        if (bookingData.date instanceof Date) {
+          dateStr = bookingData.date.toISOString().split('T')[0];
+        } else if (typeof bookingData.date === 'string' && bookingData.date.includes('T')) {
+          dateStr = bookingData.date.split('T')[0];
+        }
+
+        const customerName = `${bookingData.last_name} ${bookingData.first_name}`;
+        
+        // ★予約が「回数券」かつ「その他以外」なら+1して検索
+        const baseVisitCount = parseInt(bookingData.visit_count) || 0;
+        const wasTicketWithVisitCount = bookingData.customer_ticket_id && 
+          bookingData.ticket_service_category && 
+          bookingData.ticket_service_category !== 'その他';
+        const searchVisitCount = wasTicketWithVisitCount ? baseVisitCount + 1 : baseVisitCount;
+
+        const deleteResult = await deleteExcelRow(dateStr, customerName, searchVisitCount);
+        if (!deleteResult.success) {
+          console.error('Excel削除エラー:', deleteResult.error);
+        }
+      } catch (excelError) {
+        console.error('Excel削除エラー（予約はキャンセル済み）:', excelError);
+      }
+    }
 
     const message = cancelType === 'no_contact'
       ? '予約をキャンセルしました(無断キャンセル)'

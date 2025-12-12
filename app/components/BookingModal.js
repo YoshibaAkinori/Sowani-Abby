@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { X, Search, Calendar, Clock, User, Phone, Mail, AlertCircle, Tag, Package, Timer, Settings2, CalendarPlus, CalendarCheck, Ban, AlertTriangle } from 'lucide-react';
+import { X, Search, Calendar, Clock, User, Phone, Mail, AlertCircle, Tag, Package, Timer, Settings2, CalendarPlus, CalendarCheck, Ban, AlertTriangle, CreditCard, Check } from 'lucide-react';
 import './BookingModal.css';
 
 const BookingModal = ({ activeModal, selectedSlot, onClose, onModalChange }) => {
   const isEditMode = selectedSlot?.isEdit || false;
+  const isCompletedMode = selectedSlot?.isCompleted || false;  // 施術完了モード
   const bookingId = selectedSlot?.bookingId || null;
 
   const [formData, setFormData] = useState({
@@ -46,6 +47,9 @@ const BookingModal = ({ activeModal, selectedSlot, onClose, onModalChange }) => 
   const [error, setError] = useState('');
   const [searchName, setSearchName] = useState('');
   const [searchResults, setSearchResults] = useState([]);
+  
+  // 支払い情報（施術完了モード用）
+  const [paymentInfo, setPaymentInfo] = useState(null);
 
   const getGenderLabel = (gender) => {
     const labels = {
@@ -60,11 +64,28 @@ const BookingModal = ({ activeModal, selectedSlot, onClose, onModalChange }) => 
   useEffect(() => {
     if (activeModal === 'booking') {
       fetchMasterData();
-      if (isEditMode && selectedSlot?.bookingData) {
+      if (isCompletedMode && selectedSlot?.bookingData) {
+        // 施術完了モード: 予約データと支払い情報を取得
+        loadBookingData(selectedSlot.bookingData);
+        fetchPaymentInfo(selectedSlot.bookingId);
+      } else if (isEditMode && selectedSlot?.bookingData) {
         loadBookingData(selectedSlot.bookingData);
       }
     }
-  }, [activeModal, isEditMode]);
+  }, [activeModal, isEditMode, isCompletedMode]);
+
+  // 支払い情報を取得
+  const fetchPaymentInfo = async (bookingId) => {
+    try {
+      const response = await fetch(`/api/payments?booking_id=${bookingId}`);
+      const data = await response.json();
+      if (data.success && data.data && data.data.length > 0) {
+        setPaymentInfo(data.data[0]);
+      }
+    } catch (err) {
+      console.error('支払い情報取得エラー:', err);
+    }
+  };
 
   const loadBookingData = async (booking) => {
     setIsLoading(true);
@@ -378,7 +399,13 @@ const BookingModal = ({ activeModal, selectedSlot, onClose, onModalChange }) => 
         staff_id: formData.staffId,
         bed_id: formData.bedId,
         status: 'confirmed',
-        notes: formData.notes
+        notes: formData.notes,
+        // 施術メニュー関連を追加
+        service_id: formData.serviceType === 'normal' ? formData.serviceId : null,
+        customer_ticket_ids: formData.serviceType === 'ticket' ? formData.ticketIds : null,
+        coupon_id: formData.serviceType === 'coupon' ? formData.couponId : null,
+        limited_offer_ids: formData.serviceType === 'limited' ? formData.limitedOfferIds : null,
+        option_ids: formData.optionIds
       };
 
       const response = await fetch('/api/bookings', {
@@ -658,6 +685,134 @@ const BookingModal = ({ activeModal, selectedSlot, onClose, onModalChange }) => 
     );
   }
 
+  // ★ 施術内容表示モード（支払い済み）
+  if (isCompletedMode && activeModal === 'booking') {
+    const booking = selectedSlot?.bookingData;
+    const staffName = staff.find(s => s.staff_id === formData.staffId)?.name || booking?.staff_name || '未設定';
+    
+    // メニュー名を取得
+    let menuName = '';
+    if (booking?.service_name) {
+      menuName = booking.service_name;
+    } else if (booking?.direct_service_name) {
+      menuName = booking.direct_service_name;
+    } else if (booking?.ticket_plan_name) {
+      menuName = booking.ticket_plan_name;
+    } else if (booking?.coupon_name) {
+      menuName = booking.coupon_name;
+    } else if (booking?.limited_offer_name) {
+      menuName = booking.limited_offer_name;
+    }
+
+    // 支払い方法の表示
+    const getPaymentMethodLabel = (method) => {
+      const labels = { 'cash': '現金', 'card': 'カード', 'mixed': '現金+カード' };
+      return labels[method] || method;
+    };
+
+    // 時間フォーマット（秒を除去）
+    const formatTime = (time) => {
+      if (!time) return '';
+      return time.substring(0, 5);
+    };
+
+    return (
+      <div className="booking-page">
+        <div className="booking-page-content">
+          <div className="booking-page-header">
+            <div className="completed-header-left">
+              <h2>施術内容</h2>
+              <span className="completed-customer-inline">
+                {formData.lastName} {formData.firstName} 様
+                {formData.visitCount > 0 && (
+                  <span className="visit-count-badge">{formData.visitCount}回目</span>
+                )}
+              </span>
+            </div>
+            <div className="completed-header-right">
+              <span className="completed-status-badge">
+                <Check size={14} />
+                会計済
+              </span>
+              <button onClick={onClose} className="booking-page-close">
+                <X size={20} />
+                閉じる
+              </button>
+            </div>
+          </div>
+
+          {/* メインコンテンツ */}
+          <div className="completed-content">
+            {/* 施術情報カード */}
+            <div className="completed-card">
+              <div className="completed-card-row">
+                <span className="completed-card-label">日時</span>
+                <span className="completed-card-value">{formData.date} {formatTime(formData.startTime)}〜{formatTime(formData.endTime)}</span>
+              </div>
+              <div className="completed-card-row">
+                <span className="completed-card-label">担当</span>
+                <span className="completed-card-value">{staffName}</span>
+              </div>
+              <div className="completed-card-row">
+                <span className="completed-card-label">メニュー</span>
+                <span className="completed-card-value">{menuName || '未設定'}</span>
+              </div>
+              {booking?.options && booking.options.length > 0 && (
+                <div className="completed-card-row">
+                  <span className="completed-card-label">オプション</span>
+                  <span className="completed-card-value">
+                    {booking.options.map(opt => opt.name).join('、')}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* 支払い情報カード */}
+            {paymentInfo && (
+              <div className="completed-card completed-card--payment">
+                <div className="completed-card-row">
+                  <span className="completed-card-label">支払方法</span>
+                  <span className="completed-card-value">{getPaymentMethodLabel(paymentInfo.payment_method)}</span>
+                </div>
+                {paymentInfo.service_subtotal > 0 && (
+                  <div className="completed-card-row">
+                    <span className="completed-card-label">施術料金</span>
+                    <span className="completed-card-value">¥{paymentInfo.service_subtotal.toLocaleString()}</span>
+                  </div>
+                )}
+                {paymentInfo.options_total > 0 && (
+                  <div className="completed-card-row">
+                    <span className="completed-card-label">オプション</span>
+                    <span className="completed-card-value">¥{paymentInfo.options_total.toLocaleString()}</span>
+                  </div>
+                )}
+                {paymentInfo.discount_amount > 0 && (
+                  <div className="completed-card-row">
+                    <span className="completed-card-label">割引</span>
+                    <span className="completed-card-value completed-card-value--discount">-¥{paymentInfo.discount_amount.toLocaleString()}</span>
+                  </div>
+                )}
+                <div className="completed-card-row completed-card-row--total">
+                  <span className="completed-card-label">合計</span>
+                  <span className="completed-card-value completed-card-value--total">¥{(paymentInfo.total_amount || 0).toLocaleString()}</span>
+                </div>
+              </div>
+            )}
+
+            {/* 備考 */}
+            {formData.notes && (
+              <div className="completed-notes-section">
+                <div className="completed-notes-label">備考</div>
+                <div className="completed-notes-text">{formData.notes}</div>
+              </div>
+            )}
+          </div>
+
+        </div>
+      </div>
+    );
+  }
+
   if (activeModal === 'booking') {
     return (
       <div className="booking-page">
@@ -788,7 +943,7 @@ const BookingModal = ({ activeModal, selectedSlot, onClose, onModalChange }) => 
                 </div>
               </div>
 
-              {!isEditMode && formData.bookingType === 'booking' && (
+              {formData.bookingType === 'booking' && (
                 <div className="menu-type-tabs">
                   <button
                     className={`menu-type-tab ${formData.serviceType === 'normal' ? 'active' : ''}`}
@@ -823,121 +978,9 @@ const BookingModal = ({ activeModal, selectedSlot, onClose, onModalChange }) => 
                 </div>
               )}
 
-              {formData.bookingType === 'booking' && isEditMode && (
-                <div className="booking-section">
-                  <div className="section-header">
-                    <Package size={18} />
-                    施術メニュー情報(変更不可)
-                  </div>
-                  <div className="section-content">
-                    <div className="booking-info-display">
-                      {formData.serviceId && (
-                        <div className="info-display-item">
-                          <div className="info-display-label">通常メニュー</div>
-                          <div className="info-display-value">
-                            {services.find(s => s.service_id === formData.serviceId)?.name || 'サービス名取得中...'}
-                          </div>
-                        </div>
-                      )}
+              
 
-                      {formData.couponId && (
-                        <div className="info-display-item">
-                          <div className="info-display-label">
-                            <Tag size={14} />
-                            クーポン
-                          </div>
-                          <div className="info-display-value">
-                            {coupons.find(c => c.coupon_id === formData.couponId)?.name || 'クーポン名取得中...'}
-                          </div>
-                        </div>
-                      )}
-
-                      {formData.ticketIds.length > 0 && (
-                        <div className="info-display-item">
-                          <div className="info-display-label">
-                            <Package size={14} />
-                            使用回数券({formData.ticketIds.length}件)
-                          </div>
-                          <div className="info-display-list">
-                            {formData.ticketIds.map((ticketId, index) => {
-                              const ticket = customerTickets.find(t => t.customer_ticket_id === ticketId);
-                              return (
-                                <div key={ticketId} className="info-display-list-item">
-                                  {index + 1}. {ticket?.plan_name || `回数券ID: ${ticketId}`}
-                                  {ticket && (
-                                    <span className="info-display-sub">
-                                      (残り{ticket.sessions_remaining}回)
-                                    </span>
-                                  )}
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      )}
-
-                      {formData.limitedOfferIds.length > 0 && (
-                        <div className="info-display-item">
-                          <div className="info-display-label">
-                            <Timer size={14} />
-                            期間限定オファー({formData.limitedOfferIds.length}件)
-                          </div>
-                          <div className="info-display-list">
-                            {formData.limitedOfferIds.map((offerId, index) => {
-                              const offer = limitedOffers.find(o => o.offer_id === offerId);
-                              return (
-                                <div key={offerId} className="info-display-list-item">
-                                  {index + 1}. {offer?.name || `オファーID: ${offerId}`}
-                                  {offer && (
-                                    <span className="info-display-sub">
-                                      ({offer.total_sessions}回券)
-                                    </span>
-                                  )}
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      )}
-
-                      {formData.optionIds.length > 0 && (
-                        <div className="info-display-item">
-                          <div className="info-display-label">
-                            <Settings2 size={14} />
-                            オプション({formData.optionIds.length}件)
-                          </div>
-                          <div className="info-display-list">
-                            {formData.optionIds.map((optionId, index) => {
-                              const option = options.find(o => o.option_id === optionId);
-                              return (
-                                <div key={optionId} className="info-display-list-item">
-                                  {index + 1}. {option?.name || `オプションID: ${optionId}`}
-                                  {option && (
-                                    <span className="info-display-sub">
-                                      (+{option.duration_minutes}分 / +¥{option.price.toLocaleString()})
-                                    </span>
-                                  )}
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      )}
-
-                      {!formData.serviceId && !formData.couponId &&
-                        formData.ticketIds.length === 0 && formData.limitedOfferIds.length === 0 && (
-                          <div className="info-display-item">
-                            <div className="info-display-value" style={{ color: '#6b7280' }}>
-                              施術メニュー情報なし
-                            </div>
-                          </div>
-                        )}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {formData.bookingType === 'booking' && !isEditMode && (
+              {formData.bookingType === 'booking' && (
                 <div className="booking-section">
                   <div className="section-header">
                     <Package size={18} />
@@ -1178,49 +1221,43 @@ const BookingModal = ({ activeModal, selectedSlot, onClose, onModalChange }) => 
                       )}
 
                       {isEditMode && formData.customerId && (
-                        <div className="customer-info-display">
-                          <div className="info-row">
-                            <span className="info-label">お名前:</span>
-                            <span className="info-value">
+                        <div className="customer-info-card">
+                          <div className="customer-info-header">
+                            <span className="customer-name">
                               {formData.lastName} {formData.firstName}
-                              {formData.visitCount > 0 && (
-                                <span className="visit-badge">{formData.visitCount}回目</span>
-                              )}
                             </span>
+                            {formData.visitCount > 0 && (
+                              <span className="customer-visit-badge">{formData.visitCount}回目</span>
+                            )}
                           </div>
-
-                          <div className="info-row">
-                            <span className="info-label">フリガナ:</span>
-                            <span className="info-value">
-                              {formData.lastNameKana} {formData.firstNameKana}
-                            </span>
+                          <div className="customer-info-body">
+                            <div className="customer-info-row">
+                              <span className="customer-info-label">フリガナ</span>
+                              <span className="customer-info-value">{formData.lastNameKana} {formData.firstNameKana}</span>
+                            </div>
+                            {formData.birthDate && (
+                              <div className="customer-info-row">
+                                <span className="customer-info-label">生年月日</span>
+                                <span className="customer-info-value">{formData.birthDate}</span>
+                              </div>
+                            )}
+                            {formData.gender && formData.gender !== 'not_specified' && (
+                              <div className="customer-info-row">
+                                <span className="customer-info-label">性別</span>
+                                <span className="customer-info-value">{getGenderLabel(formData.gender)}</span>
+                              </div>
+                            )}
+                            <div className="customer-info-row">
+                              <span className="customer-info-label">電話番号</span>
+                              <span className="customer-info-value">{formData.phoneNumber}</span>
+                            </div>
+                            {formData.email && (
+                              <div className="customer-info-row">
+                                <span className="customer-info-label">メール</span>
+                                <span className="customer-info-value">{formData.email}</span>
+                              </div>
+                            )}
                           </div>
-
-                          {formData.birthDate && (
-                            <div className="info-row">
-                              <span className="info-label">生年月日:</span>
-                              <span className="info-value">{formData.birthDate}</span>
-                            </div>
-                          )}
-
-                          {formData.gender && formData.gender !== 'not_specified' && (
-                            <div className="info-row">
-                              <span className="info-label">性別:</span>
-                              <span className="info-value">{getGenderLabel(formData.gender)}</span>
-                            </div>
-                          )}
-
-                          <div className="info-row">
-                            <span className="info-label">電話番号:</span>
-                            <span className="info-value">{formData.phoneNumber}</span>
-                          </div>
-
-                          {formData.email && (
-                            <div className="info-row">
-                              <span className="info-label">メール:</span>
-                              <span className="info-value">{formData.email}</span>
-                            </div>
-                          )}
                         </div>
                       )}
 
@@ -1417,7 +1454,6 @@ const BookingModal = ({ activeModal, selectedSlot, onClose, onModalChange }) => 
                       className="action-btn action-btn--danger"
                       disabled={isLoading}
                     >
-                      <Ban size={18} />
                       キャンセル
                     </button>
                     <button

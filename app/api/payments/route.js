@@ -10,6 +10,7 @@ export async function GET(request) {
     const date = searchParams.get('date');
     const customerId = searchParams.get('customer_id');
     const staffId = searchParams.get('staff_id');
+    const bookingId = searchParams.get('booking_id');
 
     let query = `
       SELECT 
@@ -23,6 +24,11 @@ export async function GET(request) {
     `;
 
     const params = [];
+
+    if (bookingId) {
+      query += ' AND p.booking_id = ?';
+      params.push(bookingId);
+    }
 
     if (date) {
       query += ' AND DATE(p.payment_date) = ?';

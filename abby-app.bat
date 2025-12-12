@@ -1,5 +1,5 @@
 @echo off
-cd /d "C:\Users\YourUsername\path\to\sawani-abby\docker"
+cd /d "C:\Users\abby\Abby-app\sowani-abby\docker"
 
 echo ========================================
 echo   Salon App 起動中...

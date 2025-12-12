@@ -11,6 +11,7 @@ export async function GET(request) {
       `SELECT
         b.booking_id,
         b.customer_id,
+        b.staff_id,
         b.start_time,
         b.end_time,
         b.service_id,
@@ -18,6 +19,7 @@ export async function GET(request) {
         c.last_name,
         c.first_name,
         s.name as service_name,
+        st.staff_id as staff_id,
         st.name as staff_name,
         -- 会計済みかどうかを判定（1 or 0で返る）
         CASE
