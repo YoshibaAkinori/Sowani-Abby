@@ -164,7 +164,7 @@ const SettingsPage = () => {
         <div className="settings__sidebar-header">
           <Link href="/" className="settings__back-link">
             <ArrowLeft className="settings__back-icon" />
-            <span>ダッシュボードに戻る</span>
+            <span>予約一覧に戻る</span>
           </Link>
           <div className="settings__sidebar-title">
             <Settings className="settings__sidebar-title-icon" />

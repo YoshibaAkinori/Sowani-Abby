@@ -240,7 +240,7 @@ const CustomersPage = () => {
         <div className="customers-page__header-container">
           <Link href="/" className="customers-page__back-link">
             <ArrowLeft size={20} />
-            <span>ダッシュボードに戻る</span>
+            <span>予約一覧に戻る</span>
           </Link>
           <div className="customers-page__header-title">
             <Users size={24} />

@@ -1226,7 +1226,7 @@ const RegisterPage = () => {
         <div className="register-page__header-container">
           <Link href="/" className="register-page__back-link">
             <ArrowLeft size={20} />
-            <span>ダッシュボードに戻る</span>
+            <span>予約一覧に戻る</span>
           </Link>
           <div className="register-page__header-title">
             <CreditCard size={24} />

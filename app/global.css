@@ -373,8 +373,10 @@
   border-radius: 0.75rem;
   box-shadow: 0 2px 4px 0 rgba(0, 0, 0, 0.08);
   padding: 1.5rem;
-  display: flex; /* ★★★ これを追加 ★★★ */
-  flex-direction: column; /* ★★★ これを追加 ★★★ */
+  display: flex;
+  /* ★★★ これを追加 ★★★ */
+  flex-direction: column;
+  /* ★★★ これを追加 ★★★ */
 }
 
 .salon-board__db-section-title {
@@ -435,10 +437,12 @@
   background-color: rgba(50, 205, 50, 0.125);
   border-left-color: #32cd32;
 }
+
 .salon-board__booking--coupon {
   background-color: rgba(251, 146, 60, 0.125);
   border-left-color: #fb923c;
 }
+
 /* global.css の予約の色分け部分 */
 .salon-board__booking--limited {
   background-color: rgba(59, 130, 246, 0.125);
@@ -527,6 +531,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  position: relative;
 }
 
 .salon-board__row--holiday .salon-board__timeline::after {
@@ -535,6 +540,11 @@
   font-weight: bold;
   color: #EF4444;
   letter-spacing: 4px;
+  position: relative;
+  z-index: 5;
+  background-color: #f0f0f0;
+  padding: 0.25rem 1rem;
+  border-radius: 4px;
 }
 
 /* メインスクロールコンテナ */
@@ -826,7 +836,8 @@
   cursor: pointer;
   transition: all 0.3s ease;
   text-align: left;
-  min-height: 200px; /* ★140pxから200pxに変更 */
+  min-height: 200px;
+  /* ★140pxから200pxに変更 */
   box-sizing: border-box;
 }
 
@@ -848,7 +859,8 @@
 }
 
 .salon-board__card-icon {
-  width: 3rem; /* ★2.5remから3remに変更 */
+  width: 3rem;
+  /* ★2.5remから3remに変更 */
   height: 3rem;
   color: #6b7280;
   flex-shrink: 0;
@@ -868,14 +880,16 @@
 
 .salon-board__card-content h4 {
   margin: 0 0 0.5rem 0;
-  font-size: 1.375rem; /* ★1.25remから1.375remに変更 */
+  font-size: 1.375rem;
+  /* ★1.25remから1.375remに変更 */
   font-weight: 600;
   color: #1f2937;
 }
 
 .salon-board__card-content p {
   margin: 0;
-  font-size: 1.0625rem; /* ★1remから1.0625remに変更 */
+  font-size: 1.0625rem;
+  /* ★1remから1.0625remに変更 */
   color: #6b7280;
 }
 
@@ -883,9 +897,11 @@
 .salon-board__stats-card {
   background: #f8fafc;
   border-radius: 10px;
-  padding: 1.5rem 2rem; /* ★上下パディングを2remから1.5remに変更 */
+  padding: 1.5rem 2rem;
+  /* ★上下パディングを2remから1.5remに変更 */
   border: 1px solid #e2e8f0;
-  min-height: 200px; /* ★アクションカードと同じ高さに */
+  min-height: 200px;
+  /* ★アクションカードと同じ高さに */
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -895,30 +911,35 @@
 .salon-board__stats-list {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem; /* ★0.75remから0.5remに縮小 */
+  gap: 0.5rem;
+  /* ★0.75remから0.5remに縮小 */
 }
 
 .salon-board__stat-item {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0.25rem 0; /* ★0.5remから0.25remに縮小 */
+  padding: 0.25rem 0;
+  /* ★0.5remから0.25remに縮小 */
 }
 
 .salon-board__stat-label {
-  font-size: 0.875rem; /* ★0.9375remから0.875remに縮小 */
+  font-size: 0.875rem;
+  /* ★0.9375remから0.875remに縮小 */
   color: #4b5563;
 }
 
 .salon-board__stat-value {
-  font-size: 0.9375rem; /* ★1remから0.9375remに縮小 */
+  font-size: 0.9375rem;
+  /* ★1remから0.9375remに縮小 */
   font-weight: 600;
   color: #1f2937;
 }
 
 /* 統計カードのカテゴリ表示用の色インジケーター */
 .salon-board__stat-category-indicator {
-  width: 9px; /* ★10pxから9pxに縮小 */
+  width: 9px;
+  /* ★10pxから9pxに縮小 */
   height: 9px;
   border-radius: 50%;
   display: inline-block;
@@ -948,7 +969,8 @@
 .salon-board__stat-label-with-icon {
   display: inline-flex;
   align-items: center;
-  gap: 5px; /* ★6pxから5pxに縮小 */
+  gap: 5px;
+  /* ★6pxから5pxに縮小 */
 }
 
 /* カレンダーボタンのスタイル - ボタンを大きく */
@@ -1210,6 +1232,7 @@
   from {
     transform: translateX(100%);
   }
+
   to {
     transform: translateX(0);
   }
@@ -1512,20 +1535,24 @@
 @media (max-width: 1024px) {
   .salon-board__action-card {
     padding: 1.5rem;
-    min-height: 180px; /* ★120pxから180pxに変更 */
+    min-height: 180px;
+    /* ★120pxから180pxに変更 */
   }
 
   .salon-board__card-icon {
-    width: 2.5rem; /* ★2remから2.5remに変更 */
+    width: 2.5rem;
+    /* ★2remから2.5remに変更 */
     height: 2.5rem;
   }
 
   .salon-board__card-content h4 {
-    font-size: 1.25rem; /* ★1.125remから1.25remに変更 */
+    font-size: 1.25rem;
+    /* ★1.125remから1.25remに変更 */
   }
 
   .salon-board__card-content p {
-    font-size: 1rem; /* ★0.9375remから1remに変更 */
+    font-size: 1rem;
+    /* ★0.9375remから1remに変更 */
   }
 
   .salon-board__stats-card {
@@ -1567,7 +1594,15 @@
   }
 
   .salon-board__booking {
-    height: 86px;
+    position: absolute;
+    top: 0.25rem;
+    border-radius: 0.5rem;
+    box-shadow: 0 2px 4px 0 rgba(0, 0, 0, 0.1);
+    border-left: 4px solid;
+    cursor: pointer;
+    height: 66px;
+    transition: box-shadow 0.2s, transform 0.2s;
+    z-index: 5;
   }
 
   .salon-board__timeline-in-scroll {
