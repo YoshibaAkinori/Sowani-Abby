@@ -1,7 +1,7 @@
 "use client";
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Settings, Users, Clock, Sparkles, Settings2, Calculator, Gift, Database, FileText, Printer } from 'lucide-react';
+import { ArrowLeft, Settings, Users, Clock, Sparkles, Settings2, Calculator, Gift, Database, FileText, Printer, Link2 ,Key} from 'lucide-react';
 import StaffManagement from './set_component/StaffManagement';
 import ShiftManagement from './set_component/ShiftManagement';
 import ServicesManagement from './set_component/ServicesManagement';
@@ -9,11 +9,15 @@ import OptionsManagement from './set_component/OptionsManagement';
 import RegisterClosing from './set_component/RegisterClosing';
 import BackupManagement from './set_component/Backupmanagement';
 import PrinterSettings from './set_component/PrinterSettings';
-import LineMarketing from './set_component/LineMarketing'; // 追加
+import LineMarketing from './set_component/LineMarketing';
+import LineLinkManagement from './set_component/LineLinkManagement';
+import PinAuth from './set_component/PinAuth';
+import PinChange from './set_component/PinChange';
 import './settings.css';
 
 const SettingsPage = () => {
   const [activeTab, setActiveTab] = useState('staff');
+  const [isUnlocked, setIsUnlocked] = useState(false);
 
   const settingsMenu = [
     { id: 'staff', label: 'スタッフ管理', icon: Users, description: 'スタッフ情報の登録' },
@@ -23,6 +27,8 @@ const SettingsPage = () => {
     { id: 'register-close', label: 'レジ締め管理', icon: Calculator, description: '日次売上締め・集計管理' },
     { id: 'printer', label: 'プリンター設定', icon: Printer, description: 'レシート印刷・プリンター接続設定' },
     { id: 'coupon', label: 'クーポン送信管理', icon: Gift, description: 'クーポン作成・配信・管理' },
+    { id: 'line-link', label: 'LINE連携管理', icon: Link2, description: 'LINE友だち連携の管理' },
+    { id: 'pin', label: 'PIN設定', icon: Key, description: '設定画面のPINコード変更' },
     //{ id: 'documents', label: '各種書類作成', icon: FileText, description: '売上報告書・レシート管理' },
     { id: 'backup', label: 'バックアップ管理', icon: Database, description: 'データバックアップ・復元管理' },
   ];
@@ -44,8 +50,8 @@ const SettingsPage = () => {
             <h2 className="settings__content-title">シフト管理</h2>
             <div className="settings__content-card">
               <p className="settings__content-description">スタッフのシフトスケジュール、勤務時間の設定・管理を行います。週間・月間シフトの作成から勤務実績の確認まで対応します。</p>
-                <ShiftManagement/>
-              
+              <ShiftManagement />
+
             </div>
           </div>
         );
@@ -55,7 +61,7 @@ const SettingsPage = () => {
             <h2 className="settings__content-title">施術コース管理</h2>
             <div className="settings__content-card">
               <p className="settings__content-description">フェイシャル、ボディトリートメントなどの施術コースの登録・編集を行います。料金設定、施術時間、説明文なども管理できます。</p>
-                <ServicesManagement />
+              <ServicesManagement />
             </div>
           </div>
         );
@@ -65,7 +71,7 @@ const SettingsPage = () => {
             <h2 className="settings__content-title">オプション管理</h2>
             <div className="settings__content-card">
               <p className="settings__content-description">施術に追加可能なオプションメニューの管理を行います。追加料金、所要時間の設定から、組み合わせ可能なコースとの関連付けまで設定できます。</p>
-                <OptionsManagement />
+              <OptionsManagement />
             </div>
           </div>
         );
@@ -75,7 +81,7 @@ const SettingsPage = () => {
             <h2 className="settings__content-title">レジ締め管理</h2>
             <div className="settings__content-card">
               <p className="settings__content-description">日次の売上集計、レジ締め作業を管理します。現金・カード決済の実績確認、売上レポートの出力、差異チェック機能を提供します。</p>
-                <RegisterClosing />
+              <RegisterClosing />
             </div>
           </div>
         );
@@ -96,6 +102,26 @@ const SettingsPage = () => {
             <div className="settings__content-card">
               <p className="settings__content-description">顧客向けクーポンの作成・配信・管理を行います。割引率の設定、有効期限管理、利用状況の追跡、メール・SMS配信機能を提供します。</p>
               <LineMarketing />
+            </div>
+          </div>
+        );
+      case 'line-link':
+        return (
+          <div>
+            <h2 className="settings__content-title">LINE連携管理</h2>
+            <div className="settings__content-card">
+              <p className="settings__content-description">LINEの友だち追加やメッセージからの連携待ちを管理し、顧客情報と紐付けます。</p>
+              <LineLinkManagement />
+            </div>
+          </div>
+        );
+      case 'pin':  // 追加
+        return (
+          <div>
+            <h2 className="settings__content-title">PIN設定</h2>
+            <div className="settings__content-card">
+              <p className="settings__content-description">設定画面へのアクセスに必要なPINコードを変更します。</p>
+              <PinChange />
             </div>
           </div>
         );
@@ -125,6 +151,10 @@ const SettingsPage = () => {
         return null;
     }
   };
+  // PIN認証チェック
+  if (!isUnlocked) {
+    return <PinAuth onSuccess={() => setIsUnlocked(true)} />;
+  }
 
   return (
     <div className="settings">
