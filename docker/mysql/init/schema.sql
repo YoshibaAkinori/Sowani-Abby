@@ -386,6 +386,25 @@ CREATE TABLE `limited_ticket_purchases` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
+-- Table structure for table `line_pending_links`
+--
+
+DROP TABLE IF EXISTS `line_pending_links`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `line_pending_links` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `line_user_id` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `display_name` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `event_type` enum('follow','message') COLLATE utf8mb4_unicode_ci NOT NULL,
+  `message_text` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `received_at` datetime DEFAULT CURRENT_TIMESTAMP,
+  `linked` tinyint(1) DEFAULT '0',
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
 -- Table structure for table `medical_records`
 --
 
@@ -698,4 +717,4 @@ CREATE TABLE `ticket_plans` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2025-12-10 16:08:03
+-- Dump completed on 2025-12-13 16:15:04
