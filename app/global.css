@@ -308,7 +308,8 @@
   height: 100%;
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  justify-content: flex-start;
+  padding-top: 0.9rem;
 }
 
 .salon-board__booking-service {
@@ -429,28 +430,28 @@
 
 /* Utility classes for dynamic styling */
 .salon-board__booking--facial {
-  background-color: rgba(255, 105, 180, 0.125);
+  background-color: rgba(255, 105, 180, 0.2);
   border-left-color: #ff69b4;
 }
 
 .salon-board__booking--body-treatment {
-  background-color: rgba(50, 205, 50, 0.125);
+  background-color: rgba(50, 205, 50, 0.2);
   border-left-color: #32cd32;
 }
 
 .salon-board__booking--coupon {
-  background-color: rgba(251, 146, 60, 0.125);
+  background-color: rgba(251, 146, 60, 0.2);
   border-left-color: #fb923c;
 }
 
 /* global.css の予約の色分け部分 */
 .salon-board__booking--limited {
-  background-color: rgba(59, 130, 246, 0.125);
+  background-color: rgba(59, 130, 246, 0.2);
   border-left-color: #3b82f6;
 }
 
 .salon-board__booking--other {
-  background-color: rgba(147, 112, 219, 0.125);
+  background-color: rgba(147, 112, 219, 0.2);
   border-left-color: #9370db;
 }
 
