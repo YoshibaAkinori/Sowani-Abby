@@ -1,7 +1,7 @@
 "use client";
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Settings, Users, Clock, Sparkles, Settings2, Calculator, Gift, Database, FileText, Printer, Link2 ,Key} from 'lucide-react';
+import { ArrowLeft, Settings, Users, Clock, Sparkles, Settings2, Calculator, Gift, Database, FileText, Printer, Link2, Key, ChevronLeft, ChevronRight } from 'lucide-react';
 import StaffManagement from './set_component/StaffManagement';
 import ShiftManagement from './set_component/ShiftManagement';
 import ServicesManagement from './set_component/ServicesManagement';
@@ -18,6 +18,7 @@ import './settings.css';
 const SettingsPage = () => {
   const [activeTab, setActiveTab] = useState('staff');
   const [isUnlocked, setIsUnlocked] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   const settingsMenu = [
     { id: 'staff', label: 'スタッフ管理', icon: Users, description: 'スタッフ情報の登録' },
@@ -29,7 +30,6 @@ const SettingsPage = () => {
     { id: 'coupon', label: 'クーポン送信管理', icon: Gift, description: 'クーポン作成・配信・管理' },
     { id: 'line-link', label: 'LINE連携管理', icon: Link2, description: 'LINE友だち連携の管理' },
     { id: 'pin', label: 'PIN設定', icon: Key, description: '設定画面のPINコード変更' },
-    //{ id: 'documents', label: '各種書類作成', icon: FileText, description: '売上報告書・レシート管理' },
     { id: 'backup', label: 'バックアップ管理', icon: Database, description: 'データバックアップ・復元管理' },
   ];
 
@@ -51,7 +51,6 @@ const SettingsPage = () => {
             <div className="settings__content-card">
               <p className="settings__content-description">スタッフのシフトスケジュール作成・勤務実績の確認</p>
               <ShiftManagement />
-
             </div>
           </div>
         );
@@ -115,7 +114,7 @@ const SettingsPage = () => {
             </div>
           </div>
         );
-      case 'pin':  // 追加
+      case 'pin':
         return (
           <div>
             <h2 className="settings__content-title">PIN設定</h2>
@@ -125,18 +124,6 @@ const SettingsPage = () => {
             </div>
           </div>
         );
-      /*
-      case 'documents':
-        return (
-          <div>
-            <h2 className="settings__content-title">各種書類作成</h2>
-            <div className="settings__content-card">
-              <p className="settings__content-description">請求書、領収書、レシート、売上報告書などの各種帳票の作成・印刷・PDF出力を行います。顧客情報と連携した自動作成機能、テンプレートのカスタマイズも可能です。</p>
-              <div className="settings__content-status">※ 機能実装中</div>
-            </div>
-          </div>
-        );
-      */
       case 'backup':
         return (
           <div>
@@ -151,6 +138,7 @@ const SettingsPage = () => {
         return null;
     }
   };
+
   // PIN認証チェック
   if (!isUnlocked) {
     return <PinAuth onSuccess={() => setIsUnlocked(true)} />;
@@ -159,17 +147,33 @@ const SettingsPage = () => {
   return (
     <div className="settings">
       {/* 左サイドバー */}
-      <div className="settings__sidebar">
+      <div className={`settings__sidebar ${sidebarCollapsed ? 'settings__sidebar--collapsed' : ''}`}>
         {/* ヘッダー */}
         <div className="settings__sidebar-header">
-          <Link href="/" className="settings__back-link">
-            <ArrowLeft className="settings__back-icon" />
-            <span>予約一覧に戻る</span>
-          </Link>
-          <div className="settings__sidebar-title">
-            <Settings className="settings__sidebar-title-icon" />
-            <h1>設定</h1>
-          </div>
+          {!sidebarCollapsed && (
+            <>
+              <Link href="/" className="settings__back-link">
+                <ArrowLeft className="settings__back-icon" />
+                <span>予約一覧に戻る</span>
+              </Link>
+              <div className="settings__sidebar-title">
+                <Settings className="settings__sidebar-title-icon" />
+                <h1>設定</h1>
+              </div>
+            </>
+          )}
+          {sidebarCollapsed && (
+            <Link href="/" className="settings__back-link-icon" title="予約一覧に戻る">
+              <ArrowLeft size={20} />
+            </Link>
+          )}
+          <button
+            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+            className="settings__sidebar-toggle"
+            title={sidebarCollapsed ? 'メニューを展開' : 'メニューを折りたたむ'}
+          >
+            {sidebarCollapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
+          </button>
         </div>
 
         {/* メニュー */}
@@ -182,12 +186,15 @@ const SettingsPage = () => {
                 key={item.id}
                 onClick={() => setActiveTab(item.id)}
                 className={`settings__nav-item ${isActive ? 'settings__nav-item--active' : ''}`}
+                title={sidebarCollapsed ? item.label : ''}
               >
                 <Icon className="settings__nav-icon" />
-                <div className="settings__nav-content">
-                  <div className="settings__nav-label">{item.label}</div>
-                  <div className="settings__nav-description">{item.description}</div>
-                </div>
+                {!sidebarCollapsed && (
+                  <div className="settings__nav-content">
+                    <div className="settings__nav-label">{item.label}</div>
+                    <div className="settings__nav-description">{item.description}</div>
+                  </div>
+                )}
               </button>
             );
           })}
