@@ -58,7 +58,7 @@ const OptionsManagement = () => {
   const fetchOptions = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch('/api/options');
+      const response = await fetch('/api/options?all=true');
       if (response.ok) {
         const data = await response.json();
         setOptions(data.data || []);

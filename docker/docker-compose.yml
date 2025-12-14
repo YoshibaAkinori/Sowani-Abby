@@ -18,12 +18,20 @@ services:
         condition: service_healthy
     networks:
       - salon_network
+    # メモリ制限
+    deploy:
+      resources:
+        limits:
+          memory: 1G         # 最大1GB
+        reservations:
+          memory: 256M       # 最低保証256MB
     # ログが溜まりすぎてディスク100%になるのを防ぐ設定
     logging:
       driver: "json-file"
       options:
         max-size: "10m"
         max-file: "3"
+
   db:
     build:
       context: ./mysql
@@ -37,12 +45,17 @@ services:
       TZ: 'Asia/Tokyo'
     volumes:
       - salon_db_data:/var/lib/mysql
-      #- ./mysql/init:/docker-entrypoint-initdb.d
-      #- ./mysql/my.cnf:/etc/mysql/conf.d/my.cnf
     ports:
       - "${DB_PORT:-3306}:3306"
     networks:
       - salon_network
+    # メモリ制限
+    deploy:
+      resources:
+        limits:
+          memory: 1G         # 最大1GB
+        reservations:
+          memory: 256M       # 最低保証256MB
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_ROOT_PASSWORD}"]
       interval: 10s
@@ -61,9 +74,43 @@ services:
       - "${PHPMYADMIN_PORT:-8080}:80"
     networks:
       - salon_network
+    # メモリ制限
+    deploy:
+      resources:
+        limits:
+          memory: 256M       # 最大256MB
+        reservations:
+          memory: 64M        # 最低保証64MB
     depends_on:
       db:
         condition: service_healthy
+
+  # Cloudflare Tunnel（本番環境のみ）
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: salon_cloudflared
+    profiles:
+      - production           # --profile production の時だけ起動
+    restart: unless-stopped
+    command: tunnel run
+    environment:
+      - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
+    depends_on:
+      - app
+    networks:
+      - salon_network
+    # メモリ制限
+    deploy:
+      resources:
+        limits:
+          memory: 128M       # 最大128MB
+        reservations:
+          memory: 32M        # 最低保証32MB
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
 volumes:
   salon_db_data:

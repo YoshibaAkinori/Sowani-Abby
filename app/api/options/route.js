@@ -6,9 +6,11 @@ import { getConnection } from '../../../lib/db';
 export async function GET(request) {
   try {
     const pool = await getConnection();
+    const { searchParams } = new URL(request.url);
+    const all = searchParams.get('all') === 'true';
 
-    const [rows] = await pool.execute(
-      `SELECT 
+    let query = `
+      SELECT 
         option_id,
         name,
         category,
@@ -17,16 +19,24 @@ export async function GET(request) {
         is_active,
         created_at
       FROM options
-      WHERE is_active = TRUE
-      ORDER BY 
-        CASE category
-          WHEN 'フェイシャル' THEN 1
-          WHEN 'ボディ' THEN 2
-          WHEN 'その他' THEN 3
-          ELSE 4
-        END,
-        name`
-    );
+    `;
+
+    // all=true でなければ有効なもののみ
+    if (!all) {
+      query += ' WHERE is_active = TRUE';
+    }
+
+    query += ` ORDER BY 
+      is_active DESC,
+      CASE category
+        WHEN 'フェイシャル' THEN 1
+        WHEN 'ボディ' THEN 2
+        WHEN 'その他' THEN 3
+        ELSE 4
+      END,
+      name`;
+
+    const [rows] = await pool.execute(query);
 
     return NextResponse.json({
       success: true,

@@ -6,9 +6,11 @@ import { getConnection } from '../../../lib/db';
 export async function GET(request) {
   try {
     const pool = await getConnection();
-    
-    const [rows] = await pool.execute(
-      `SELECT 
+    const { searchParams } = new URL(request.url);
+    const all = searchParams.get('all') === 'true';
+
+    let query = `
+      SELECT 
         staff_id,
         name,
         color,
@@ -18,9 +20,16 @@ export async function GET(request) {
         is_active,
         created_at
       FROM staff
-      WHERE is_active = TRUE
-      ORDER BY created_at ASC`  
-    );
+    `;
+
+    // all=true でなければ有効なもののみ
+    if (!all) {
+      query += ' WHERE is_active = TRUE';
+    }
+
+    query += ' ORDER BY is_active DESC, created_at ASC';
+
+    const [rows] = await pool.execute(query);
 
     return NextResponse.json({
       success: true,

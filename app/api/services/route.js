@@ -8,10 +8,10 @@ export async function GET(request) {
     const pool = await getConnection();
     const { searchParams } = new URL(request.url);
     const includeTickets = searchParams.get('includeTickets') === 'true';
-    
-    // サービス一覧を取得
-    const [services] = await pool.execute(
-      `SELECT 
+    const all = searchParams.get('all') === 'true';
+
+    let query = `
+      SELECT 
         service_id,
         name,
         description,
@@ -23,9 +23,16 @@ export async function GET(request) {
         is_active,
         created_at
       FROM services
-      WHERE is_active = TRUE
-      ORDER BY category, name`
-    );
+    `;
+
+    // all=true でなければ有効なもののみ
+    if (!all) {
+      query += ' WHERE is_active = TRUE';
+    }
+
+    query += ' ORDER BY is_active DESC, category, name';
+
+    const [services] = await pool.execute(query);
 
     // 回数券プランも取得する場合
     if (includeTickets) {

@@ -8,6 +8,7 @@ export async function GET(request) {
     const pool = await getConnection();
     const { searchParams } = new URL(request.url);
     const serviceId = searchParams.get('serviceId');
+    const all = searchParams.get('all') === 'true';
 
     let query = `
       SELECT 
@@ -19,22 +20,30 @@ export async function GET(request) {
         tp.total_sessions,
         tp.price,
         tp.validity_days,
+        tp.is_active,
         s.name as service_name,
         s.category as service_master_category,
         s.price as service_unit_price
       FROM ticket_plans tp
       JOIN services s ON tp.service_id = s.service_id
+      WHERE 1=1
     `;
 
-    query += ' WHERE tp.is_active = TRUE';
     const params = [];
+
+    // all=true でなければ有効なもののみ
+    if (!all) {
+      query += ' AND tp.is_active = TRUE';
+    }
+
     if (serviceId) {
       query += ' AND tp.service_id = ?';
       params.push(serviceId);
     }
 
-    // ソート順を変更: カテゴリ → 性別 → サービス名 → 回数
+    // ソート順を変更: 有効/無効 → カテゴリ → 性別 → サービス名 → 回数
     query += ` ORDER BY 
+      tp.is_active DESC,
       tp.service_category,
       CASE tp.gender_restriction
         WHEN 'all' THEN 1
@@ -184,7 +193,8 @@ export async function PUT(request) {
       gender_restriction,
       total_sessions,
       price,
-      validity_days
+      validity_days,
+      is_active
     } = body;
 
     // バリデーション
@@ -223,7 +233,8 @@ export async function PUT(request) {
            gender_restriction = ?,
            total_sessions = ?, 
            price = ?,
-           validity_days = ?
+           validity_days = ?,
+           is_active = ?
        WHERE plan_id = ?`,
       [
         name,
@@ -232,6 +243,7 @@ export async function PUT(request) {
         total_sessions,
         price,
         validity_days,
+        is_active !== undefined ? is_active : true,
         plan_id
       ]
     );
@@ -272,10 +284,15 @@ export async function DELETE(request) {
     );
 
     if (tickets[0].count > 0) {
-      return NextResponse.json(
-        { success: false, error: '販売済みの回数券があるため削除できません' },
-        { status: 400 }
+      // 販売済みがある場合は無効化のみ
+      await pool.execute(
+        'UPDATE ticket_plans SET is_active = FALSE WHERE plan_id = ?',
+        [planId]
       );
+      return NextResponse.json({
+        success: true,
+        message: '販売済みの回数券があるため無効化しました'
+      });
     }
 
     // 削除実行

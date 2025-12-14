@@ -42,7 +42,7 @@ const StaffManagement = () => {
   const fetchStaff = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch('/api/staff');
+      const response = await fetch('/api/staff?all=true');
       if (response.ok) {
         const data = await response.json();
         setStaff(data.data || []);

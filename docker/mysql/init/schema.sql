@@ -396,6 +396,7 @@ CREATE TABLE `line_pending_links` (
   `id` int NOT NULL AUTO_INCREMENT,
   `line_user_id` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
   `display_name` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `profile_image_url` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `event_type` enum('follow','message') COLLATE utf8mb4_unicode_ci NOT NULL,
   `message_text` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `received_at` datetime DEFAULT CURRENT_TIMESTAMP,
@@ -717,4 +718,4 @@ CREATE TABLE `ticket_plans` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2025-12-13 16:15:04
+-- Dump completed on 2025-12-14 14:22:44

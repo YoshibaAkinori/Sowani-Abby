@@ -109,7 +109,7 @@ const ServicesManagement = () => {
   // サービス一覧取得
   const fetchServices = async () => {
     try {
-      const response = await fetch('/api/services');
+      const response = await fetch('/api/services?all=true');
       if (response.ok) {
         const data = await response.json();
         setServices(data.data || []);
@@ -122,7 +122,7 @@ const ServicesManagement = () => {
   // 回数券プラン取得
   const fetchTicketPlans = async () => {
     try {
-      const response = await fetch('/api/ticket-plans');
+      const response = await fetch('/api/ticket-plans?all=true');
       if (response.ok) {
         const data = await response.json();
         setTicketPlans(data.data || []);
@@ -135,7 +135,7 @@ const ServicesManagement = () => {
   // クーポン取得
   const fetchCoupons = async () => {
     try {
-      const response = await fetch('/api/coupons');
+      const response = await fetch('/api/coupons?all=true');
       if (response.ok) {
         const data = await response.json();
         setCoupons(data.data || []);
@@ -150,7 +150,7 @@ const ServicesManagement = () => {
   // 期間限定オファー取得
   const fetchLimitedOffers = async () => {
     try {
-      const response = await fetch('/api/limited-offers');
+      const response = await fetch('/api/limited-offers?all=true');
       if (response.ok) {
         const data = await response.json();
         setLimitedOffers(data.data || []);

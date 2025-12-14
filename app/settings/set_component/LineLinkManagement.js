@@ -255,14 +255,6 @@ export default function LineLinkManagement() {
           ))}
         </div>
       )}
-
-      {/* Webhook URL案内 */}
-      <div className="webhook-info">
-        <h4>⚙️ LINE Developers設定</h4>
-        <p>Webhook URLに以下を設定してください：</p>
-        <code>{typeof window !== 'undefined' ? window.location.origin : ''}/api/line/webhook</code>
-        <p className="note">※ ローカル環境の場合はngrok等でトンネリングが必要です</p>
-      </div>
     </div>
   );
 }
