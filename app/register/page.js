@@ -495,13 +495,15 @@ const RegisterPage = () => {
       const data = await response.json();
       if (data.success) {
         // statusフィルタを削除
-        const activeTickets = (data.data || []).map(ticket => {
-          const service = services.find(s => s.name === ticket.service_name);
-          return {
-            ...ticket,
-            service_free_option_choices: service?.free_option_choices || 0
-          };
-        });
+        const activeTickets = (data.data || [])
+          .filter(ticket => ticket.sessions_remaining > 0)  // ← この行を追加
+          .map(ticket => {
+            const service = services.find(s => s.name === ticket.service_name);
+            return {
+              ...ticket,
+              service_free_option_choices: service?.free_option_choices || 0
+            };
+          });
         setOwnedTickets(activeTickets);
       }
     } catch (err) {
@@ -2218,6 +2220,8 @@ const RegisterPage = () => {
       {showCheckoutComplete && completedPaymentId && (
         <CheckoutCompleteModal
           paymentId={completedPaymentId}
+          customerId={selectedCustomer?.customer_id}
+          lineConnected={!!selectedCustomer?.line_user_id}
           onClose={handleCloseCheckoutComplete}
         />
       )}

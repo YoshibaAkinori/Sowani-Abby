@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { ArrowLeft, Users, Search, Calendar, Phone, Mail, CreditCard, Tag, Clock, Edit2, Plus, FileText, Save, X } from 'lucide-react';
 import './customers.css';
 import Receipt from '../components/Receipt';
+import TicketGroupList from '../components/TicketGroupList';
 
 const CustomersPage = () => {
   const [activeTab, setActiveTab] = useState('basic');
@@ -148,6 +149,15 @@ const CustomersPage = () => {
     };
     return labels[gender] || '未設定';
   };
+  // 顧客選択を解除
+  const handleClearCustomer = () => {
+    setSelectedCustomer(null);
+    setCustomerTickets([]);
+    setCustomerCoupons([]);
+    setVisitHistory([]);
+    setActiveTab('basic');
+    setIsEditMode(false);
+  };
 
   // 編集モード開始
   const handleStartEdit = () => {
@@ -252,106 +262,108 @@ const CustomersPage = () => {
       {/* メインコンテンツ */}
       <main className="customers-page__main">
         {/* 検索セクション */}
-        <section className="customers-page__search-section">
-          <div className="customers-page__search-grid">
-            {/* 左側: 名前検索 */}
-            <div className="customers-page__search-box">
-              <label className="customers-page__search-label">
-                <Search size={16} />
-                お客様検索(名前)
-              </label>
-              <div className="customers-page__search-input-group">
-                <input
-                  type="text"
-                  className="customers-page__search-input"
-                  placeholder="姓名を入力(例: 田中、田中花子)"
-                  value={searchName}
-                  onChange={(e) => setSearchName(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && handleNameSearch()}
-                  disabled={isLoading}
-                />
-                <button
-                  className="customers-page__search-btn"
-                  onClick={handleNameSearch}
-                  disabled={isLoading}
-                >
+        {!selectedCustomer && (
+          <section className="customers-page__search-section">
+            <div className="customers-page__search-grid">
+              {/* 左側: 名前検索 */}
+              <div className="customers-page__search-box">
+                <label className="customers-page__search-label">
                   <Search size={16} />
-                  {isLoading ? '検索中...' : '検索'}
-                </button>
-              </div>
-
-              {/* 検索結果 */}
-              {searchResults.length > 0 && (
-                <div className="customers-page__search-results">
-                  {searchResults.map(customer => (
-                    <div
-                      key={customer.customer_id}
-                      className="customers-page__search-result-item"
-                      onClick={() => handleSelectCustomer(customer.customer_id)}
-                    >
-                      <div className="customers-page__result-name">
-                        {customer.last_name} {customer.first_name}
-                        ({customer.last_name_kana} {customer.first_name_kana})
-                      </div>
-                      <div className="customers-page__result-info">
-                        <div className="customers-page__result-info-item">
-                          <Phone size={14} />
-                          {customer.phone_number}
-                        </div>
-                        {customer.email && (
-                          <div className="customers-page__result-info-item">
-                            <Mail size={14} />
-                            {customer.email}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
+                  お客様検索(名前)
+                </label>
+                <div className="customers-page__search-input-group">
+                  <input
+                    type="text"
+                    className="customers-page__search-input"
+                    placeholder="姓名を入力(例: 田中、田中花子)"
+                    value={searchName}
+                    onChange={(e) => setSearchName(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && handleNameSearch()}
+                    disabled={isLoading}
+                  />
+                  <button
+                    className="customers-page__search-btn"
+                    onClick={handleNameSearch}
+                    disabled={isLoading}
+                  >
+                    <Search size={16} />
+                    {isLoading ? '検索中...' : '検索'}
+                  </button>
                 </div>
-              )}
-            </div>
 
-            {/* 右側: 今日の予約者 */}
-            <div className="customers-page__search-box">
-              <label className="customers-page__search-label">
-                <Calendar size={16} />
-                今日の予約者
-              </label>
-              <div className="customers-page__today-bookings">
-                {todayBookings.length > 0 ? (
-                  todayBookings.map(booking => (
-                    <div
-                      key={booking.booking_id}
-                      className="customers-page__today-booking-item"
-                      onClick={() => handleSelectFromBooking(booking.customer_id)}
-                    >
-                      <div className="customers-page__today-booking-info">
-                        <span className="customers-page__today-booking-time">
-                          {booking.start_time?.substring(0, 5)}
-                        </span>
-                        <div>
-                          <div className="customers-page__today-booking-name">
-                            {booking.last_name} {booking.first_name}
+                {/* 検索結果 */}
+                {searchResults.length > 0 && (
+                  <div className="customers-page__search-results">
+                    {searchResults.map(customer => (
+                      <div
+                        key={customer.customer_id}
+                        className="customers-page__search-result-item"
+                        onClick={() => handleSelectCustomer(customer.customer_id)}
+                      >
+                        <div className="customers-page__result-name">
+                          {customer.last_name} {customer.first_name}
+                          ({customer.last_name_kana} {customer.first_name_kana})
+                        </div>
+                        <div className="customers-page__result-info">
+                          <div className="customers-page__result-info-item">
+                            <Phone size={14} />
+                            {customer.phone_number}
                           </div>
-                          <div className="customers-page__today-booking-service">
-                            {booking.service_name} / {booking.staff_name}
-                          </div>
+                          {customer.email && (
+                            <div className="customers-page__result-info-item">
+                              <Mail size={14} />
+                              {customer.email}
+                            </div>
+                          )}
                         </div>
                       </div>
-                    </div>
-                  ))
-                ) : (
-                  <div className="customers-page__empty-state">
-                    <Calendar size={32} />
-                    <p style={{ fontSize: '0.875rem', margin: '0.5rem 0 0 0' }}>
-                      本日の予約はありません
-                    </p>
+                    ))}
                   </div>
                 )}
               </div>
+
+              {/* 右側: 今日の予約者 */}
+              <div className="customers-page__search-box">
+                <label className="customers-page__search-label">
+                  <Calendar size={16} />
+                  今日の予約者
+                </label>
+                <div className="customers-page__today-bookings">
+                  {todayBookings.length > 0 ? (
+                    todayBookings.map(booking => (
+                      <div
+                        key={booking.booking_id}
+                        className="customers-page__today-booking-item"
+                        onClick={() => handleSelectFromBooking(booking.customer_id)}
+                      >
+                        <div className="customers-page__today-booking-info">
+                          <span className="customers-page__today-booking-time">
+                            {booking.start_time?.substring(0, 5)}
+                          </span>
+                          <div>
+                            <div className="customers-page__today-booking-name">
+                              {booking.last_name} {booking.first_name}
+                            </div>
+                            <div className="customers-page__today-booking-service">
+                              {booking.service_name} / {booking.staff_name}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="customers-page__empty-state">
+                      <Calendar size={32} />
+                      <p style={{ fontSize: '0.875rem', margin: '0.5rem 0 0 0' }}>
+                        本日の予約はありません
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
-          </div>
-        </section>
+          </section>
+        )}
 
         {/* 詳細情報セクション */}
         {selectedCustomer ? (
@@ -373,9 +385,12 @@ const CustomersPage = () => {
                       <Edit2 size={16} />
                       編集
                     </button>
-                    <button className="customers-page__action-btn customers-page__action-btn--primary">
-                      <Plus size={16} />
-                      新規予約
+                    <button
+                      className="customers-page__action-btn customers-page__action-btn--secondary"
+                      onClick={handleClearCustomer}
+                    >
+                      <X size={16} />
+                      解除
                     </button>
                   </>
                 ) : (
@@ -684,49 +699,7 @@ const CustomersPage = () => {
 
               {/* 保有回数券タブ */}
               {activeTab === 'tickets' && (
-                <div className="customers-page__ticket-list">
-                  {customerTickets.map(ticket => (
-                    <div key={ticket.customer_ticket_id} className="customers-page__ticket-item">
-                      <div className="customers-page__ticket-info">
-                        <h3>{ticket.plan_name}</h3>
-                        <div className="customers-page__ticket-details">
-                          <span>購入日: {ticket.purchase_date}</span>
-                          <span>有効期限: {ticket.expiry_date}</span>
-                          <span>購入価格: ¥{ticket.purchase_price.toLocaleString()}</span>
-                          <span>支払済: ¥{ticket.total_paid.toLocaleString()}</span>
-                          {ticket.remaining_payment > 0 && (
-                            <span style={{ color: '#dc2626', fontWeight: 600 }}>
-                              残支払額: ¥{ticket.remaining_payment.toLocaleString()}
-                            </span>
-                          )}
-                          {ticket.remaining_payment === 0 && (
-                            <span style={{ color: '#059669', fontWeight: 600 }}>
-                              支払済
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                      <div className="customers-page__ticket-status">
-                        <div className="customers-page__ticket-remaining">
-                          残り {ticket.sessions_remaining} / {ticket.total_sessions} 回
-                        </div>
-                        <span className={`customers-page__ticket-badge ${ticket.status === 'active'
-                          ? 'customers-page__ticket-badge--active'
-                          : 'customers-page__ticket-badge--expired'
-                          }`}>
-                          {ticket.status === 'active' ? '有効' : ticket.status === 'used_up' ? '使用済' : '期限切れ'}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-
-                  {customerTickets.length === 0 && (
-                    <div className="customers-page__empty-state">
-                      <CreditCard size={48} />
-                      <p>保有している回数券はありません</p>
-                    </div>
-                  )}
-                </div>
+                <TicketGroupList tickets={customerTickets} />
               )}
 
               {/* クーポン利用履歴タブ */}
@@ -813,7 +786,7 @@ const CustomersPage = () => {
                         const isTicketPurchaseOnly = visit.ticket_purchases &&
                           visit.ticket_purchases.length > 0 &&
                           !visit.service;
-                        
+
                         // 回数券使用のみの場合
                         const isTicketUseOnly = visit.detail_info?.type === 'ticket_use' && !visit.service;
 

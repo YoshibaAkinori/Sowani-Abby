@@ -28,25 +28,51 @@
   padding: 32px;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
   text-align: center;
-  min-width: 280px;
+  min-width: 320px;
 }
 
 .checkout-complete-modal__title {
   font-size: 20px;
   font-weight: 700;
   color: #111827;
-  margin-bottom: 28px;
+  margin-bottom: 20px;
 }
 
+/* ステータスメッセージ */
+.checkout-complete-modal__status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  margin-bottom: 20px;
+}
+
+.checkout-complete-modal__status--success {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.checkout-complete-modal__status--error {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+/* ボタンコンテナ */
 .checkout-complete-modal__buttons {
   display: flex;
-  gap: 24px;
+  gap: 20px;
   justify-content: center;
+  flex-wrap: wrap;
 }
 
+/* 共通ボタンスタイル */
 .checkout-complete-modal__btn {
-  width: 100px;
-  height: 100px;
+  width: 90px;
+  height: 90px;
   border-radius: 50%;
   border: none;
   cursor: pointer;
@@ -54,20 +80,49 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 6px;
   transition: all 0.2s;
   font-weight: 600;
-  font-size: 12px;
+  font-size: 11px;
 }
 
-.checkout-complete-modal__btn:hover {
+.checkout-complete-modal__btn:hover:not(:disabled) {
   transform: scale(1.05);
 }
 
-.checkout-complete-modal__btn:active {
+.checkout-complete-modal__btn:active:not(:disabled) {
   transform: scale(0.95);
 }
 
+.checkout-complete-modal__btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* LINE送信ボタン */
+.checkout-complete-modal__btn--line {
+  background: linear-gradient(135deg, #06c755 0%, #05a847 100%);
+  color: white;
+  box-shadow: 0 8px 20px rgba(6, 199, 85, 0.4);
+}
+
+.checkout-complete-modal__btn--line:hover:not(:disabled) {
+  box-shadow: 0 12px 28px rgba(6, 199, 85, 0.5);
+}
+
+.checkout-complete-modal__btn--line.sent {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+}
+
+/* LINE未連携ボタン */
+.checkout-complete-modal__btn--line-disabled {
+  background: linear-gradient(135deg, #9ca3af 0%, #6b7280 100%);
+  color: white;
+  box-shadow: 0 4px 10px rgba(107, 114, 128, 0.3);
+  opacity: 0.5;
+}
+
+/* レシート発行ボタン */
 .checkout-complete-modal__btn--print {
   background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
   color: white;
@@ -78,6 +133,7 @@
   box-shadow: 0 12px 28px rgba(59, 130, 246, 0.5);
 }
 
+/* 閉じるボタン */
 .checkout-complete-modal__btn--close {
   background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);
   color: white;
@@ -86,4 +142,37 @@
 
 .checkout-complete-modal__btn--close:hover {
   box-shadow: 0 12px 28px rgba(107, 114, 128, 0.5);
+}
+
+/* 送信中アニメーション */
+.checkout-complete-modal__btn--line:disabled:not(.sent) {
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+/* レスポンシブ対応 */
+@media (max-width: 400px) {
+  .checkout-complete-modal__content {
+    min-width: auto;
+    width: 90%;
+    padding: 24px 16px;
+  }
+  
+  .checkout-complete-modal__buttons {
+    gap: 12px;
+  }
+  
+  .checkout-complete-modal__btn {
+    width: 80px;
+    height: 80px;
+    font-size: 10px;
+  }
 }

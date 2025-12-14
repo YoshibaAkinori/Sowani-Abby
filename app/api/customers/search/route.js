@@ -20,6 +20,7 @@ export async function GET(request) {
     let query = `
       SELECT 
         c.customer_id,
+        c.line_user_id,
         c.last_name,
         c.first_name,
         c.last_name_kana,

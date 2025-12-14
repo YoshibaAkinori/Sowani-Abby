@@ -18,6 +18,7 @@ export async function GET(request) {
         b.status,
         c.last_name,
         c.first_name,
+        c.line_user_id,
         s.name as service_name,
         st.staff_id as staff_id,
         st.name as staff_name,
