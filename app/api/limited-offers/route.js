@@ -23,10 +23,13 @@ export async function GET(request) {
        lo.start_date,
        lo.end_date,
        lo.max_bookings,
+       lo.max_sales,
+       lo.current_sales,
        lo.current_bookings,
        lo.is_active,
        lo.created_at,
        tp.name as base_plan_name,
+       tp.gender_restriction as base_gender_restriction,
        s.name as base_service_name
       FROM limited_offers lo
       LEFT JOIN ticket_plans tp ON lo.base_plan_id = tp.plan_id
@@ -55,11 +58,11 @@ export async function POST(request) {
     const body = await request.json();
 
     const {
-      offer_type, // 'service' or 'ticket'
+      offer_type,
       name,
       description,
       category,
-      base_plan_id, // 既存回数券ベースの場合
+      base_plan_id,
       duration_minutes,
       original_price,
       special_price,
@@ -73,16 +76,11 @@ export async function POST(request) {
     } = body;
 
     // バリデーション
-    if (!limitedForm.name || !limitedForm.special_price) {
-      setError('必須項目を入力してください');
-      setTimeout(() => setError(''), 3000);
-      return;
-    }
-
-    if (limitedForm.creation_mode === 'existing' && !limitedForm.base_plan_id) {
-      setError('ベース回数券プランを選択してください');
-      setTimeout(() => setError(''), 3000);
-      return;
+    if (!name) {
+      return NextResponse.json(
+        { success: false, error: 'オファー名は必須です' },
+        { status: 400 }
+      );
     }
 
     if (offer_type === 'ticket' && !special_price) {
@@ -115,7 +113,7 @@ export async function POST(request) {
         is_active
       ) VALUES (UUID(), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, 0, ?)`,
       [
-        offer_type,
+        offer_type || 'service',
         name,
         description || '',
         category || null,
@@ -247,7 +245,7 @@ export async function DELETE(request) {
 
     // 予約または購入履歴があるかチェック
     const [bookings] = await pool.execute(
-      'SELECT COUNT(*) as count FROM bookings WHERE limited_ticket_id = ?',
+      'SELECT COUNT(*) as count FROM bookings WHERE limited_offer_id = ?',
       [offerId]
     );
 

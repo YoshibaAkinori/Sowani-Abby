@@ -1460,17 +1460,43 @@ const RegisterPage = () => {
                       </div>
                     ))}
 
-                    {menuTab === 'limited' && limitedOffers.map(offer => (
-                      <div
-                        key={offer.offer_id}
-                        className={`menu-card ${selectedMenu?.offer_id === offer.offer_id && selectedMenuType === 'limited' ? 'menu-card--selected' : ''}`}
-                        onClick={() => handleSelectMenu(offer, 'limited')}
-                      >
-                        <div className="menu-card__name">{offer.name}</div>
-                        <div className="menu-card__info">期限: {new Date(offer.sale_end_date).toLocaleDateString()}</div>
-                        <div className="menu-card__price">¥{offer.special_price?.toLocaleString()}</div>
-                      </div>
-                    ))}
+                    {menuTab === 'limited' && (() => {
+                      const today = new Date();
+                      today.setHours(0, 0, 0, 0);
+
+                      const filteredOffers = limitedOffers.filter(offer => {
+                        // 購入期限チェック
+                        if (offer.end_date) {
+                          const endDate = new Date(offer.end_date);
+                          endDate.setHours(23, 59, 59, 999);
+                          if (endDate < today) return false;
+                        }
+
+                        // 性別チェック
+                        const gender = offer.base_gender_restriction || 'all';
+                        if (gender === 'all') return true;
+                        if (!selectedCustomer?.gender || selectedCustomer.gender === 'not_specified') return true;
+                        return gender === selectedCustomer.gender;
+                      });
+
+                      if (filteredOffers.length === 0) {
+                        return <div className="empty-message">該当する期間限定オファーがありません</div>;
+                      }
+
+                      return filteredOffers.map(offer => (
+                        <div
+                          key={offer.offer_id}
+                          className={`menu-card ${selectedMenu?.offer_id === offer.offer_id && selectedMenuType === 'limited' ? 'menu-card--selected' : ''}`}
+                          onClick={() => handleSelectMenu(offer, 'limited')}
+                        >
+                          <div className="menu-card__name">{offer.name}</div>
+                          <div className="menu-card__info">
+                            購入期限: {offer.end_date ? new Date(offer.end_date).toLocaleDateString('ja-JP') : '無期限'}
+                          </div>
+                          <div className="menu-card__price">¥{offer.special_price?.toLocaleString()}</div>
+                        </div>
+                      ));
+                    })()}
                   </div>
                 )}
 

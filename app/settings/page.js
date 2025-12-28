@@ -1,7 +1,7 @@
 "use client";
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Settings, Users, Clock, Sparkles, Settings2, Calculator, Gift, Database, FileText, Printer, Link2, Key, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Settings, Users, Clock, Sparkles, Settings2, Calculator, Gift, Database, FileText, Printer, Link2, Key, ChevronLeft, ChevronRight, Upload } from 'lucide-react';
 import StaffManagement from './set_component/StaffManagement';
 import ShiftManagement from './set_component/ShiftManagement';
 import ServicesManagement from './set_component/ServicesManagement';
@@ -13,6 +13,7 @@ import LineMarketing from './set_component/LineMarketing';
 import LineLinkManagement from './set_component/LineLinkManagement';
 import PinAuth from './set_component/PinAuth';
 import PinChange from './set_component/PinChange';
+import InitialDataImport from './set_component/InitialDataImport';
 import './settings.css';
 
 const SettingsPage = () => {
@@ -31,6 +32,7 @@ const SettingsPage = () => {
     { id: 'line-link', label: 'LINE連携管理', icon: Link2, description: 'LINE友だち連携の管理' },
     { id: 'pin', label: 'PIN設定', icon: Key, description: '設定画面のPINコード変更' },
     { id: 'backup', label: 'バックアップ管理', icon: Database, description: 'データバックアップ・復元管理' },
+    { id: 'initial-data', label: '初期データ登録', icon: Upload, description: '顧客・回数券の一括登録' },
   ];
 
   const renderContent = () => {
@@ -131,6 +133,18 @@ const SettingsPage = () => {
             <div className="settings__content-card">
               <p className="settings__content-description">システムデータのバックアップ・復元、アプリのアップデート管理を行います。</p>
               <BackupManagement />
+            </div>
+          </div>
+        );
+      case 'initial-data':
+        return (
+          <div>
+            <h2 className="settings__content-title">初期データ登録</h2>
+            <div className="settings__content-card">
+              <p className="settings__content-description">
+                顧客情報と回数券（福袋・通常回数券）を一括で登録します。
+              </p>
+              <InitialDataImport />
             </div>
           </div>
         );

@@ -21,6 +21,7 @@ const ServicesManagement = () => {
   // 状態に編集用のIDと編集中のフォームを追加
   const [editingTicketId, setEditingTicketId] = useState(null);
   const [editingCouponId, setEditingCouponId] = useState(null);
+  const [editingLimitedId, setEditingLimitedId] = useState(null);
 
   // サービスフォームデータ（自由選択オプション追加）
   const [serviceForm, setServiceForm] = useState({
@@ -293,6 +294,80 @@ const ServicesManagement = () => {
       ...prev,
       [name]: type === 'checkbox' ? checked : value
     }));
+  };
+  // 期間限定更新処理
+  const handleUpdateLimited = async () => {
+    if (!limitedForm.name || !limitedForm.special_price) {
+      setError('必須項目を入力してください');
+      setTimeout(() => setError(''), 3000);
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const requestData = {
+        offer_id: editingLimitedId,
+        offer_type: 'ticket',
+        name: limitedForm.name,
+        description: limitedForm.description,
+        category: limitedForm.category || null,
+        base_plan_id: limitedForm.creation_mode === 'existing' ? limitedForm.base_plan_id : null,
+        duration_minutes: limitedForm.duration_minutes || 0,
+        original_price: limitedForm.original_price || null,
+        special_price: Number(limitedForm.special_price),
+        total_sessions: Number(limitedForm.total_sessions),
+        validity_days: Number(limitedForm.validity_days),
+        start_date: limitedForm.start_date || null,
+        end_date: limitedForm.end_date || null,
+        max_sales: limitedForm.max_sales ? Number(limitedForm.max_sales) : null,
+        is_active: limitedForm.is_active
+      };
+
+      const response = await fetch('/api/limited-offers', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestData)
+      });
+
+      if (response.ok) {
+        setSuccess('期間限定オファーを更新しました');
+        fetchLimitedOffers();
+        setShowLimitedForm(false);
+        setEditingLimitedId(null);
+        resetLimitedForm();
+      } else {
+        const data = await response.json();
+        throw new Error(data.error || '更新に失敗しました');
+      }
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
+      setTimeout(() => { setSuccess(''); setError(''); }, 3000);
+    }
+  };
+  // 期間限定編集開始
+  const startEditLimited = (offer) => {
+    setLimitedForm({
+      offer_type: offer.offer_type || 'ticket',
+      creation_mode: offer.base_plan_id ? 'existing' : 'new',
+      base_plan_id: offer.base_plan_id || '',
+      name: offer.name,
+      description: offer.description || '',
+      category: offer.category || '',
+      service_name: offer.base_service_name || '',
+      duration_minutes: offer.duration_minutes || 0,
+      original_price: offer.original_price || '',
+      total_sessions: offer.total_sessions || 1,
+      special_price: offer.special_price || '',
+      validity_days: offer.validity_days || 180,
+      start_date: offer.start_date ? offer.start_date.split('T')[0] : '',
+      end_date: offer.end_date ? offer.end_date.split('T')[0] : '',
+      max_sales: offer.max_sales || '',
+      is_active: offer.is_active
+    });
+    setEditingLimitedId(offer.offer_id);
+    setShowLimitedForm(true);
   };
 
   // サービス新規追加
@@ -752,6 +827,31 @@ const ServicesManagement = () => {
       setTimeout(() => { setSuccess(''); setError(''); }, 3000);
     }
   };
+  // 期間限定削除
+  const handleDeleteLimited = async (offerId) => {
+    if (!confirm('この期間限定オファーを削除しますか？')) return;
+
+    setIsLoading(true);
+    try {
+      const response = await fetch(`/api/limited-offers?id=${offerId}`, {
+        method: 'DELETE'
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setSuccess(data.message);
+        fetchLimitedOffers();
+      } else {
+        const data = await response.json();
+        throw new Error(data.error || '削除に失敗しました');
+      }
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
+      setTimeout(() => { setSuccess(''); setError(''); }, 3000);
+    }
+  };
 
   // フォームリセット
   const resetServiceForm = () => {
@@ -820,18 +920,18 @@ const ServicesManagement = () => {
 
   // キャンセル
   const handleCancel = () => {
-    setEditingId(null);
-    setEditingTicketId(null);
-    setEditingCouponId(null);
     setShowAddForm(false);
     setShowTicketForm(false);
     setShowCouponForm(false);
     setShowLimitedForm(false);
+    setEditingId(null);
+    setEditingTicketId(null);
+    setEditingCouponId(null);
+    setEditingLimitedId(null);  // ← これを追加
     resetServiceForm();
     resetTicketForm();
     resetCouponForm();
     resetLimitedForm();
-    setError('');
   };
 
   // 価格の計算ヘルパー
@@ -2113,12 +2213,12 @@ const ServicesManagement = () => {
                   キャンセル
                 </button>
                 <button
-                  onClick={handleAddLimitedOffer}
+                  onClick={editingLimitedId ? handleUpdateLimited : handleAddLimitedOffer}
                   className="services-btn services-btn--primary"
                   disabled={isLoading}
                 >
                   <Save size={16} />
-                  登録
+                  {editingLimitedId ? '更新' : '登録'}
                 </button>
               </div>
             </div>
@@ -2172,13 +2272,22 @@ const ServicesManagement = () => {
                       </span>
                     </td>
                     <td>
-                      <button
-                        onClick={() => console.log('編集:', offer.offer_id)}
-                        className="services-btn-icon services-btn-icon--primary"
-                        disabled={isLoading}
-                      >
-                        <Edit2 size={16} />
-                      </button>
+                      <div className="services-actions">
+                        <button
+                          onClick={() => startEditLimited(offer)}
+                          className="services-btn-icon services-btn-icon--primary"
+                          disabled={isLoading}
+                        >
+                          <Edit2 size={16} />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteLimited(offer.offer_id)}
+                          className="services-btn-icon services-btn-icon--danger"
+                          disabled={isLoading}
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
