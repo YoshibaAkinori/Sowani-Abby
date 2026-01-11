@@ -41,16 +41,26 @@ const DateScrollPicker = ({ isOpen, onClose, onConfirm, initialDate }) => {
     }
   }, [selectedYear, selectedMonth]);
   
-  // 初期位置にスクロール
+  // モーダルが開いたときに初期値をセット
   useEffect(() => {
     if (isOpen) {
+      const initial = initialDate ? new Date(initialDate) : new Date();
+      const year = initial.getFullYear();
+      const month = initial.getMonth() + 1;
+      const day = initial.getDate();
+      
+      setSelectedYear(year);
+      setSelectedMonth(month);
+      setSelectedDay(day);
+      
+      // スクロール位置を設定
       setTimeout(() => {
-        scrollToSelected(yearRef, years.indexOf(selectedYear));
-        scrollToSelected(monthRef, selectedMonth - 1);
-        scrollToSelected(dayRef, selectedDay - 1);
+        scrollToSelected(yearRef, years.indexOf(year));
+        scrollToSelected(monthRef, month - 1);
+        scrollToSelected(dayRef, day - 1);
       }, 50);
     }
-  }, [isOpen]);
+  }, [isOpen, initialDate]);
   
   const scrollToSelected = (ref, index) => {
     if (ref.current) {

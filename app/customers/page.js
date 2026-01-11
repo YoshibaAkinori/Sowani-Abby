@@ -5,6 +5,7 @@ import { ArrowLeft, Users, Search, Calendar, Phone, Mail, CreditCard, Tag, Clock
 import './customers.css';
 import Receipt from '../components/Receipt';
 import TicketGroupList from '../components/TicketGroupList';
+import DateScrollPicker from '../components/DateScrollPicker';
 
 const CustomersPage = () => {
   const [activeTab, setActiveTab] = useState('basic');
@@ -15,6 +16,10 @@ const CustomersPage = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [showReceipt, setShowReceipt] = useState(false);
   const [receiptPaymentId, setReceiptPaymentId] = useState(null);
+  
+  // 予約日付選択
+  const [bookingDate, setBookingDate] = useState(new Date().toISOString().split('T')[0]);
+  const [showDatePicker, setShowDatePicker] = useState(false);
 
   // 編集モード関連
   const [isEditMode, setIsEditMode] = useState(false);
@@ -42,19 +47,19 @@ const CustomersPage = () => {
 
   // 初期データ読み込み
   useEffect(() => {
-    fetchTodayBookings();
-  }, []);
+    fetchBookingsByDate();
+  }, [bookingDate]);
 
-  // 今日の予約者取得
-  const fetchTodayBookings = async () => {
+  // 指定日の予約者取得
+  const fetchBookingsByDate = async () => {
     try {
-      const response = await fetch('/api/customers/today-bookings');
+      const response = await fetch(`/api/customers/today-bookings?date=${bookingDate}`);
       const data = await response.json();
       if (data.success) {
         setTodayBookings(data.data || []);
       }
     } catch (error) {
-      console.error('今日の予約者取得エラー:', error);
+      console.error('予約者取得エラー:', error);
     }
   };
 
@@ -322,13 +327,52 @@ const CustomersPage = () => {
                 )}
               </div>
 
-              {/* 右側: 今日の予約者 */}
+              {/* 右側: 予約者一覧 */}
               <div className="customers-page__search-box">
                 <label className="customers-page__search-label">
                   <Calendar size={16} />
-                  今日の予約者
+                  予約者一覧
                 </label>
-                <div className="customers-page__today-bookings">
+                
+                {/* 日付選択ボタン */}
+                <button
+                  type="button"
+                  onClick={() => setShowDatePicker(true)}
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    marginBottom: '12px',
+                    border: '1px solid #d1d5db',
+                    borderRadius: '6px',
+                    fontSize: '14px',
+                    background: '#fff',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between'
+                  }}
+                >
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Calendar size={16} color="#6b7280" />
+                    {(() => {
+                      const d = new Date(bookingDate);
+                      const today = new Date();
+                      const isToday = bookingDate === today.toISOString().split('T')[0];
+                      const yesterday = new Date(today);
+                      yesterday.setDate(yesterday.getDate() - 1);
+                      const isYesterday = bookingDate === yesterday.toISOString().split('T')[0];
+                      const tomorrow = new Date(today);
+                      tomorrow.setDate(tomorrow.getDate() + 1);
+                      const isTomorrow = bookingDate === tomorrow.toISOString().split('T')[0];
+                      
+                      const label = isToday ? '（今日）' : isYesterday ? '（昨日）' : isTomorrow ? '（明日）' : '';
+                      return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日 ${label}`;
+                    })()}
+                  </span>
+                  <span style={{ color: '#9ca3af' }}>▼</span>
+                </button>
+
+                <div className="customers-page__today-bookings" style={{ maxHeight: '400px', overflowY: 'auto' }}>
                   {todayBookings.length > 0 ? (
                     todayBookings.map(booking => (
                       <div
@@ -355,7 +399,7 @@ const CustomersPage = () => {
                     <div className="customers-page__empty-state">
                       <Calendar size={32} />
                       <p style={{ fontSize: '0.875rem', margin: '0.5rem 0 0 0' }}>
-                        本日の予約はありません
+                        この日の予約はありません
                       </p>
                     </div>
                   )}
@@ -939,6 +983,14 @@ const CustomersPage = () => {
           onClose={handleCloseReceipt}
         />
       )}
+
+      {/* 日付スクロールピッカー */}
+      <DateScrollPicker
+        isOpen={showDatePicker}
+        onClose={() => setShowDatePicker(false)}
+        onConfirm={(date) => setBookingDate(date)}
+        initialDate={bookingDate}
+      />
     </div>
   );
 };

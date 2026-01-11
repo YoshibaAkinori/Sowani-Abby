@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, ChevronLeft, ChevronRight, Save, Edit2, Download, Upload, AlertCircle, FileText } from 'lucide-react';
 import './ShiftManagement.css';
+import TimeScrollPicker from '../../components/TimeScrollPicker';
 
 const ShiftManagement = () => {
   const [selectedMonth, setSelectedMonth] = useState(new Date());
@@ -16,6 +17,9 @@ const ShiftManagement = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [savedShifts, setSavedShifts] = useState({}); // DBに保存されているデータ
   const [message, setMessage] = useState({ type: '', text: '' });
+
+  // 時間ピッカー用state
+  const [activeTimePicker, setActiveTimePicker] = useState({ day: null, type: null });
 
   // フォームデータ
   const [formData, setFormData] = useState({
@@ -760,21 +764,31 @@ const ShiftManagement = () => {
                     <td className="shift-td-day">{day}日</td>
                     <td className={`shift-td-weekday ${getDayClass(day)}`}>{getDayOfWeek(day)}</td>
                     <td>
-                      <input type="time" value={shift?.startTime || ''} onChange={(e) => handleShiftChange(day, 'startTime', e.target.value)} className="shift-input-time" />
+                      <button
+                        type="button"
+                        onClick={() => setActiveTimePicker({ day, type: 'startTime' })}
+                        className="shift-input-time shift-time-btn"
+                      >
+                        {shift?.startTime || '--:--'}
+                      </button>
                     </td>
                     <td>
-                      <input type="time" value={shift?.endTime || ''} onChange={(e) => handleShiftChange(day, 'endTime', e.target.value)} className="shift-input-time" />
+                      <button
+                        type="button"
+                        onClick={() => setActiveTimePicker({ day, type: 'endTime' })}
+                        className="shift-input-time shift-time-btn"
+                      >
+                        {shift?.endTime || '--:--'}
+                      </button>
                     </td>
                     <td>
-                      <input
-                        type="time"
-                        value={formatMinutesToHHMM(shift?.breakMinutes || 0)}
-                        onChange={(e) => {
-                          const minutes = parseHHMMToMinutes(e.target.value);
-                          handleShiftChange(day, 'breakMinutes', minutes);
-                        }}
-                        className="shift-input-time"
-                      />
+                      <button
+                        type="button"
+                        onClick={() => setActiveTimePicker({ day, type: 'breakMinutes' })}
+                        className="shift-input-time shift-time-btn"
+                      >
+                        {formatMinutesToHHMM(shift?.breakMinutes || 0)}
+                      </button>
                     </td>
                     <td>{workHours > 0 ? formatHoursToHHMM(workHours) : '0:00'}</td>
                     <td>
@@ -800,6 +814,30 @@ const ShiftManagement = () => {
           </table>
         </div>
       </div>
+
+      {/* 時間ピッカー */}
+      <TimeScrollPicker
+        isOpen={activeTimePicker.day !== null}
+        onClose={() => setActiveTimePicker({ day: null, type: null })}
+        onConfirm={(time) => {
+          if (activeTimePicker.type === 'breakMinutes') {
+            const minutes = parseHHMMToMinutes(time);
+            handleShiftChange(activeTimePicker.day, 'breakMinutes', minutes);
+          } else {
+            handleShiftChange(activeTimePicker.day, activeTimePicker.type, time);
+          }
+          setActiveTimePicker({ day: null, type: null });
+        }}
+        initialTime={(() => {
+          if (!activeTimePicker.day) return '09:00';
+          const dateKey = getDateKey(activeTimePicker.day);
+          const shift = shifts[dateKey];
+          if (activeTimePicker.type === 'startTime') return shift?.startTime || '09:00';
+          if (activeTimePicker.type === 'endTime') return shift?.endTime || '18:00';
+          if (activeTimePicker.type === 'breakMinutes') return formatMinutesToHHMM(shift?.breakMinutes || 0);
+          return '09:00';
+        })()}
+      />
     </div>
   );
 };

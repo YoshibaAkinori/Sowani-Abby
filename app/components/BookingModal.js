@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { X, Search, Calendar, Clock, User, Phone, Mail, AlertCircle, Tag, Package, Timer, Settings2, CalendarPlus, CalendarCheck, Ban, AlertTriangle, CreditCard, Check } from 'lucide-react';
 import './BookingModal.css';
+import DateScrollPicker from './DateScrollPicker';
+import TimeScrollPicker from './TimeScrollPicker';
 
 const BookingModal = ({ activeModal, selectedSlot, onClose, onModalChange }) => {
   const isEditMode = selectedSlot?.isEdit || false;
@@ -48,6 +50,10 @@ const BookingModal = ({ activeModal, selectedSlot, onClose, onModalChange }) => 
   const [searchName, setSearchName] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [customerLimitedPurchases, setCustomerLimitedPurchases] = useState([]);
+  const [showBirthDatePicker, setShowBirthDatePicker] = useState(false);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showStartTimePicker, setShowStartTimePicker] = useState(false);
+  const [showEndTimePicker, setShowEndTimePicker] = useState(false);
 
   // 支払い情報（施術完了モード用）
   const [paymentInfo, setPaymentInfo] = useState(null);
@@ -832,6 +838,7 @@ const BookingModal = ({ activeModal, selectedSlot, onClose, onModalChange }) => 
 
   if (activeModal === 'booking') {
     return (
+      <>
       <div className="booking-page">
         <div className="booking-page-content">
           <div className="booking-page-header">
@@ -882,26 +889,65 @@ const BookingModal = ({ activeModal, selectedSlot, onClose, onModalChange }) => 
                       日時 <span className="required">●</span>
                     </label>
                     <div className="datetime-inputs">
-                      <input
-                        type="date"
-                        value={formData.date}
-                        onChange={(e) => handleInputChange('date', e.target.value)}
+                      <button
+                        type="button"
+                        onClick={() => setShowDatePicker(true)}
                         className="form-input form-input--date"
-                      />
-                      <input
-                        type="time"
-                        value={formData.startTime}
-                        onChange={(e) => handleInputChange('startTime', e.target.value)}
+                        style={{
+                          textAlign: 'left',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between'
+                        }}
+                      >
+                        <span>
+                          {formData.date
+                            ? (() => {
+                                const d = new Date(formData.date);
+                                return `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}`;
+                              })()
+                            : '日付を選択'
+                          }
+                        </span>
+                        <span style={{ color: '#9ca3af' }}>▼</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowStartTimePicker(true)}
                         className="form-input form-input--time"
-                      />
+                        style={{
+                          textAlign: 'center',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between'
+                        }}
+                      >
+                        <span>{formData.startTime || '00:00'}</span>
+                        <span style={{ color: '#9ca3af' }}>▼</span>
+                      </button>
                       <span className="time-separator">〜</span>
-                      <input
-                        type="time"
-                        value={formData.endTime}
-                        onChange={(e) => handleInputChange('endTime', e.target.value)}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (formData.bookingType === 'schedule' || isEditMode) {
+                            setShowEndTimePicker(true);
+                          }
+                        }}
                         className="form-input form-input--time"
-                        readOnly={formData.bookingType === 'booking' && !isEditMode}
-                      />
+                        style={{
+                          textAlign: 'center',
+                          cursor: (formData.bookingType === 'schedule' || isEditMode) ? 'pointer' : 'not-allowed',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          opacity: (formData.bookingType === 'booking' && !isEditMode) ? 0.6 : 1
+                        }}
+                      >
+                        <span>{formData.endTime || '00:00'}</span>
+                        <span style={{ color: '#9ca3af' }}>▼</span>
+                      </button>
                     </div>
                   </div>
 
@@ -1348,12 +1394,30 @@ const BookingModal = ({ activeModal, selectedSlot, onClose, onModalChange }) => 
 
                           <div className="form-row">
                             <label className="form-label">生年月日</label>
-                            <input
-                              type="date"
-                              value={formData.birthDate}
-                              onChange={(e) => handleInputChange('birthDate', e.target.value)}
+                            <button
+                              type="button"
+                              onClick={() => setShowBirthDatePicker(true)}
                               className="form-input"
-                            />
+                              style={{
+                                textAlign: 'left',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                background: '#fff'
+                              }}
+                            >
+                              <span style={{ color: formData.birthDate ? '#111827' : '#9ca3af' }}>
+                                {formData.birthDate
+                                  ? (() => {
+                                      const d = new Date(formData.birthDate);
+                                      return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`;
+                                    })()
+                                  : '選択してください'
+                                }
+                              </span>
+                              <span style={{ color: '#9ca3af' }}>▼</span>
+                            </button>
                           </div>
 
                           <div className="form-row">
@@ -1502,10 +1566,43 @@ const BookingModal = ({ activeModal, selectedSlot, onClose, onModalChange }) => 
           </div>
         </div>
       </div>
-    );
-  }
 
-  return null;
+      {/* 誕生日スクロールピッカー */}
+      <DateScrollPicker
+        isOpen={showBirthDatePicker}
+        onClose={() => setShowBirthDatePicker(false)}
+        onConfirm={(date) => handleInputChange('birthDate', date)}
+        initialDate={formData.birthDate || '1990-01-01'}
+      />
+
+      {/* 予約日スクロールピッカー */}
+      <DateScrollPicker
+        isOpen={showDatePicker}
+        onClose={() => setShowDatePicker(false)}
+        onConfirm={(date) => handleInputChange('date', date)}
+        initialDate={formData.date || new Date().toISOString().split('T')[0]}
+      />
+
+      {/* 開始時間スクロールピッカー */}
+      <TimeScrollPicker
+        isOpen={showStartTimePicker}
+        onClose={() => setShowStartTimePicker(false)}
+        onConfirm={(time) => handleInputChange('startTime', time)}
+        initialTime={formData.startTime || '10:00'}
+      />
+
+      {/* 終了時間スクロールピッカー */}
+      <TimeScrollPicker
+        isOpen={showEndTimePicker}
+        onClose={() => setShowEndTimePicker(false)}
+        onConfirm={(time) => handleInputChange('endTime', time)}
+        initialTime={formData.endTime || '11:00'}
+      />
+    </>
+  );
+}
+
+return null;
 };
 
 export default BookingModal;

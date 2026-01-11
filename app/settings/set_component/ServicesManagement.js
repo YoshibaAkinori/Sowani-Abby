@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Edit2, Trash2, Save, X, Check, Sparkles, Tag, Clock, Package, Users } from 'lucide-react';
 import './ServicesManagement.css';
+import DateScrollPicker from '../../components/DateScrollPicker';
 
 const ServicesManagement = () => {
   const [services, setServices] = useState([]);
@@ -80,6 +81,8 @@ const ServicesManagement = () => {
     max_sales: '',
     is_active: true
   });
+  const [showLimitedStartDatePicker, setShowLimitedStartDatePicker] = useState(false);
+  const [showLimitedEndDatePicker, setShowLimitedEndDatePicker] = useState(false);
 
   // カテゴリオプション
   const categories = ['フェイシャル', 'ボディトリート', 'その他'];
@@ -2162,22 +2165,66 @@ const ServicesManagement = () => {
 
                 <div className="services-form-group">
                   <label>販売開始日</label>
-                  <input
-                    type="date"
-                    name="start_date"
-                    value={limitedForm.start_date}
-                    onChange={handleLimitedInputChange}
-                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowLimitedStartDatePicker(true)}
+                    className="services-date-btn"
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      border: '1px solid #d1d5db',
+                      borderRadius: '6px',
+                      background: '#fff',
+                      textAlign: 'left',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between'
+                    }}
+                  >
+                    <span style={{ color: limitedForm.start_date ? '#111827' : '#9ca3af' }}>
+                      {limitedForm.start_date
+                        ? (() => {
+                            const d = new Date(limitedForm.start_date);
+                            return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`;
+                          })()
+                        : '選択してください'
+                      }
+                    </span>
+                    <span style={{ color: '#9ca3af' }}>▼</span>
+                  </button>
                 </div>
 
                 <div className="services-form-group">
                   <label>販売終了日</label>
-                  <input
-                    type="date"
-                    name="end_date"
-                    value={limitedForm.end_date}
-                    onChange={handleLimitedInputChange}
-                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowLimitedEndDatePicker(true)}
+                    className="services-date-btn"
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      border: '1px solid #d1d5db',
+                      borderRadius: '6px',
+                      background: '#fff',
+                      textAlign: 'left',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between'
+                    }}
+                  >
+                    <span style={{ color: limitedForm.end_date ? '#111827' : '#9ca3af' }}>
+                      {limitedForm.end_date
+                        ? (() => {
+                            const d = new Date(limitedForm.end_date);
+                            return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`;
+                          })()
+                        : '選択してください'
+                      }
+                    </span>
+                    <span style={{ color: '#9ca3af' }}>▼</span>
+                  </button>
                 </div>
 
                 <div className="services-form-group">
@@ -2310,6 +2357,22 @@ const ServicesManagement = () => {
           </div>
         </div>
       )}
+
+      {/* 販売開始日ピッカー */}
+      <DateScrollPicker
+        isOpen={showLimitedStartDatePicker}
+        onClose={() => setShowLimitedStartDatePicker(false)}
+        onConfirm={(date) => setLimitedForm(prev => ({ ...prev, start_date: date }))}
+        initialDate={limitedForm.start_date || new Date().toISOString().split('T')[0]}
+      />
+
+      {/* 販売終了日ピッカー */}
+      <DateScrollPicker
+        isOpen={showLimitedEndDatePicker}
+        onClose={() => setShowLimitedEndDatePicker(false)}
+        onConfirm={(date) => setLimitedForm(prev => ({ ...prev, end_date: date }))}
+        initialDate={limitedForm.end_date || new Date().toISOString().split('T')[0]}
+      />
     </div>
   );
 };

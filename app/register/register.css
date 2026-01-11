@@ -186,6 +186,9 @@
   display: flex;
   flex-direction: column;
   gap: 1rem;
+  max-height: 350px;
+  overflow-y: auto;
+  padding-right: 0.5rem;
 }
 
 .customer-item {
@@ -351,6 +354,53 @@
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
   gap: 1rem;
+  max-height: 500px;
+  overflow-y: auto;
+  padding-right: 0.5rem;
+}
+
+/* メニューグリッドのスクロールバー */
+.menu-grid::-webkit-scrollbar {
+  width: 8px;
+}
+
+.menu-grid::-webkit-scrollbar-track {
+  background: #f3f4f6;
+  border-radius: 4px;
+}
+
+.menu-grid::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 4px;
+}
+
+.menu-grid::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
+
+/* 回数券購入タブ用コンテナ */
+.ticket-buy-container {
+  max-height: 500px;
+  overflow-y: auto;
+  padding-right: 0.5rem;
+}
+
+.ticket-buy-container::-webkit-scrollbar {
+  width: 8px;
+}
+
+.ticket-buy-container::-webkit-scrollbar-track {
+  background: #f3f4f6;
+  border-radius: 4px;
+}
+
+.ticket-buy-container::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 4px;
+}
+
+.ticket-buy-container::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
 }
 
 .ticket-category-section {
@@ -493,6 +543,31 @@
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   gap: 1rem;
+}
+
+/* オプション選択エリア全体のスクロール */
+.option-section-scroll {
+  max-height: 400px;
+  overflow-y: auto;
+  padding-right: 0.5rem;
+}
+
+.option-section-scroll::-webkit-scrollbar {
+  width: 8px;
+}
+
+.option-section-scroll::-webkit-scrollbar-track {
+  background: #f3f4f6;
+  border-radius: 4px;
+}
+
+.option-section-scroll::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 4px;
+}
+
+.option-section-scroll::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
 }
 
 .option-card {
