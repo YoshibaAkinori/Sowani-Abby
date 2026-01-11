@@ -47,7 +47,8 @@ const BookingModal = ({ activeModal, selectedSlot, onClose, onModalChange }) => 
   const [error, setError] = useState('');
   const [searchName, setSearchName] = useState('');
   const [searchResults, setSearchResults] = useState([]);
-  
+  const [customerLimitedPurchases, setCustomerLimitedPurchases] = useState([]);
+
   // 支払い情報（施術完了モード用）
   const [paymentInfo, setPaymentInfo] = useState(null);
 
@@ -144,6 +145,11 @@ const BookingModal = ({ activeModal, selectedSlot, onClose, onModalChange }) => 
             if (ticketsData.success) {
               setCustomerTickets(ticketsData.data || []);
             }
+            const limitedPurchasesResponse = await fetch(`/api/customers/${booking.customer_id}/limited-purchases`);
+            const limitedPurchasesData = await limitedPurchasesResponse.json();
+            if (limitedPurchasesData.success) {
+              setCustomerLimitedPurchases(limitedPurchasesData.data || []);
+            }
           }
         } catch (customerErr) {
           console.error('顧客情報取得エラー:', customerErr);
@@ -211,7 +217,7 @@ const BookingModal = ({ activeModal, selectedSlot, onClose, onModalChange }) => 
   };
 
   const selectCustomer = async (customer) => {
-    console.log('選択された顧客データ:', customer); // デバッグ用
+    //console.log('選択された顧客データ:', customer); // デバッグ用
     setFormData(prev => ({
       ...prev,
       customerId: customer.customer_id,
@@ -226,7 +232,7 @@ const BookingModal = ({ activeModal, selectedSlot, onClose, onModalChange }) => 
       gender: customer.gender || 'not_specified'
     }));
 
-    console.log('設定後のgender:', customer.gender); // デバッグ用
+    //console.log('設定後のgender:', customer.gender); // デバッグ用
 
     try {
       const response = await fetch(`/api/customers/${customer.customer_id}/tickets`);
@@ -236,6 +242,15 @@ const BookingModal = ({ activeModal, selectedSlot, onClose, onModalChange }) => 
       }
     } catch (err) {
       console.error('回数券情報取得エラー:', err);
+    }
+    try {
+      const response = await fetch(`/api/customers/${customer.customer_id}/limited-purchases`);
+      const data = await response.json();
+      if (data.success) {
+        setCustomerLimitedPurchases(data.data || []);
+      }
+    } catch (err) {
+      console.error('購入済み期間限定オファー取得エラー:', err);
     }
 
     setSearchResults([]);
@@ -347,29 +362,18 @@ const BookingModal = ({ activeModal, selectedSlot, onClose, onModalChange }) => 
     });
   };
 
-  const handleLimitedOfferToggle = (offerId) => {
-    const offer = limitedOffers.find(o => o.offer_id === offerId);
-
-    if (offer?.offer_type === 'ticket') {
-      setFormData(prev => {
-        const updated = { ...prev };
-        if (prev.limitedOfferIds.includes(offerId)) {
-          updated.limitedOfferIds = prev.limitedOfferIds.filter(id => id !== offerId);
-        } else {
-          updated.limitedOfferIds = [...prev.limitedOfferIds, offerId];
-        }
-        updated.endTime = calculateEndTime(updated);
-        return updated;
-      });
+  const handleLimitedOfferToggle = (purchaseId) => {
+    // 購入済みオファーのpurchase_idで管理（回数券と同じ扱い）
+    if (formData.limitedOfferIds.includes(purchaseId)) {
+      setFormData(prev => ({
+        ...prev,
+        limitedOfferIds: prev.limitedOfferIds.filter(id => id !== purchaseId)
+      }));
     } else {
-      setFormData(prev => {
-        const updated = {
-          ...prev,
-          limitedOfferIds: prev.limitedOfferIds.includes(offerId) ? [] : [offerId]
-        };
-        updated.endTime = calculateEndTime(updated);
-        return updated;
-      });
+      setFormData(prev => ({
+        ...prev,
+        limitedOfferIds: [...prev.limitedOfferIds, purchaseId]
+      }));
     }
   };
 
@@ -582,7 +586,20 @@ const BookingModal = ({ activeModal, selectedSlot, onClose, onModalChange }) => 
         bookingData.customer_ticket_ids = formData.ticketIds;
       }
       if (formData.limitedOfferIds.length > 0) {
-        bookingData.limited_offer_ids = formData.limitedOfferIds;
+        // 購入済みと新規を分離
+        const purchasedIds = formData.limitedOfferIds
+          .filter(id => id.startsWith('purchased_'))
+          .map(id => id.replace('purchased_', ''));
+
+        const newOfferIds = formData.limitedOfferIds
+          .filter(id => !id.startsWith('purchased_'));
+
+        if (purchasedIds.length > 0) {
+          bookingData.limited_purchase_ids = purchasedIds;
+        }
+        if (newOfferIds.length > 0) {
+          bookingData.limited_offer_ids = newOfferIds;
+        }
       }
 
       const bookingResponse = await fetch('/api/bookings', {
@@ -689,7 +706,7 @@ const BookingModal = ({ activeModal, selectedSlot, onClose, onModalChange }) => 
   if (isCompletedMode && activeModal === 'booking') {
     const booking = selectedSlot?.bookingData;
     const staffName = staff.find(s => s.staff_id === formData.staffId)?.name || booking?.staff_name || '未設定';
-    
+
     // メニュー名を取得
     let menuName = '';
     if (booking?.service_name) {
@@ -978,7 +995,7 @@ const BookingModal = ({ activeModal, selectedSlot, onClose, onModalChange }) => 
                 </div>
               )}
 
-              
+
 
               {formData.bookingType === 'booking' && (
                 <div className="booking-section">
@@ -1093,43 +1110,41 @@ const BookingModal = ({ activeModal, selectedSlot, onClose, onModalChange }) => 
 
                     {formData.serviceType === 'limited' && (
                       <div className="menu-select-list">
-                        {limitedOffers.filter(o => o.is_active).map(offer => {
-                          const isTicketType = offer.offer_type === 'ticket';
-                          const isSelected = formData.limitedOfferIds.includes(offer.offer_id);
+                        {customerLimitedPurchases.length > 0 ? (
+                          customerLimitedPurchases.map(purchase => {
+                            const isSelected = formData.limitedOfferIds.includes(purchase.purchase_id);
 
-                          return (
-                            <div
-                              key={offer.offer_id}
-                              className={`menu-select-item ${isSelected ? 'selected' : ''}`}
-                              onClick={() => handleLimitedOfferToggle(offer.offer_id)}
-                            >
-                              <input
-                                type={isTicketType ? "checkbox" : "radio"}
-                                name={isTicketType ? undefined : "limited"}
-                                checked={isSelected}
-                                onChange={() => { }}
-                                className="menu-radio"
-                              />
-                              <div className="menu-info">
-                                <div className="menu-name">
-                                  <Timer size={14} />
-                                  {offer.name}
-                                  {isTicketType && (
-                                    <span style={{ marginLeft: '0.5rem', fontSize: '0.75rem', color: '#3b82f6' }}>
-                                      (複数選択可)
-                                    </span>
-                                  )}
-                                </div>
-                                <div className="menu-details">
-                                  {offer.total_sessions}回券 / 販売終了: {offer.sale_end_date || '無期限'}
+                            return (
+                              <div
+                                key={purchase.purchase_id}
+                                className={`menu-select-item ${isSelected ? 'selected' : ''}`}
+                                onClick={() => handleLimitedOfferToggle(purchase.purchase_id)}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={isSelected}
+                                  onChange={() => { }}
+                                  className="menu-radio"
+                                />
+                                <div className="menu-info">
+                                  <div className="menu-name">
+                                    <Timer size={14} />
+                                    {purchase.offer_name}
+                                  </div>
+                                  <div className="menu-details">
+                                    残り{purchase.sessions_remaining}回 / 有効期限: {purchase.expiry_date}
+                                  </div>
                                 </div>
                               </div>
-                              <div className="menu-price">
-                                ¥{offer.special_price.toLocaleString()}
-                              </div>
-                            </div>
-                          );
-                        })}
+                            );
+                          })
+                        ) : (
+                          <div className="no-items-message">
+                            {formData.customerId
+                              ? '購入済みの期間限定オファーがありません'
+                              : '顧客情報を入力すると、購入済みオファーが表示されます'}
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>

@@ -1,10 +1,11 @@
 "use client";
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, CreditCard, Users, Package, Check, AlertCircle, Sparkles, X, UserPlus } from 'lucide-react';
+import { ArrowLeft, CreditCard, Users, Package, Check, AlertCircle, Sparkles, X, UserPlus, Calendar } from 'lucide-react';
 import './register.css';
 import NumericKeypad from './Numerickeypad';
 import CheckoutCompleteModal from '../components/CheckoutCompleteModal';
+import DateScrollPicker from '../components/DateScrollPicker';
 
 const RegisterPage = () => {
   // 顧客選択
@@ -22,6 +23,9 @@ const RegisterPage = () => {
   const [useMonitorPrice, setUseMonitorPrice] = useState({});
   const [showCheckoutComplete, setShowCheckoutComplete] = useState(false);
   const [completedPaymentId, setCompletedPaymentId] = useState(null);
+  // 既存のstate付近に追加
+  const [bookingDate, setBookingDate] = useState(new Date().toISOString().split('T')[0]);
+  const [showDatePicker, setShowDatePicker] = useState(false);
 
 
   // 新規顧客登録フォーム
@@ -85,39 +89,43 @@ const RegisterPage = () => {
   }, []);
 
   useEffect(() => {
+    const fetchBookings = async () => {
+      try {
+        const res = await fetch(`/api/customers/today-bookings?date=${bookingDate}`);
+        const data = await res.json();
+        setTodayBookings(data.data || []);
+      } catch (err) {
+        console.error('予約取得エラー:', err);
+      }
+    };
+    fetchBookings();
+  }, [bookingDate]);
+
+  useEffect(() => {
     if (hasProcessedBooking) {
-      console.log('既に処理済みのためスキップ');
       return;
     }
 
     if (!pendingBookingDetail) {
-      console.log('pendingBookingDetail が null のためスキップ');
       return;
     }
 
     if (ownedTickets.length === 0) {
-      console.log('ownedTickets が空のため待機');
       return;
     }
 
-    console.log('ownedTickets が更新されました。予約詳細を処理します。');
-    console.log('pendingBookingDetail:', pendingBookingDetail);
-    console.log('ownedTickets:', ownedTickets);
 
     // ★ 処理フラグを先に立てる
     setHasProcessedBooking(true);
 
     // 複数回数券の処理
     if (pendingBookingDetail.tickets && pendingBookingDetail.tickets.length > 0) {
-      console.log('回数券が見つかりました:', pendingBookingDetail.tickets.length, '件');
 
       const ticketsToAdd = [];
       const paymentsToAdd = []; // ★ 未払い分リスト
 
       pendingBookingDetail.tickets.forEach(ticketData => {
-        console.log('処理中の回数券データ:', ticketData);
         const ticket = ownedTickets.find(t => t.customer_ticket_id === ticketData.customer_ticket_id);
-        console.log('マッチした回数券:', ticket);
         if (ticket) {
           ticketsToAdd.push(ticket);
 
@@ -140,8 +148,6 @@ const RegisterPage = () => {
         }
       });
 
-      console.log('追加する回数券リスト:', ticketsToAdd);
-      console.log('追加する未払い分リスト:', paymentsToAdd);
 
       if (ticketsToAdd.length > 0) {
         setTicketUseList(ticketsToAdd);
@@ -178,7 +184,6 @@ const RegisterPage = () => {
     }
     // 単一回数券の処理(後方互換性)
     else if (pendingBookingDetail.customer_ticket_id) {
-      console.log('単一回数券が見つかりました:', pendingBookingDetail.customer_ticket_id);
 
       const ticket = ownedTickets.find(t => t.customer_ticket_id === pendingBookingDetail.customer_ticket_id);
       if (ticket) {
@@ -228,27 +233,22 @@ const RegisterPage = () => {
 
     // 期間限定オファーの処理
     if (pendingBookingDetail.limited_offers && pendingBookingDetail.limited_offers.length > 0) {
-      console.log('期間限定オファーが見つかりました:', pendingBookingDetail.limited_offers.length, '件');
 
       const offersToAdd = [];
 
       pendingBookingDetail.limited_offers.forEach(offerData => {
-        console.log('処理中の期間限定オファーデータ:', offerData);
         const offer = limitedOffers.find(o => o.offer_id === offerData.offer_id);
-        console.log('マッチした期間限定オファー:', offer);
         if (offer) {
           offersToAdd.push(offer);
         }
       });
 
-      console.log('追加する期間限定オファーリスト:', offersToAdd);
 
       if (offersToAdd.length > 0) {
         setLimitedOfferUseList(offersToAdd);
       }
     }
     else if (pendingBookingDetail.limited_offer_id) {
-      console.log('単一期間限定オファーが見つかりました:', pendingBookingDetail.limited_offer_id);
 
       const offer = limitedOffers.find(o => o.offer_id === pendingBookingDetail.limited_offer_id);
       if (offer) {
@@ -264,7 +264,7 @@ const RegisterPage = () => {
     setIsLoading(true);
     try {
       const [todayRes, servicesRes, optionsRes, ticketPlansRes, couponsRes, limitedOffersRes, staffRes] = await Promise.all([
-        fetch('/api/customers/today-bookings'),
+        fetch(`/api/customers/today-bookings?date=${bookingDate}`),
         fetch('/api/services'),
         fetch('/api/options'),
         fetch('/api/ticket-plans'),
@@ -317,8 +317,9 @@ const RegisterPage = () => {
 
   // 予約から選択
   const handleSelectFromBooking = async (booking) => {
-    console.log('=== handleSelectFromBooking 開始 ===');
-    console.log('選択された予約:', booking);
+
+    // ★ 会計明細をリセット
+    resetCheckoutDetails();
 
     setSelectedCustomer({
       customer_id: booking.customer_id,
@@ -335,13 +336,9 @@ const RegisterPage = () => {
       const response = await fetch(`/api/bookings?id=${booking.booking_id}`);
       const data = await response.json();
 
-      console.log('予約詳細API レスポンス:', data);
 
       if (data.success && data.data) {
         const bookingDetail = Array.isArray(data.data) ? data.data[0] : data.data;
-        console.log('予約詳細:', bookingDetail);
-        console.log('tickets配列:', bookingDetail.tickets);
-        console.log('limited_offers配列:', bookingDetail.limited_offers);
 
         // 通常サービスの処理
         if (bookingDetail.service_id) {
@@ -399,7 +396,6 @@ const RegisterPage = () => {
           const hasLimitedOffers = (bookingDetail.limited_offers && bookingDetail.limited_offers.length > 0) || bookingDetail.limited_offer_id;
 
           if (hasTickets || hasLimitedOffers) {
-            console.log('回数券/期間限定を検出。処理を開始します。');
 
             // 回数券がある場合はuseEffectで処理
             if (hasTickets) {
@@ -442,14 +438,36 @@ const RegisterPage = () => {
       }
     } catch (err) {
       console.error('予約詳細取得エラー:', err);
-    } finally {
-      // 処理済みフラグをリセット
-      setHasProcessedBooking(false);
     }
+  };
+
+  // ★ 会計明細をリセットする関数
+  const resetCheckoutDetails = () => {
+    setSelectedMenu(null);
+    setSelectedMenuType('normal');
+    setTicketUseList([]);
+    setLimitedOfferUseList([]);
+    setTicketPurchaseList([]);
+    setSelectedFreeOptions([]);
+    setSelectedPaidOptions([]);
+    setDiscountAmount('');
+    setPaymentMethod('cash');
+    setCashAmount('');
+    setCardAmount('');
+    setReceivedAmount('');
+    setTicketUseOnPurchase({});
+    setTicketCustomPrices({});
+    setUseMonitorPrice({});
+    setPendingBookingDetail(null);
+    setHasProcessedBooking(false);
+    setOwnedTickets([]);  // ★ 追加：回数券リストもリセット
   };
 
   // 顧客選択時の処理を修正
   const handleSelectCustomer = async (customer) => {
+    // ★ 会計明細をリセット
+    resetCheckoutDetails();
+
     setSelectedCustomer(customer);
     setSelectedBookingId(null);
     // 選択された顧客のみを検索結果に設定
@@ -559,7 +577,6 @@ const RegisterPage = () => {
     }
   };
 
-  // メニュー選択
   // メニュー選択(回数券使用は複数追加、その他は単一選択)
   const handleSelectMenu = (menu, type) => {
     // 回数券使用の場合はリストに追加
@@ -570,13 +587,10 @@ const RegisterPage = () => {
         setTimeout(() => setError(''), 3000);
         return;
       }
-
       setTicketUseList(prev => [...prev, menu]);
-
       // 通常メニューをクリア
       setSelectedMenu(null);
       setSelectedMenuType('normal');
-
       // 未払いがある場合は購入リストに追加
       if (menu.remaining_payment > 0) {
         const ticketPayment = {
@@ -591,15 +605,51 @@ const RegisterPage = () => {
           payment_amount: '',
           is_additional_payment: true
         };
-
         setTicketPurchaseList(prev => {
           const exists = prev.find(t => t.customer_ticket_id === menu.customer_ticket_id);
           if (exists) return prev;
           return [...prev, ticketPayment];
         });
       }
-
       setSuccess(`${menu.plan_name}を追加しました`);
+      setTimeout(() => setSuccess(''), 2000);
+      return;
+    }
+
+    // ★ 期間限定オファー（回数券ベース）の場合は ticketPurchaseList に追加
+    if (type === 'limited' && menu.base_plan_id) {
+      const alreadyAdded = ticketPurchaseList.find(t => t.offer_id === menu.offer_id);
+      if (alreadyAdded) {
+        setError('この期間限定オファーは既に追加されています');
+        setTimeout(() => setError(''), 3000);
+        return;
+      }
+
+      const ticketId = Date.now();
+      const newTicket = {
+        id: ticketId,
+        offer_id: menu.offer_id,
+        plan_id: menu.base_plan_id,
+        name: menu.name,
+        service_name: menu.base_service_name || menu.base_plan_name,
+        total_sessions: menu.total_sessions,
+        price: menu.special_price,
+        original_price: menu.original_price,
+        full_price: menu.special_price,
+        already_paid: 0,
+        payment_amount: '',
+        is_limited_offer: true  // 期間限定フラグ
+      };
+
+      setTicketPurchaseList(prev => [...prev, newTicket]);
+      setTicketUseOnPurchase(prev => ({ ...prev, [ticketId]: false }));
+
+      // 通常メニュー・回数券使用をクリア
+      setSelectedMenu(null);
+      setSelectedMenuType('normal');
+      setTicketUseList([]);
+
+      setSuccess(`${menu.name}を追加しました`);
       setTimeout(() => setSuccess(''), 2000);
       return;
     }
@@ -626,7 +676,6 @@ const RegisterPage = () => {
     setSelectedPaidOptions([]);
     setDiscountAmount('');
     setReceivedAmount('');
-
     // 回数券使用リストをクリア
     setTicketUseList([]);
     // 未払い分の購入リストもクリア
@@ -843,25 +892,28 @@ const RegisterPage = () => {
       return;
     }
 
-    const newTicketPurchases = ticketPurchaseList.filter(t => !t.is_additional_payment);
+    // ★ 通常の回数券購入と期間限定オファー購入を分離
+    const newTicketPurchases = ticketPurchaseList.filter(t => !t.is_additional_payment && !t.is_limited_offer);
+    const newLimitedOfferPurchases = ticketPurchaseList.filter(t => !t.is_additional_payment && t.is_limited_offer);
     const additionalPayments = ticketPurchaseList.filter(t => t.is_additional_payment);
 
-    console.log('=== handleCheckout 開始 ===');
-    console.log('newTicketPurchases:', newTicketPurchases);
-    console.log('additionalPayments:', additionalPayments);
-    console.log('ticketUseList:', ticketUseList);
-    console.log('limitedOfferUseList:', limitedOfferUseList);
-    console.log('selectedMenu:', selectedMenu);
 
     // =====================================================
-    // パターン1: 回数券購入のみの場合
+    // パターン1: 回数券購入のみ または 期間限定オファー購入のみ
     // =====================================================
-    if (newTicketPurchases.length > 0 && !selectedMenu && ticketUseList.length === 0 && limitedOfferUseList.length === 0) {
-      console.log('パターン1: 回数券購入のみ');
+    const hasPurchaseOnly = (newTicketPurchases.length > 0 || newLimitedOfferPurchases.length > 0)
+      && !selectedMenu && ticketUseList.length === 0 && limitedOfferUseList.length === 0;
+
+    if (hasPurchaseOnly) {
       setIsLoading(true);
       try {
-        let firstTicketPaymentId = null;
+        let firstPaymentId = null;
 
+        // 全購入の合計金額を計算（按分用）
+        const totalPurchaseAmount = [...newTicketPurchases, ...newLimitedOfferPurchases]
+          .reduce((sum, t) => sum + (t.payment_amount || 0), 0);
+
+        // 通常回数券購入
         for (let i = 0; i < newTicketPurchases.length; i++) {
           const ticket = newTicketPurchases[i];
           let cashAmt = 0;
@@ -871,9 +923,8 @@ const RegisterPage = () => {
             cashAmt = ticket.payment_amount;
           } else if (paymentMethod === 'card') {
             cardAmt = ticket.payment_amount;
-          } else if (paymentMethod === 'mixed') {
-            const totalTicketAmount = newTicketPurchases.reduce((sum, t) => sum + (t.payment_amount || 0), 0);
-            const ratio = ticket.payment_amount / totalTicketAmount;
+          } else if (paymentMethod === 'mixed' && totalPurchaseAmount > 0) {
+            const ratio = (ticket.payment_amount || 0) / totalPurchaseAmount;
             cashAmt = Math.round(parseInt(cashAmount) * ratio);
             cardAmt = Math.round(parseInt(cardAmount) * ratio);
           }
@@ -891,7 +942,7 @@ const RegisterPage = () => {
               card_amount: cardAmt,
               staff_id: selectedStaff.staff_id,
               use_immediately: ticketUseOnPurchase[ticket.id] || false,
-              related_payment_id: i === 0 ? null : firstTicketPaymentId
+              related_payment_id: firstPaymentId
             })
           });
 
@@ -900,15 +951,59 @@ const RegisterPage = () => {
             throw new Error(result.error || '回数券購入に失敗しました');
           }
 
-          if (i === 0 && result.data.payment_id) {
-            firstTicketPaymentId = result.data.payment_id;
+          if (!firstPaymentId && result.data.payment_id) {
+            firstPaymentId = result.data.payment_id;
           }
         }
 
-        setSuccess('回数券を購入しました!');
+        // ★ 期間限定オファー（回数券ベース）購入
+        for (let i = 0; i < newLimitedOfferPurchases.length; i++) {
+          const offer = newLimitedOfferPurchases[i];
+          let cashAmt = 0;
+          let cardAmt = 0;
 
-        if (firstTicketPaymentId) {
-          setCompletedPaymentId(firstTicketPaymentId);
+          if (paymentMethod === 'cash') {
+            cashAmt = offer.payment_amount;
+          } else if (paymentMethod === 'card') {
+            cardAmt = offer.payment_amount;
+          } else if (paymentMethod === 'mixed' && totalPurchaseAmount > 0) {
+            const ratio = (offer.payment_amount || 0) / totalPurchaseAmount;
+            cashAmt = Math.round(parseInt(cashAmount) * ratio);
+            cardAmt = Math.round(parseInt(cardAmount) * ratio);
+          }
+
+          const purchaseResponse = await fetch('/api/limited-offer-purchases', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              customer_id: selectedCustomer.customer_id,
+              offer_id: offer.offer_id,
+              plan_id: offer.plan_id,
+              purchase_price: ticketCustomPrices[offer.id] || offer.price,
+              payment_amount: offer.payment_amount || 0,
+              payment_method: paymentMethod,
+              cash_amount: cashAmt,
+              card_amount: cardAmt,
+              staff_id: selectedStaff.staff_id,
+              use_immediately: ticketUseOnPurchase[offer.id] || false,
+              related_payment_id: firstPaymentId
+            })
+          });
+
+          const result = await purchaseResponse.json();
+          if (!result.success) {
+            throw new Error(result.error || '期間限定オファー購入に失敗しました');
+          }
+
+          if (!firstPaymentId && result.data.payment_id) {
+            firstPaymentId = result.data.payment_id;
+          }
+        }
+
+        setSuccess('購入が完了しました!');
+
+        if (firstPaymentId) {
+          setCompletedPaymentId(firstPaymentId);
           setShowCheckoutComplete(true);
         }
 
@@ -917,7 +1012,7 @@ const RegisterPage = () => {
           resetForm();
         }, 2000);
       } catch (err) {
-        console.error('回数券購入エラー:', err);
+        console.error('購入エラー:', err);
         setError(err.message);
         setTimeout(() => setError(''), 3000);
       } finally {
@@ -929,13 +1024,13 @@ const RegisterPage = () => {
     // =====================================================
     // パターン2: メニュー、回数券使用、期間限定のいずれかがある場合
     // =====================================================
-    if (!selectedMenu && ticketUseList.length === 0 && limitedOfferUseList.length === 0) {
+    if (!selectedMenu && ticketUseList.length === 0 && limitedOfferUseList.length === 0
+      && newTicketPurchases.length === 0 && newLimitedOfferPurchases.length === 0) {
       setError('メニューまたは回数券・期間限定を選択してください');
       setTimeout(() => setError(''), 3000);
       return;
     }
 
-    console.log('パターン2: 施術あり + 可能性として回数券購入も');
     setIsLoading(true);
     try {
       const ticketToUse = ticketUseList.length > 0 ? ticketUseList[0] : null;
@@ -968,7 +1063,6 @@ const RegisterPage = () => {
         payment_amount: ticketPaymentAmount
       };
 
-      console.log('1. メイン支払いデータ:', paymentData);
 
       const response = await fetch('/api/payments', {
         method: 'POST',
@@ -983,14 +1077,12 @@ const RegisterPage = () => {
       }
 
       const mainPaymentId = result.data.payment_id;
-      console.log('メイン支払いID:', mainPaymentId);
 
       // =====================================================
       // 2. 2回目以降の回数券使用処理
       // =====================================================
       for (let i = 1; i < ticketUseList.length; i++) {
         const additionalTicket = ticketUseList[i];
-        console.log(`2. 追加回数券使用 ${i}:`, additionalTicket.customer_ticket_id);
 
         await fetch('/api/payments', {
           method: 'POST',
@@ -1015,7 +1107,6 @@ const RegisterPage = () => {
       // =====================================================
       for (let i = 1; i < limitedOfferUseList.length; i++) {
         const additionalOffer = limitedOfferUseList[i];
-        console.log(`3. 追加期間限定 ${i}:`, additionalOffer.offer_id);
 
         await fetch('/api/payments', {
           method: 'POST',
@@ -1040,7 +1131,6 @@ const RegisterPage = () => {
       // =====================================================
       for (const ticket of additionalPayments) {
         if (ticket.payment_amount > 0) {
-          console.log('4. 既存回数券残金支払い:', ticket);
 
           // 按分計算
           let cashAmt = 0;
@@ -1097,12 +1187,9 @@ const RegisterPage = () => {
 
       // =====================================================
       // ★★★ 5. 新規回数券購入 ★★★
-      // ここが重要！回数券使用と同時に新規購入がある場合の処理
       // =====================================================
-      console.log('5. 新規回数券購入チェック - newTicketPurchases:', newTicketPurchases.length, '件');
 
       for (const ticket of newTicketPurchases) {
-        console.log('5. 新規回数券購入処理:', ticket);
 
         let cashAmt = 0;
         let cardAmt = 0;
@@ -1112,13 +1199,8 @@ const RegisterPage = () => {
         } else if (paymentMethod === 'card') {
           cardAmt = ticket.payment_amount || 0;
         } else if (paymentMethod === 'mixed') {
-          // ★★★ 修正: 新規購入の金額に基づいて按分 ★★★
           const totalNewPurchaseAmount = newTicketPurchases.reduce((sum, t) => sum + (t.payment_amount || 0), 0);
           if (totalNewPurchaseAmount > 0) {
-            const ratio = (ticket.payment_amount || 0) / totalNewPurchaseAmount;
-            // 混合支払いの場合、新規購入分の現金・カード按分を計算
-            // ここでは全体のcashAmount/cardAmountから計算するのではなく、
-            // 新規購入額に対する比率で按分
             cashAmt = Math.round((ticket.payment_amount || 0) * (parseInt(cashAmount) / (parseInt(cashAmount) + parseInt(cardAmount) || 1)));
             cardAmt = (ticket.payment_amount || 0) - cashAmt;
           }
@@ -1134,10 +1216,9 @@ const RegisterPage = () => {
           card_amount: cardAmt,
           staff_id: selectedStaff.staff_id,
           use_immediately: ticketUseOnPurchase[ticket.id] || false,
-          related_payment_id: mainPaymentId  // ★ メインの支払いIDと紐付け
+          related_payment_id: mainPaymentId
         };
 
-        console.log('5. 新規回数券購入リクエスト:', purchaseRequestBody);
 
         const purchaseResponse = await fetch('/api/ticket-purchases', {
           method: 'POST',
@@ -1146,13 +1227,61 @@ const RegisterPage = () => {
         });
 
         const purchaseResult = await purchaseResponse.json();
-        console.log('5. 新規回数券購入レスポンス:', purchaseResult);
 
         if (!purchaseResult.success) {
           console.error('新規回数券購入エラー:', purchaseResult.error);
-          // エラーがあってもメイン処理は完了しているので続行
-          // ただし警告を表示
           setError(`回数券購入でエラー: ${purchaseResult.error}`);
+          setTimeout(() => setError(''), 5000);
+        }
+      }
+
+      // =====================================================
+      // ★★★ 6. 新規期間限定オファー購入 ★★★
+      // =====================================================
+
+      for (const offer of newLimitedOfferPurchases) {
+
+        let cashAmt = 0;
+        let cardAmt = 0;
+
+        if (paymentMethod === 'cash') {
+          cashAmt = offer.payment_amount || 0;
+        } else if (paymentMethod === 'card') {
+          cardAmt = offer.payment_amount || 0;
+        } else if (paymentMethod === 'mixed') {
+          const totalNewPurchaseAmount = newLimitedOfferPurchases.reduce((sum, t) => sum + (t.payment_amount || 0), 0);
+          if (totalNewPurchaseAmount > 0) {
+            cashAmt = Math.round((offer.payment_amount || 0) * (parseInt(cashAmount) / (parseInt(cashAmount) + parseInt(cardAmount) || 1)));
+            cardAmt = (offer.payment_amount || 0) - cashAmt;
+          }
+        }
+
+        const purchaseRequestBody = {
+          customer_id: selectedCustomer.customer_id,
+          offer_id: offer.offer_id,
+          plan_id: offer.plan_id,
+          purchase_price: ticketCustomPrices[offer.id] || offer.price,
+          payment_amount: offer.payment_amount || 0,
+          payment_method: paymentMethod,
+          cash_amount: cashAmt,
+          card_amount: cardAmt,
+          staff_id: selectedStaff.staff_id,
+          use_immediately: ticketUseOnPurchase[offer.id] || false,
+          related_payment_id: mainPaymentId
+        };
+
+
+        const purchaseResponse = await fetch('/api/limited-offer-purchases', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(purchaseRequestBody)
+        });
+
+        const purchaseResult = await purchaseResponse.json();
+
+        if (!purchaseResult.success) {
+          console.error('期間限定オファー購入エラー:', purchaseResult.error);
+          setError(`期間限定オファー購入でエラー: ${purchaseResult.error}`);
           setTimeout(() => setError(''), 5000);
         }
       }
@@ -1269,7 +1398,7 @@ const RegisterPage = () => {
                     className={`register-tab ${customerTab === 'today' ? 'register-tab--active' : ''}`}
                     onClick={() => setCustomerTab('today')}
                   >
-                    今日の予約者
+                    予約者一覧
                   </button>
                   <button
                     className={`register-tab ${customerTab === 'search' ? 'register-tab--active' : ''}`}
@@ -1280,30 +1409,69 @@ const RegisterPage = () => {
                 </div>
 
                 {customerTab === 'today' ? (
-                  <div className="customer-quick-list">
-                    {todayBookings.map(booking => {
-                      console.log('予約表示:', booking); // ★デバッグ用
-                      return (
-                        <div
-                          key={booking.booking_id}
-                          className={`customer-item ${selectedCustomer?.customer_id === booking.customer_id ? 'customer-item--selected' : ''} ${booking.is_paid ? 'customer-item--paid' : ''}`}
-                          onClick={() => handleSelectFromBooking(booking)}
-                        >
-                          <div className="customer-item__header">
-                            <div className="customer-item__name">
-                              {booking.last_name} {booking.first_name} 様
+                  <>
+                    {/* 日付選択 */}
+                    <div style={{ marginBottom: '12px' }}>
+                      <button
+                        type="button"
+                        onClick={() => setShowDatePicker(true)}
+                        style={{
+                          width: '100%',
+                          padding: '10px 12px',
+                          border: '1px solid #d1d5db',
+                          borderRadius: '6px',
+                          fontSize: '14px',
+                          background: '#fff',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between'
+                        }}
+                      >
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <Calendar size={16} color="#6b7280" />
+                          {(() => {
+                            const d = new Date(bookingDate);
+                            const today = new Date();
+                            const isToday = bookingDate === today.toISOString().split('T')[0];
+                            const yesterday = new Date(today);
+                            yesterday.setDate(yesterday.getDate() - 1);
+                            const isYesterday = bookingDate === yesterday.toISOString().split('T')[0];
+                            const tomorrow = new Date(today);
+                            tomorrow.setDate(tomorrow.getDate() + 1);
+                            const isTomorrow = bookingDate === tomorrow.toISOString().split('T')[0];
+                            
+                            const label = isToday ? '（今日）' : isYesterday ? '（昨日）' : isTomorrow ? '（明日）' : '';
+                            return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日 ${label}`;
+                          })()}
+                        </span>
+                        <span style={{ color: '#9ca3af' }}>▼</span>
+                      </button>
+                    </div>
+                    <div className="customer-quick-list">
+                      {todayBookings.map(booking => {
+                        return (
+                          <div
+                            key={booking.booking_id}
+                            className={`customer-item ${selectedCustomer?.customer_id === booking.customer_id ? 'customer-item--selected' : ''} ${booking.is_paid ? 'customer-item--paid' : ''}`}
+                            onClick={() => handleSelectFromBooking(booking)}
+                          >
+                            <div className="customer-item__header">
+                              <div className="customer-item__name">
+                                {booking.last_name} {booking.first_name} 様
+                              </div>
+                              {booking.is_paid && (
+                                <span className="customer-item__paid-badge">会計済</span>
+                              )}
                             </div>
-                            {booking.is_paid && (
-                              <span className="customer-item__paid-badge">会計済</span>
-                            )}
+                            <div className="customer-item__info">
+                              {booking.start_time?.substring(0, 5)} - {booking.end_time?.substring(0, 5)}
+                            </div>
                           </div>
-                          <div className="customer-item__info">
-                            {booking.start_time?.substring(0, 5)} - {booking.end_time?.substring(0, 5)}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
+                        );
+                      })}
+                    </div>
+                  </>
                 ) : (
                   <>
                     <div className="search-box">
@@ -2251,6 +2419,14 @@ const RegisterPage = () => {
           onClose={handleCloseCheckoutComplete}
         />
       )}
+
+      {/* 日付スクロールピッカー */}
+      <DateScrollPicker
+        isOpen={showDatePicker}
+        onClose={() => setShowDatePicker(false)}
+        onConfirm={(date) => setBookingDate(date)}
+        initialDate={bookingDate}
+      />
     </div>
   );
 };

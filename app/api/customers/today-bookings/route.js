@@ -5,7 +5,10 @@ import { getConnection } from '../../../../lib/db';
 export async function GET(request) {
   try {
     const pool = await getConnection();
-    const today = new Date().toISOString().split('T')[0];
+    const { searchParams } = new URL(request.url);
+    
+    // ★ 日付パラメータを受け取る（指定がなければ今日）
+    const date = searchParams.get('date') || new Date().toISOString().split('T')[0];
 
     const [rows] = await pool.execute(
       `SELECT
@@ -16,13 +19,12 @@ export async function GET(request) {
         b.end_time,
         b.service_id,
         b.status,
+        b.date,
         c.last_name,
         c.first_name,
-        c.line_user_id,
         s.name as service_name,
         st.staff_id as staff_id,
         st.name as staff_name,
-        -- 会計済みかどうかを判定（1 or 0で返る）
         CASE
           WHEN EXISTS (
             SELECT 1 FROM payments p
@@ -40,10 +42,9 @@ export async function GET(request) {
         AND b.status NOT IN ('cancelled', 'no_show')
         AND b.type = 'booking'
       ORDER BY b.start_time ASC`,
-      [today]
+      [date]
     );
 
-    // 確実にbooleanに変換
     const bookingsWithPaidStatus = rows.map(row => ({
       ...row,
       is_paid: Boolean(row.is_paid)
@@ -54,7 +55,7 @@ export async function GET(request) {
       data: bookingsWithPaidStatus
     });
   } catch (error) {
-    console.error('今日の予約者取得エラー:', error);
+    console.error('予約者取得エラー:', error);
     return NextResponse.json(
       { success: false, error: 'データベースエラー' },
       { status: 500 }

@@ -239,7 +239,12 @@ export async function GET(request, { params }) {
       }
 
       // ★フラグ対応: 親が回数券購入かどうか
-      const isParentTicketPurchase = !!payment.is_ticket_purchase;
+      const isParentTicketPurchase = !!payment.is_ticket_purchase && payment.ticket_id;
+
+      // ★ 期間限定オファー購入かどうか
+      const isParentLimitedOfferPurchase = !!payment.is_ticket_purchase && 
+        payment.payment_type === 'limited_offer' && 
+        payment.limited_offer_id;
 
       // ★フラグ対応: 親が回数券使用かどうか
       const isParentTicketUse = payment.payment_type === 'ticket' && 
@@ -281,6 +286,23 @@ export async function GET(request, { params }) {
             is_immediate_use: hasImmediateUse
           });
           serviceDisplay = `${ticketInfo.service_name || '回数券'}`;
+        }
+      }
+
+      // ★ 親が期間限定オファー購入の場合
+      if (isParentLimitedOfferPurchase && payment.limited_offer_id) {
+        const offerInfo = offerInfoMap.get(payment.limited_offer_id);
+        if (offerInfo) {
+          const hasImmediateUse = allChildPayments.some(c => c.is_immediate_use && c.limited_offer_id === payment.limited_offer_id);
+          ticketPurchases.push({
+            plan_name: offerInfo.offer_name,
+            service_name: offerInfo.offer_name,
+            total_sessions: offerInfo.sessions,
+            amount: payment.total_amount,
+            is_immediate_use: hasImmediateUse,
+            is_limited_offer: true
+          });
+          serviceDisplay = `${offerInfo.offer_name}`;
         }
       }
 
@@ -378,7 +400,7 @@ export async function GET(request, { params }) {
         payment_id: payment.payment_id,
         date: payment.date,
         payment_datetime: payment.payment_datetime, // ★時間情報を保持
-        service: isParentTicketPurchase || isParentTicketUse ? '' : serviceDisplay,
+        service: isParentTicketPurchase || isParentTicketUse || isParentLimitedOfferPurchase ? '' : serviceDisplay,
         price: payment.service_price,
         staff: payment.staff_name || '不明',
         payment_type: payment.payment_type,
