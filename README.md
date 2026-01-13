@@ -1,36 +1,419 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+# サロン管理システム ABBY
 
-## Getting Started
+サロン業務に特化した予約・会計・顧客管理システムです。
 
-First, run the development server:
+## 目次
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+- [概要](#概要)
+- [スクリーンショット](#スクリーンショット)
+- [機能一覧](#機能一覧)
+- [システム構成](#システム構成)
+- [データベース設計](#データベース設計)
+- [API一覧](#api一覧)
+- [技術スタック](#技術スタック)
+
+---
+
+## 概要
+
+### 開発背景
+
+既存POSレジとExcel管理による二重入力を解消し、サロン業務に最適化したシステムを開発しました。
+
+### 解決した課題
+
+| 課題 | 解決方法 |
+|------|----------|
+| 予約管理とPOSの二重入力 | 一元管理システムで統合 |
+| 回数券残数が正しく表示されない | 専用の回数券管理機能 |
+| 支払い方法の表示が不正確 | 複数決済（現金・カード混合）対応 |
+| カルテとレジが連携していない | 予約→会計→履歴の一連フロー |
+| 顧客へのアプローチが手動 | LINE連携によるマーケティング自動化 |
+
+### 特徴
+
+- **LINE連携マーケティング** - 顧客セグメント別の自動配信
+- **多角的な売上分析** - サービス別/スタッフ別/顧客別など多軸での分析（性別フィルター対応）
+- **柔軟な料金体系** - 回数券・クーポン・期間限定オファーの複合管理
+- **顧客情報の一元管理** - 来店履歴・保有回数券・LINE連携状況を統合表示
+
+---
+
+## スクリーンショット
+
+### 予約一覧（メイン画面）
+
+<!-- ![予約一覧](./screenshots/booking-list.png) -->
+
+スタッフ別・ベッド別の表示切り替え、ドラッグ&ドロップによる予約変更に対応。
+
+### 売上分析
+
+<!-- ![売上分析](./screenshots/analytics.png) -->
+
+日別/月別/年別の売上推移、サービス別・スタッフ別・顧客別の多角的分析。性別フィルターによるセグメント分析も可能。
+
+### LINEマーケティング配信
+
+<!-- ![LINEマーケティング](./screenshots/line-marketing.png) -->
+
+「ご無沙汰客」「回数券期限間近」「誕生月」などのセグメントで顧客を抽出し、一括メッセージ配信。
+
+### 顧客詳細
+
+<!-- ![顧客詳細](./screenshots/customer-detail.png) -->
+
+来店履歴・保有回数券・支払い履歴・LINE連携状況を一画面で確認。
+
+### レジ・会計画面
+
+<!-- ![レジ画面](./screenshots/register.png) -->
+
+通常施術・回数券使用・クーポン適用などの切り替え、10キー電卓によるスムーズな会計処理。
+
+---
+
+## 機能一覧
+
+### 予約管理
+
+| 機能 | 説明 |
+|------|------|
+| 予約一覧表示 | スタッフ別/ベッド別の切り替え表示 |
+| 予約登録 | 顧客選択→施術メニュー→オプション→時間設定 |
+| 予約変更 | ドラッグ&ドロップで時間・担当変更 |
+| 予定登録 | 休憩・会議などの非予約ブロック |
+| ステータス管理 | 確定/キャンセル/ノーショー |
+
+### レジ・会計
+
+| 機能 | 説明 |
+|------|------|
+| 通常施術会計 | サービス選択 + オプション追加 |
+| 回数券使用 | 保有回数券から選択して消費 |
+| 回数券購入 | 新規回数券の販売（分割払い対応） |
+| クーポン使用 | パッククーポンの適用 |
+| 期間限定オファー | 福袋など限定メニューの販売・使用 |
+| 複合決済 | 現金＋カードの分割払い |
+| レシート印刷 | ESC/POSプリンター対応 |
+| LINE送信 | 会計後にLINEでレシート画像送信 |
+
+### 顧客管理
+
+| 機能 | 説明 |
+|------|------|
+| 顧客検索 | 名前・電話番号で検索 |
+| 顧客情報編集 | 基本情報・備考の更新 |
+| 来店履歴 | 施術履歴・支払い履歴表示 |
+| 保有回数券確認 | 残り回数・有効期限表示 |
+| LINE連携 | LINE UserIDと顧客の紐付け |
+
+### 売上分析
+
+| 分析項目 | 内容 |
+|----------|------|
+| サマリー | 総売上・取引数・客単価・前期比較 |
+| 売上推移 | 日別/月別/年別グラフ |
+| サービス別 | 施術メニュー別の売上ランキング |
+| オプション別 | オプション利用状況 |
+| スタッフ別 | 担当者別の売上・施術数 |
+| 顧客別 | 顧客セグメント分析（新規/リピーター） |
+| クーポン別 | クーポン利用状況・効果測定 |
+| 期間限定別 | 期間限定オファーの売上 |
+| キャンセル | キャンセル率・ノーショー分析 |
+| 売上目標 | 月次目標設定・達成率表示 |
+
+※各分析は性別フィルターに対応
+
+### LINE連携・マーケティング
+
+| 機能 | 説明 |
+|------|------|
+| Webhook受信 | 友だち追加・メッセージ受信の自動処理 |
+| 顧客紐付け | LINE UserID と顧客情報の連携 |
+| セグメント抽出 | ご無沙汰客/期限間近/誕生月など |
+| 一括配信 | 抽出した顧客へのメッセージ送信 |
+| レシート送信 | 会計完了時にLINEで自動送信 |
+
+### 設定・管理
+
+| 設定項目 | 説明 |
+|----------|------|
+| スタッフ管理 | スタッフ登録・編集・カラー設定 |
+| シフト管理 | 勤務時間・休日設定・印刷機能 |
+| 施術コース管理 | サービスメニュー・料金設定 |
+| オプション管理 | オプションメニュー・料金設定 |
+| レジ締め | 日次売上集計・差異チェック |
+| プリンター設定 | ESC/POSプリンター接続設定 |
+| バックアップ管理 | DB保存・復元・アプリ更新 |
+| PIN認証 | 設定画面のセキュリティ |
+
+---
+
+## システム構成
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Docker Compose                           │
+├─────────────────┬─────────────────┬─────────────────────────┤
+│   App           │   MySQL 8.0     │   phpMyAdmin            │
+│   (Next.js)     │   (Database)    │   (DB管理)              │
+│   :3000         │   :3306         │   :8080                 │
+├─────────────────┴─────────────────┴─────────────────────────┤
+│                    Docker Network                           │
+├─────────────────────────────────────────────────────────────┤
+│   Cloudflare Tunnel (本番環境 - 外部公開用)                 │
+└─────────────────────────────────────────────────────────────┘
+
+外部連携:
+┌─────────────┐      ┌─────────────┐
+│ LINE        │◄────►│ Webhook     │
+│ Messaging   │      │ /api/line   │
+│ API         │      │             │
+└─────────────┘      └─────────────┘
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### ディレクトリ構造
 
-You can start editing the page by modifying `app/page.js`. The page auto-updates as you edit the file.
+```
+project/
+├── app/                        # Next.js App Router
+│   ├── page.js                 # メイン画面（予約一覧）
+│   ├── register/               # レジ・会計画面
+│   ├── customers/              # 顧客管理画面
+│   ├── analytics/              # 売上分析画面
+│   │   └── components/         # 分析用コンポーネント
+│   ├── settings/               # 設定画面
+│   │   └── set_component/      # 設定用コンポーネント
+│   ├── components/             # 共通コンポーネント
+│   └── api/                    # API Routes
+│       ├── bookings/           # 予約API
+│       ├── payments/           # 会計API
+│       ├── customers/          # 顧客API
+│       ├── analytics/          # 分析API
+│       ├── line/               # LINE連携API
+│       └── marketing/          # マーケティングAPI
+├── lib/                        # ユーティリティ
+│   └── db.js                   # MySQL接続
+├── docker/                     # Docker関連
+│   ├── docker-compose.yml
+│   └── mysql/
+│       └── init/               # 初期化SQL
+└── Dockerfile
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+---
 
-## Learn More
+## データベース設計
 
-To learn more about Next.js, take a look at the following resources:
+### 主要テーブル
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+| テーブル | 説明 |
+|----------|------|
+| customers | 顧客マスタ（LINE連携情報含む） |
+| staff | スタッフマスタ |
+| services | 施術メニューマスタ |
+| options | オプションマスタ |
+| bookings | 予約データ |
+| payments | 会計データ |
+| payment_options | 会計-オプション紐付け |
+| ticket_plans | 回数券プランマスタ |
+| customer_tickets | 顧客保有回数券 |
+| coupons | クーポンマスタ |
+| limited_offers | 期間限定オファーマスタ |
+| limited_ticket_purchases | 期間限定購入データ |
+| shifts | シフトデータ |
+| daily_closings | レジ締めデータ |
+| monthly_targets | 月次売上目標 |
+| line_pending_links | LINE連携待ち |
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### ER図（主要リレーション）
 
-## Deploy on Vercel
+```
+customers ──┬── bookings ──── payments
+            │       │            │
+            │       └── booking_options
+            │
+            ├── customer_tickets ── ticket_plans
+            │
+            └── limited_ticket_purchases ── limited_offers
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+staff ──── bookings
+       └── shifts
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+services ──── bookings
+          └── payments
+
+options ──── payment_options
+```
+
+### 顧客データの連携
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    customers                            │
+├─────────────────────────────────────────────────────────┤
+│ customer_id │ name │ phone │ email │ line_user_id │ ...│
+└──────┬──────────────────────────────────────────────────┘
+       │
+       ├──► bookings (予約履歴)
+       │
+       ├──► payments (支払い履歴)
+       │
+       ├──► customer_tickets (保有回数券)
+       │
+       └──► LINE Messaging API (メッセージ配信)
+```
+
+---
+
+## API一覧
+
+### 予約関連
+
+| Method | Endpoint | 説明 |
+|--------|----------|------|
+| GET | /api/bookings | 予約一覧取得（日付・スタッフ指定） |
+| POST | /api/bookings | 予約登録 |
+| PUT | /api/bookings | 予約更新（内容・時間変更） |
+| DELETE | /api/bookings | 予約削除・キャンセル |
+
+### 会計関連
+
+| Method | Endpoint | 説明 |
+|--------|----------|------|
+| GET | /api/payments | 会計一覧取得 |
+| POST | /api/payments | 会計登録（回数券消費含む） |
+| DELETE | /api/payments | 会計キャンセル（回数券復元） |
+
+### 顧客関連
+
+| Method | Endpoint | 説明 |
+|--------|----------|------|
+| GET | /api/customers | 顧客検索 |
+| GET | /api/customers/[id] | 顧客詳細（履歴・回数券含む） |
+| PUT | /api/customers/[id] | 顧客情報更新 |
+| GET | /api/customers/today-bookings | 当日予約者一覧 |
+
+### 分析関連
+
+| Method | Endpoint | 説明 |
+|--------|----------|------|
+| GET | /api/analytics | 売上サマリー |
+| GET | /api/analytics/services | サービス別分析 |
+| GET | /api/analytics/options | オプション別分析 |
+| GET | /api/analytics/staff | スタッフ別分析 |
+| GET | /api/analytics/customers | 顧客別分析 |
+| GET | /api/analytics/coupons | クーポン分析 |
+| GET | /api/analytics/limited | 期間限定分析 |
+| GET | /api/analytics/cancel | キャンセル分析 |
+
+### LINE連携
+
+| Method | Endpoint | 説明 |
+|--------|----------|------|
+| POST | /api/line/webhook | Webhook受信（友だち追加・メッセージ） |
+| GET | /api/line/pending | 連携待ち一覧 |
+| POST | /api/line/pending | 顧客との紐付け実行 |
+| POST | /api/marketing | セグメント抽出・メッセージ配信 |
+
+### マスタ管理
+
+| Method | Endpoint | 説明 |
+|--------|----------|------|
+| CRUD | /api/services | サービス管理 |
+| CRUD | /api/options | オプション管理 |
+| CRUD | /api/staff | スタッフ管理 |
+| CRUD | /api/ticket-plans | 回数券プラン管理 |
+| CRUD | /api/coupons | クーポン管理 |
+| CRUD | /api/limited-offers | 期間限定オファー管理 |
+
+---
+
+## 技術スタック
+
+### フロントエンド
+
+| 技術 | バージョン | 用途 |
+|------|-----------|------|
+| Next.js | 15.5 | フレームワーク（App Router） |
+| React | 19.1 | UIライブラリ |
+| Recharts | 3.2 | グラフ・チャート描画 |
+| Lucide React | 0.544 | アイコン |
+| html2canvas | 1.4 | 画像生成（LINE送信用） |
+
+### バックエンド
+
+| 技術 | バージョン | 用途 |
+|------|-----------|------|
+| Next.js API Routes | 15.5 | REST API |
+| MySQL | 8.0 | データベース |
+| mysql2 | 3.15 | DBドライバ |
+| @line/bot-sdk | 10.5 | LINE Messaging API |
+
+### インフラ
+
+| 技術 | 用途 |
+|------|------|
+| Docker Compose | コンテナオーケストレーション |
+| Cloudflare Tunnel | セキュアな外部公開 |
+
+### 開発環境
+
+| ツール | 用途 |
+|--------|------|
+| ESLint | コード品質管理 |
+| Git | バージョン管理 |
+
+---
+
+## 開発のポイント
+
+### 1. LINE連携によるマーケティング自動化
+
+従来は手動でDMを送っていた顧客フォローを、システムで自動化。
+
+```
+【セグメント例】
+- 最終来店から30日以上経過 → リマインドメッセージ
+- 回数券残り1回 & 期限間近 → 更新案内
+- 今月誕生日 → バースデークーポン
+```
+
+### 2. 複雑な料金体系への対応
+
+回数券・クーポン・期間限定オファーなど、複数の料金体系を一元管理。
+
+```
+【対応する支払いパターン】
+- 通常施術 + 有料オプション
+- 回数券使用（残数自動減算）
+- クーポン適用（無料オプション含む）
+- 期間限定オファー（福袋など）
+- 現金 + カード混合決済
+```
+
+### 3. 顧客情報の統合表示
+
+散在していた顧客情報を一画面に集約。
+
+```
+【顧客詳細画面で見れる情報】
+- 基本情報（名前・連絡先・性別・生年月日）
+- 来店履歴（日付・施術内容・担当者）
+- 支払い履歴（金額・決済方法）
+- 保有回数券（残数・有効期限）
+- LINE連携状況
+```
+
+---
+
+## ライセンス
+
+このプロジェクトはプライベートリポジトリです。
+
+---
+
+## 作者
+
+個人開発
