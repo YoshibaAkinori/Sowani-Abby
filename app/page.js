@@ -89,20 +89,46 @@ const SalonBoard = () => {
       setStaffShifts([...managerStaff, ...staffShiftsData]);
 
       if (bookingsData.success) {
-        const formattedBookings = bookingsData.data.map(b => ({
-          id: b.booking_id,
-          staffId: b.staff_id,
-          staffName: b.staff_name,
-          bed: b.bed_id ? `ベッド${b.bed_id}` : '',
-          date: b.date.split('T')[0],
-          startTime: b.start_time,
-          endTime: b.end_time,
-          service: b.service_name || b.notes || '予定',
-          client: `${b.last_name || ''} ${b.first_name || ''}`,
-          serviceType: b.service_category || '予定',
-          status: b.status,
-          type: b.type
-        }));
+        const formattedBookings = bookingsData.data.map(b => {
+          // サービス名の決定ロジック
+          let serviceName = '予定';
+          if (b.service_name) {
+            serviceName = b.service_name;
+          } else if (b.limited_purchases && b.limited_purchases.length > 0) {
+            // 期間限定購入がある場合
+            serviceName = b.limited_purchases.map(lp => lp.offer_name || lp.plan_name).join(', ');
+          } else if (b.tickets && b.tickets.length > 0) {
+            // 回数券がある場合
+            serviceName = b.tickets.map(t => t.plan_name).join(', ');
+          } else if (b.notes) {
+            serviceName = b.notes;
+          }
+
+          // サービスカテゴリの決定ロジック
+          let serviceType = '予定';
+          if (b.service_category) {
+            serviceType = b.service_category;
+          } else if (b.limited_purchases && b.limited_purchases.length > 0) {
+            serviceType = '期間限定';
+          } else if (b.tickets && b.tickets.length > 0) {
+            serviceType = '回数券';
+          }
+
+          return {
+            id: b.booking_id,
+            staffId: b.staff_id,
+            staffName: b.staff_name,
+            bed: b.bed_id ? `ベッド${b.bed_id}` : '',
+            date: b.date.split('T')[0],
+            startTime: b.start_time,
+            endTime: b.end_time,
+            service: serviceName,
+            client: `${b.last_name || ''} ${b.first_name || ''}`,
+            serviceType: serviceType,
+            status: b.status,
+            type: b.type
+          };
+        });
         setBookings(formattedBookings);
       } else {
         setBookings([]);

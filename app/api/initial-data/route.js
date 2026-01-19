@@ -44,8 +44,8 @@ export async function POST(request) {
           INSERT INTO limited_ticket_purchases (
             purchase_id, offer_id, customer_id,
             purchase_date, expiry_date, sessions_remaining,
-            purchase_price, payment_method, is_active
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, TRUE)
+            purchase_price, is_active
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, TRUE)
         `, [
           ticketId,
           ticket.offer_id,
@@ -53,8 +53,7 @@ export async function POST(request) {
           ticket.purchase_date,
           ticket.expiry_date,
           ticket.sessions_remaining,
-          ticket.purchase_price,
-          ticket.payments?.[0]?.method || 'cash'
+          ticket.purchase_price
         ]);
         
         // limited_offersのcurrent_salesを更新

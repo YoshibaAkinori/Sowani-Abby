@@ -3,7 +3,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { Printer, X, MessageCircle, Check, AlertCircle } from 'lucide-react';
-import { printReceipt } from './Receipt';
+import Receipt from './Receipt';
 import html2canvas from 'html2canvas';
 import './CheckoutCompleteModal.css';
 
@@ -11,6 +11,7 @@ export default function CheckoutCompleteModal({ paymentId, customerId, lineConne
   const [sending, setSending] = useState(false);
   const [sendStatus, setSendStatus] = useState(null); // 'success' | 'error' | null
   const [statusMessage, setStatusMessage] = useState('');
+  const [showReceipt, setShowReceipt] = useState(false);  // ★ レシートプレビュー表示フラグ
   const receiptRef = useRef(null);
   const [receiptData, setReceiptData] = useState(null);
 
@@ -33,15 +34,14 @@ export default function CheckoutCompleteModal({ paymentId, customerId, lineConne
     }
   };
 
-  const handlePrintReceipt = async () => {
-    if (paymentId) {
-      try {
-        await printReceipt(paymentId);
-      } catch (err) {
-        console.error('レシート印刷エラー:', err);
-      }
-    }
-    onClose();
+  // ★ レシート発行ボタン → プレビュー表示
+  const handlePrintReceipt = () => {
+    setShowReceipt(true);
+  };
+
+  // ★ レシートプレビューを閉じる
+  const handleCloseReceipt = () => {
+    setShowReceipt(false);
   };
 
   const handleLineSend = async () => {
@@ -127,6 +127,11 @@ export default function CheckoutCompleteModal({ paymentId, customerId, lineConne
   const handleClose = () => {
     onClose();
   };
+
+  // ★ レシートプレビュー表示中
+  if (showReceipt) {
+    return <Receipt paymentId={paymentId} onClose={handleCloseReceipt} />;
+  }
 
   return (
     <div className="checkout-complete-modal">

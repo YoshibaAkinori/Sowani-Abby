@@ -187,6 +187,7 @@ export async function POST(request) {
       customer_ticket_ids,
       coupon_id,
       limited_offer_ids,
+      limited_purchase_ids,  // ★追加: 購入済み期間限定回数券のID
       option_ids,
       date,
       start_time,
@@ -200,6 +201,21 @@ export async function POST(request) {
     await connection.beginTransaction();
 
     let finalCustomerId = customer_id;
+
+    // ★ 購入済み期間限定回数券からoffer_idを取得
+    let finalLimitedOfferId = null;
+    if (limited_purchase_ids && limited_purchase_ids.length > 0) {
+      // limited_ticket_purchasesからoffer_idを取得
+      const [purchaseData] = await connection.execute(
+        'SELECT offer_id FROM limited_ticket_purchases WHERE purchase_id = ?',
+        [limited_purchase_ids[0]]
+      );
+      if (purchaseData.length > 0) {
+        finalLimitedOfferId = purchaseData[0].offer_id;
+      }
+    } else if (limited_offer_ids && limited_offer_ids.length > 0) {
+      finalLimitedOfferId = limited_offer_ids[0];
+    }
 
     // 新規顧客の場合は先に登録
     if (!customer_id && new_customer) {
@@ -262,7 +278,7 @@ export async function POST(request) {
         service_id ?? null,
         customer_ticket_ids && customer_ticket_ids.length > 0 ? customer_ticket_ids[0] : null,
         coupon_id ?? null,
-        limited_offer_ids && limited_offer_ids.length > 0 ? limited_offer_ids[0] : null,
+        finalLimitedOfferId,
         date,
         start_time,
         end_time,
@@ -293,17 +309,15 @@ export async function POST(request) {
     }
 
     // 期間限定オファーを紐付け
-    if (limited_offer_ids && limited_offer_ids.length > 0) {
-      for (const offerId of limited_offer_ids) {
-        await connection.execute(
-          `INSERT INTO booking_limited_offers (
-            booking_limited_offer_id,
-            booking_id,
-            offer_id
-          ) VALUES (UUID(), ?, ?)`,
-          [bookingId, offerId]
-        );
-      }
+    if (finalLimitedOfferId) {
+      await connection.execute(
+        `INSERT INTO booking_limited_offers (
+          booking_limited_offer_id,
+          booking_id,
+          offer_id
+        ) VALUES (UUID(), ?, ?)`,
+        [bookingId, finalLimitedOfferId]
+      );
     }
 
     // オプションを紐付け
@@ -437,6 +451,7 @@ export async function PUT(request) {
       customer_ticket_ids,
       coupon_id,
       limited_offer_ids,
+      limited_purchase_ids,  // ★追加: 購入済み期間限定回数券のID
       option_ids
     } = body;
 
@@ -448,6 +463,20 @@ export async function PUT(request) {
     }
 
     await connection.beginTransaction();
+
+    // ★ 購入済み期間限定回数券からoffer_idを取得
+    let finalLimitedOfferId = null;
+    if (limited_purchase_ids && limited_purchase_ids.length > 0) {
+      const [purchaseData] = await connection.execute(
+        'SELECT offer_id FROM limited_ticket_purchases WHERE purchase_id = ?',
+        [limited_purchase_ids[0]]
+      );
+      if (purchaseData.length > 0) {
+        finalLimitedOfferId = purchaseData[0].offer_id;
+      }
+    } else if (limited_offer_ids && limited_offer_ids.length > 0) {
+      finalLimitedOfferId = limited_offer_ids[0];
+    }
 
     // 更新前のデータを取得
     const [beforeData] = await connection.execute(
@@ -497,7 +526,7 @@ export async function PUT(request) {
         service_id ?? null,
         coupon_id ?? null,
         customer_ticket_ids && customer_ticket_ids.length > 0 ? customer_ticket_ids[0] : null,
-        limited_offer_ids && limited_offer_ids.length > 0 ? limited_offer_ids[0] : null,
+        finalLimitedOfferId,
         booking_id
       ]
     );
@@ -521,23 +550,22 @@ export async function PUT(request) {
     }
 
     // 期間限定オファーの更新
-    if (limited_offer_ids !== undefined) {
+    if (limited_offer_ids !== undefined || limited_purchase_ids !== undefined) {
       await connection.execute(
         'DELETE FROM booking_limited_offers WHERE booking_id = ?',
         [booking_id]
       );
       
-      if (limited_offer_ids && limited_offer_ids.length > 0) {
-        for (const offerId of limited_offer_ids) {
-          await connection.execute(
-            `INSERT INTO booking_limited_offers (
-              booking_limited_offer_id,
-              booking_id,
-              offer_id
-            ) VALUES (UUID(), ?, ?)`,
-            [booking_id, offerId]
-          );
-        }
+      // finalLimitedOfferIdがあれば登録
+      if (finalLimitedOfferId) {
+        await connection.execute(
+          `INSERT INTO booking_limited_offers (
+            booking_limited_offer_id,
+            booking_id,
+            offer_id
+          ) VALUES (UUID(), ?, ?)`,
+          [booking_id, finalLimitedOfferId]
+        );
       }
     }
 
@@ -588,7 +616,7 @@ export async function PUT(request) {
         service_id: service_id ?? null,
         coupon_id: coupon_id ?? null,
         customer_ticket_id: customer_ticket_ids?.[0] ?? null,
-        limited_offer_id: limited_offer_ids?.[0] ?? null
+        limited_offer_id: finalLimitedOfferId
       }
     };
 

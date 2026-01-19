@@ -95,6 +95,7 @@ export async function POST(request) {
       ticket_id,
       coupon_id,
       limited_offer_id,
+      limited_purchase_id,  // ★追加: 購入済み期間限定回数券のID
       options = [],
       discount_amount = 0,
       payment_method = 'cash',
@@ -292,9 +293,10 @@ export async function POST(request) {
         [limited_offer_id]
       );
       if (offerRows.length > 0) {
+        // ★ limited_purchase_idがある場合は「使用」なのでprice=0
         serviceData = {
           name: offerRows[0].name,
-          price: offerRows[0].special_price,
+          price: limited_purchase_id ? 0 : offerRows[0].special_price,
           duration: 0
         };
       }
@@ -384,6 +386,16 @@ export async function POST(request) {
         [ticket_id]
       );
       ticketSnapshot = await getTicketSnapshot(ticket_id);
+    }
+
+    // ★ 期間限定回数券使用時：残回数を減らす
+    if (limited_purchase_id && (payment_type === 'limited_offer' || payment_type === 'limited')) {
+      await connection.execute(
+        `UPDATE limited_ticket_purchases 
+         SET sessions_remaining = sessions_remaining - 1
+         WHERE purchase_id = ?`,
+        [limited_purchase_id]
+      );
     }
 
     // payments テーブルに登録（★フラグ付き）
@@ -513,6 +525,14 @@ export async function POST(request) {
       }
     }
 
+    // ★ 期間限定回数券使用処理（来店カウント）
+    if (limited_purchase_id && !related_payment_id) {
+      await connection.execute(
+        `UPDATE customers SET visit_count = visit_count + 1 WHERE customer_id = ?`,
+        [customer_id]
+      );
+    }
+
     // 予約ステータス更新
     if (booking_id) {
       await connection.execute(
@@ -578,12 +598,24 @@ export async function DELETE(request) {
 
     // 回数券使用の場合は回数を戻す
     if (payment[0].ticket_id && !payment[0].is_remaining_payment) {
-      await connection.execute(
-        `UPDATE customer_tickets 
-         SET sessions_remaining = sessions_remaining + 1
-         WHERE customer_ticket_id = ?`,
-        [payment[0].ticket_id]
-      );
+      // 通常回数券の場合
+      if (payment[0].payment_type === 'ticket') {
+        await connection.execute(
+          `UPDATE customer_tickets 
+           SET sessions_remaining = sessions_remaining + 1
+           WHERE customer_ticket_id = ?`,
+          [payment[0].ticket_id]
+        );
+      }
+      // 期間限定回数券の場合
+      else if (payment[0].payment_type === 'limited_offer') {
+        await connection.execute(
+          `UPDATE limited_ticket_purchases 
+           SET sessions_remaining = sessions_remaining + 1
+           WHERE purchase_id = ?`,
+          [payment[0].ticket_id]
+        );
+      }
     }
 
     // 会計をキャンセル状態に

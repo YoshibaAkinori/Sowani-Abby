@@ -127,6 +127,69 @@ async function getReceiptData(paymentId) {
         });
     }
 
+    // ★ 期間限定回数券の情報を取得
+    const limitedOfferIds = [...new Set(allPayments.filter(p => p.limited_offer_id).map(p => p.limited_offer_id))];
+    let limitedInfoMap = new Map();
+
+    if (limitedOfferIds.length > 0) {
+        const placeholders = limitedOfferIds.map(() => '?').join(',');
+        // まずlimited_offersから名前を取得
+        const [offerInfo] = await pool.execute(`
+          SELECT 
+            lo.offer_id,
+            lo.name as offer_name,
+            lo.total_sessions,
+            lo.special_price
+          FROM limited_offers lo
+          WHERE lo.offer_id IN (${placeholders})
+        `, limitedOfferIds);
+
+        // 各オファーの購入情報を取得（顧客ごと）
+        for (const offer of offerInfo) {
+            // この支払いの顧客の購入情報を取得
+            const [purchaseInfo] = await pool.execute(`
+              SELECT 
+                ltp.purchase_id,
+                ltp.sessions_remaining,
+                ltp.expiry_date,
+                ltp.purchase_price,
+                COALESCE((
+                  SELECT SUM(amount_paid) 
+                  FROM ticket_payments 
+                  WHERE customer_ticket_id = ltp.purchase_id
+                    AND ticket_type = 'limited'
+                ), 0) as total_paid
+              FROM limited_ticket_purchases ltp
+              WHERE ltp.offer_id = ? AND ltp.customer_id = ?
+              ORDER BY ltp.purchase_date DESC
+              LIMIT 1
+            `, [offer.offer_id, payment.customer_id]);
+
+            if (purchaseInfo.length > 0) {
+                const p = purchaseInfo[0];
+                limitedInfoMap.set(offer.offer_id, {
+                    offer_name: offer.offer_name,
+                    total_sessions: offer.total_sessions,
+                    sessions_remaining: p.sessions_remaining,
+                    expiry_date: p.expiry_date,
+                    purchase_price: p.purchase_price,
+                    total_paid: p.total_paid,
+                    remaining_balance: Math.max(0, p.purchase_price - p.total_paid)
+                });
+            } else {
+                limitedInfoMap.set(offer.offer_id, {
+                    offer_name: offer.offer_name,
+                    total_sessions: offer.total_sessions,
+                    sessions_remaining: null,
+                    expiry_date: null,
+                    purchase_price: offer.special_price,
+                    total_paid: 0,
+                    remaining_balance: 0
+                });
+            }
+        }
+    }
+
     // フラグ判定
     const toBoolean = (val) => val === 1 || val === true;
 
@@ -182,6 +245,27 @@ async function getReceiptData(paymentId) {
             if (remainingPaymentAmount > 0) {
                 totalAmount += remainingPaymentAmount;
             }
+        }
+    }
+
+    // ★★★ 期間限定回数券使用の場合 ★★★
+    const isParentLimitedUse = (payment.payment_type === 'limited_offer' || payment.payment_type === 'limited') 
+        && payment.limited_offer_id && payment.total_amount === 0;
+    
+    if (isParentLimitedUse && payment.limited_offer_id) {
+        const limitedInfo = limitedInfoMap.get(payment.limited_offer_id);
+        if (limitedInfo) {
+            ticketUses.push({
+                plan_name: limitedInfo.offer_name,
+                service_name: limitedInfo.offer_name,
+                total_sessions: limitedInfo.total_sessions,
+                sessions_remaining: limitedInfo.sessions_remaining,
+                purchase_price: limitedInfo.purchase_price,
+                remaining_balance: limitedInfo.remaining_balance,
+                remaining_payment: 0,
+                expiry_date: limitedInfo.expiry_date,
+                is_limited: true  // 期間限定フラグ
+            });
         }
     }
 
@@ -542,9 +626,9 @@ function generateReceiptHtml(data, printerConfig = {}) {
     <div>担当: ${payment.staff_name || '-'}</div>
   </div>
   <div class="divider"></div>
-  <div class="service-name">${payment.service_name || '施術'}</div>
+  ${ticketUses.length === 0 ? `<div class="service-name">${payment.service_name || '施術'}</div>` : ''}
   <table class="items-table">
-    ${payment.service_subtotal > 0 && (ticketUses.length > 0 || !ticketPurchases.length) ? `<tr><td class="item-name">小計</td><td class="item-price">¥${payment.service_subtotal.toLocaleString()}</td></tr>` : ''}
+    ${payment.service_subtotal > 0 && ticketUses.length === 0 ? `<tr><td class="item-name">小計</td><td class="item-price">¥${payment.service_subtotal.toLocaleString()}</td></tr>` : ''}
     ${optionsHtml}
     ${payment.discount_amount > 0 ? `<tr class="discount"><td class="item-name">割引</td><td class="item-price">-¥${payment.discount_amount.toLocaleString()}</td></tr>` : ''}
   </table>

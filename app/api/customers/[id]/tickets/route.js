@@ -61,7 +61,7 @@ export async function GET(request, { params }) {
         lo.validity_days,
         COALESCE(s.name, tp.name, lo.name) as service_name,
         COALESCE(s.category, '') as service_category,
-        COALESCE(s.duration_minutes, 0) as duration_minutes,
+        COALESCE(s.duration_minutes, lo.duration_minutes, 60) as duration_minutes,
         COALESCE(s.service_id, tp.service_id) as service_id,
         COALESCE(
           (SELECT SUM(amount_paid) 
