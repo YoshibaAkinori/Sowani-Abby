@@ -862,8 +862,9 @@ const SalesTargetSection = () => {
                     const index = Math.round(scrollTop / 44);
                     const currentYear = new Date().getFullYear();
                     const years = Array.from({ length: currentYear - 2025 + 1 }, (_, i) => 2025 + i);
-                    if (years[index] !== undefined) {
-                      setPickerYear(years[index]);
+                    const newYear = years[index];
+                    if (newYear !== undefined && newYear !== pickerYear) {
+                      setPickerYear(newYear);
                     }
                   }}
                 >
@@ -920,8 +921,9 @@ const SalesTargetSection = () => {
                   onScroll={(e) => {
                     const scrollTop = e.target.scrollTop;
                     const index = Math.round(scrollTop / 44);
-                    if (index >= 0 && index < 12) {
-                      setPickerMonth(index + 1);
+                    const newMonth = index + 1;
+                    if (index >= 0 && index < 12 && newMonth !== pickerMonth) {
+                      setPickerMonth(newMonth);
                     }
                   }}
                 >
