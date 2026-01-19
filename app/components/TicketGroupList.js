@@ -2,7 +2,7 @@
 'use client';
 
 import { useState } from 'react';
-import { ChevronDown, ChevronRight, CreditCard } from 'lucide-react';
+import { ChevronDown, ChevronRight, CreditCard, Gift } from 'lucide-react';
 import './TicketGroupList.css';
 
 export default function TicketGroupList({ tickets }) {
@@ -71,14 +71,21 @@ export default function TicketGroupList({ tickets }) {
         const currentTicket = activeTickets[0] || pastTickets[0];
         const isExpanded = expandedGroups[planName];
         const hasActiveTicket = activeTickets.length > 0;
+        const isLimited = currentTicket?.is_limited;
 
         return (
-          <div key={planName} className="ticket-group">
+          <div key={planName} className={`ticket-group ${isLimited ? 'ticket-group--limited' : ''}`}>
             {/* 現在の回数券（最新の有効なもの） */}
-            <div className={`ticket-group__current ${hasActiveTicket ? 'ticket-group__current--active' : 'ticket-group__current--inactive'}`}>
+            <div className={`ticket-group__current ${hasActiveTicket ? 'ticket-group__current--active' : 'ticket-group__current--inactive'} ${isLimited ? 'ticket-group__current--limited' : ''}`}>
               <div className="ticket-group__header">
                 <div className="ticket-group__title">
+                  {isLimited && <Gift size={18} className="ticket-group__limited-icon" />}
                   <h3>{planName}</h3>
+                  {isLimited && (
+                    <span className="ticket-group__badge ticket-group__badge--limited">
+                      期間限定
+                    </span>
+                  )}
                   <span className={`ticket-group__badge ${hasActiveTicket ? 'ticket-group__badge--active' : 'ticket-group__badge--used'}`}>
                     {hasActiveTicket ? '有効' : '使用済'}
                   </span>
@@ -121,6 +128,9 @@ export default function TicketGroupList({ tickets }) {
                           <span className="ticket-group__past-status">
                             {ticket.status === 'used_up' ? '使用済' : '期限切れ'}
                           </span>
+                          {ticket.is_limited && (
+                            <span className="ticket-group__past-limited">期間限定</span>
+                          )}
                           <span>購入: {formatDate(ticket.purchase_date)}</span>
                           <span>期限: {formatDate(ticket.expiry_date)}</span>
                           <span>¥{ticket.purchase_price?.toLocaleString()}</span>
@@ -141,7 +151,9 @@ export default function TicketGroupList({ tickets }) {
                 {activeTickets.slice(1).map(ticket => (
                   <div key={ticket.customer_ticket_id} className="ticket-group__other-item">
                     <div className="ticket-group__other-remaining">
+                      {ticket.is_limited && <Gift size={14} style={{ marginRight: '0.25rem', color: '#810af0' }} />}
                       残り {ticket.sessions_remaining} / {ticket.total_sessions} 回
+                      {ticket.is_limited && <span style={{ color: '#810af0', marginLeft: '0.5rem', fontSize: '0.75rem' }}>期間限定</span>}
                     </div>
                     <div className="ticket-group__other-details">
                       <span>購入: {formatDate(ticket.purchase_date)}</span>

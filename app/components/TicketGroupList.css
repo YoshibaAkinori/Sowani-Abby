@@ -33,6 +33,11 @@
   overflow: hidden;
 }
 
+/* 期間限定回数券のグループ */
+.ticket-group--limited {
+  border-color: #c4b5fd;
+}
+
 /* 現在の回数券（メイン表示） */
 .ticket-group__current {
   padding: 1.25rem 1.5rem;
@@ -48,6 +53,18 @@
   border-left: 4px solid #9ca3af;
 }
 
+/* 期間限定で有効なもの */
+.ticket-group__current--limited.ticket-group__current--active {
+  background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%);
+  border-left: 4px solid #810af0;
+}
+
+/* 期間限定で使用済み */
+.ticket-group__current--limited.ticket-group__current--inactive {
+  background: #faf5ff;
+  border-left: 4px solid #a78bfa;
+}
+
 .ticket-group__header {
   display: flex;
   justify-content: space-between;
@@ -59,6 +76,7 @@
   display: flex;
   align-items: center;
   gap: 0.75rem;
+  flex-wrap: wrap;
 }
 
 .ticket-group__title h3 {
@@ -66,6 +84,10 @@
   font-weight: 700;
   color: #111827;
   margin: 0;
+}
+
+.ticket-group__limited-icon {
+  color: #810af0;
 }
 
 .ticket-group__badge {
@@ -82,6 +104,11 @@
 
 .ticket-group__badge--used {
   background: #9ca3af;
+  color: white;
+}
+
+.ticket-group__badge--limited {
+  background: #810af0;
   color: white;
 }
 
@@ -119,6 +146,11 @@
   background: #fafafa;
 }
 
+.ticket-group--limited .ticket-group__past {
+  border-top-color: #c4b5fd;
+  background: #faf5ff;
+}
+
 .ticket-group__toggle {
   width: 100%;
   display: flex;
@@ -137,6 +169,10 @@
 .ticket-group__toggle:hover {
   background: #f3f4f6;
   color: #374151;
+}
+
+.ticket-group--limited .ticket-group__toggle:hover {
+  background: #f5f3ff;
 }
 
 .ticket-group__past-list {
@@ -171,6 +207,14 @@
   color: #4b5563;
 }
 
+.ticket-group__past-limited {
+  padding: 0.125rem 0.5rem;
+  background: #ede9fe;
+  border-radius: 4px;
+  font-weight: 500;
+  color: #810af0;
+}
+
 /* 他の有効な回数券 */
 .ticket-group__others {
   border-top: 1px dashed #d1d5db;
@@ -178,11 +222,20 @@
   background: #fefce8;
 }
 
+.ticket-group--limited .ticket-group__others {
+  border-top-color: #c4b5fd;
+  background: #faf5ff;
+}
+
 .ticket-group__others-label {
   font-size: 0.8125rem;
   font-weight: 600;
   color: #a16207;
   margin-bottom: 0.75rem;
+}
+
+.ticket-group--limited .ticket-group__others-label {
+  color: #6b21a8;
 }
 
 .ticket-group__other-item {
@@ -193,6 +246,10 @@
   margin-bottom: 0.5rem;
 }
 
+.ticket-group--limited .ticket-group__other-item {
+  border-color: #c4b5fd;
+}
+
 .ticket-group__other-item:last-child {
   margin-bottom: 0;
 }
@@ -201,6 +258,8 @@
   font-weight: 600;
   color: #111827;
   margin-bottom: 0.25rem;
+  display: flex;
+  align-items: center;
 }
 
 .ticket-group__other-details {
