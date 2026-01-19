@@ -1,15 +1,14 @@
 "use client";
 import React, { useState, useEffect } from 'react';
-import { Plus, Save, Trash2, Check, AlertCircle, ChevronDown, ChevronUp } from 'lucide-react';
+import { Plus, Save, Trash2, Check, AlertCircle, ChevronDown, ChevronUp, X } from 'lucide-react';
 
 const InitialDataImport = () => {
   // マスターデータ
   const [limitedOffers, setLimitedOffers] = useState([]);
   const [ticketPlans, setTicketPlans] = useState([]);
   
-  // 入力フォーム
-  const [formData, setFormData] = useState({
-    // 顧客情報
+  // 顧客情報
+  const [customerData, setCustomerData] = useState({
     last_name: '',
     first_name: '',
     last_name_kana: '',
@@ -18,19 +17,21 @@ const InitialDataImport = () => {
     email: '',
     birth_date: '',
     notes: '',
-    // 回数券タイプ選択
-    ticket_type: 'limited', // 'limited' or 'regular'
-    // 福袋（期間限定）
+  });
+
+  // 追加する回数券リスト
+  const [tickets, setTickets] = useState([]);
+  
+  // 現在編集中の回数券
+  const [currentTicket, setCurrentTicket] = useState({
+    ticket_type: 'limited',
     offer_id: '',
-    // 通常回数券
     plan_id: '',
-    // 共通
     purchase_date: new Date().toISOString().split('T')[0],
     expiry_date: '',
     sessions_remaining: '',
     purchase_price: '',
-    paid_amount: '',
-    payment_method: 'cash',
+    payments: [{ amount: '', method: 'cash', date: new Date().toISOString().split('T')[0] }],
   });
 
   // 登録済みリスト
@@ -69,11 +70,11 @@ const InitialDataImport = () => {
   const handleOfferSelect = (offerId) => {
     const offer = limitedOffers.find(o => o.offer_id === offerId);
     if (offer) {
-      const purchaseDate = formData.purchase_date || new Date().toISOString().split('T')[0];
+      const purchaseDate = currentTicket.purchase_date || new Date().toISOString().split('T')[0];
       const expiryDate = new Date(purchaseDate);
       expiryDate.setDate(expiryDate.getDate() + (offer.validity_days || 180));
       
-      setFormData(prev => ({
+      setCurrentTicket(prev => ({
         ...prev,
         offer_id: offerId,
         sessions_remaining: offer.total_sessions,
@@ -87,11 +88,11 @@ const InitialDataImport = () => {
   const handlePlanSelect = (planId) => {
     const plan = ticketPlans.find(p => p.plan_id === planId);
     if (plan) {
-      const purchaseDate = formData.purchase_date || new Date().toISOString().split('T')[0];
+      const purchaseDate = currentTicket.purchase_date || new Date().toISOString().split('T')[0];
       const expiryDate = new Date(purchaseDate);
       expiryDate.setDate(expiryDate.getDate() + (plan.validity_days || 180));
       
-      setFormData(prev => ({
+      setCurrentTicket(prev => ({
         ...prev,
         plan_id: planId,
         sessions_remaining: plan.total_sessions,
@@ -105,58 +106,83 @@ const InitialDataImport = () => {
   const handlePurchaseDateChange = (date) => {
     let validityDays = 180;
     
-    if (formData.ticket_type === 'limited' && formData.offer_id) {
-      const offer = limitedOffers.find(o => o.offer_id === formData.offer_id);
+    if (currentTicket.ticket_type === 'limited' && currentTicket.offer_id) {
+      const offer = limitedOffers.find(o => o.offer_id === currentTicket.offer_id);
       if (offer) validityDays = offer.validity_days || 180;
-    } else if (formData.ticket_type === 'regular' && formData.plan_id) {
-      const plan = ticketPlans.find(p => p.plan_id === formData.plan_id);
+    } else if (currentTicket.ticket_type === 'regular' && currentTicket.plan_id) {
+      const plan = ticketPlans.find(p => p.plan_id === currentTicket.plan_id);
       if (plan) validityDays = plan.validity_days || 180;
     }
     
     const expiryDate = new Date(date);
     expiryDate.setDate(expiryDate.getDate() + validityDays);
     
-    setFormData(prev => ({
+    setCurrentTicket(prev => ({
       ...prev,
       purchase_date: date,
       expiry_date: expiryDate.toISOString().split('T')[0],
     }));
   };
 
-  // 残り金額計算
-  const getRemainingAmount = () => {
-    const purchase = parseInt(formData.purchase_price) || 0;
-    const paid = parseInt(formData.paid_amount) || 0;
-    return purchase - paid;
-  };
-
-  // フォームリセット（顧客情報のみ）
-  const resetCustomerForm = () => {
-    setFormData(prev => ({
+  // 支払い追加
+  const addPayment = () => {
+    setCurrentTicket(prev => ({
       ...prev,
-      last_name: '',
-      first_name: '',
-      last_name_kana: '',
-      first_name_kana: '',
-      phone_number: '',
-      email: '',
-      birth_date: '',
-      notes: '',
-      // 回数券情報はそのまま（連続入力しやすいように）
+      payments: [...prev.payments, { amount: '', method: 'cash', date: new Date().toISOString().split('T')[0] }]
     }));
   };
 
-  // 完全リセット
-  const resetForm = () => {
-    setFormData({
-      last_name: '',
-      first_name: '',
-      last_name_kana: '',
-      first_name_kana: '',
-      phone_number: '',
-      email: '',
-      birth_date: '',
-      notes: '',
+  // 支払い削除
+  const removePayment = (index) => {
+    setCurrentTicket(prev => ({
+      ...prev,
+      payments: prev.payments.filter((_, i) => i !== index)
+    }));
+  };
+
+  // 支払い更新
+  const updatePayment = (index, field, value) => {
+    setCurrentTicket(prev => ({
+      ...prev,
+      payments: prev.payments.map((p, i) => i === index ? { ...p, [field]: value } : p)
+    }));
+  };
+
+  // 支払い合計
+  const getTotalPaid = (payments) => {
+    return payments.reduce((sum, p) => sum + (parseInt(p.amount) || 0), 0);
+  };
+
+  // 残り金額
+  const getRemainingAmount = (ticket) => {
+    const purchase = parseInt(ticket.purchase_price) || 0;
+    const paid = getTotalPaid(ticket.payments);
+    return purchase - paid;
+  };
+
+  // 回数券をリストに追加
+  const addTicketToList = () => {
+    if (currentTicket.ticket_type === 'limited' && !currentTicket.offer_id) {
+      setMessage({ type: 'error', text: '福袋を選択してください' });
+      return;
+    }
+    if (currentTicket.ticket_type === 'regular' && !currentTicket.plan_id) {
+      setMessage({ type: 'error', text: '回数券プランを選択してください' });
+      return;
+    }
+
+    const ticketName = currentTicket.ticket_type === 'limited'
+      ? limitedOffers.find(o => o.offer_id === currentTicket.offer_id)?.name
+      : ticketPlans.find(p => p.plan_id === currentTicket.plan_id)?.name;
+
+    setTickets(prev => [...prev, {
+      ...currentTicket,
+      id: Date.now(),
+      name: ticketName,
+    }]);
+
+    // 回数券フォームをリセット
+    setCurrentTicket({
       ticket_type: 'limited',
       offer_id: '',
       plan_id: '',
@@ -164,32 +190,55 @@ const InitialDataImport = () => {
       expiry_date: '',
       sessions_remaining: '',
       purchase_price: '',
-      paid_amount: '',
-      payment_method: 'cash',
+      payments: [{ amount: '', method: 'cash', date: new Date().toISOString().split('T')[0] }],
     });
+    setMessage({ type: 'success', text: `${ticketName} を追加しました` });
+  };
+
+  // 回数券をリストから削除
+  const removeTicket = (id) => {
+    setTickets(prev => prev.filter(t => t.id !== id));
+  };
+
+  // 完全リセット
+  const resetForm = () => {
+    setCustomerData({
+      last_name: '',
+      first_name: '',
+      last_name_kana: '',
+      first_name_kana: '',
+      phone_number: '',
+      email: '',
+      birth_date: '',
+      notes: '',
+    });
+    setTickets([]);
+    setCurrentTicket({
+      ticket_type: 'limited',
+      offer_id: '',
+      plan_id: '',
+      purchase_date: new Date().toISOString().split('T')[0],
+      expiry_date: '',
+      sessions_remaining: '',
+      purchase_price: '',
+      payments: [{ amount: '', method: 'cash', date: new Date().toISOString().split('T')[0] }],
+    });
+    setMessage({ type: '', text: '' });
   };
 
   // 登録処理
   const handleSubmit = async () => {
     // バリデーション
-    if (!formData.last_name || !formData.first_name) {
+    if (!customerData.last_name || !customerData.first_name) {
       setMessage({ type: 'error', text: '姓名は必須です' });
       return;
     }
-    if (!formData.last_name_kana || !formData.first_name_kana) {
+    if (!customerData.last_name_kana || !customerData.first_name_kana) {
       setMessage({ type: 'error', text: '姓名（カナ）は必須です' });
       return;
     }
-    if (!formData.phone_number) {
+    if (!customerData.phone_number) {
       setMessage({ type: 'error', text: '電話番号は必須です' });
-      return;
-    }
-    if (formData.ticket_type === 'limited' && !formData.offer_id) {
-      setMessage({ type: 'error', text: '福袋を選択してください' });
-      return;
-    }
-    if (formData.ticket_type === 'regular' && !formData.plan_id) {
-      setMessage({ type: 'error', text: '回数券プランを選択してください' });
       return;
     }
 
@@ -201,27 +250,21 @@ const InitialDataImport = () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          customer: {
-            last_name: formData.last_name,
-            first_name: formData.first_name,
-            last_name_kana: formData.last_name_kana,
-            first_name_kana: formData.first_name_kana,
-            phone_number: formData.phone_number,
-            email: formData.email || '',
-            birth_date: formData.birth_date || null,
-            notes: formData.notes || null,
-          },
-          ticket: {
-            type: formData.ticket_type,
-            offer_id: formData.ticket_type === 'limited' ? formData.offer_id : null,
-            plan_id: formData.ticket_type === 'regular' ? formData.plan_id : null,
-            purchase_date: formData.purchase_date,
-            expiry_date: formData.expiry_date,
-            sessions_remaining: parseInt(formData.sessions_remaining),
-            purchase_price: parseInt(formData.purchase_price),
-            paid_amount: parseInt(formData.paid_amount) || 0,
-            payment_method: formData.payment_method,
-          }
+          customer: customerData,
+          tickets: tickets.map(t => ({
+            type: t.ticket_type,
+            offer_id: t.ticket_type === 'limited' ? t.offer_id : null,
+            plan_id: t.ticket_type === 'regular' ? t.plan_id : null,
+            purchase_date: t.purchase_date,
+            expiry_date: t.expiry_date,
+            sessions_remaining: parseInt(t.sessions_remaining),
+            purchase_price: parseInt(t.purchase_price),
+            payments: t.payments.filter(p => p.amount).map(p => ({
+              amount: parseInt(p.amount),
+              method: p.method,
+              date: p.date,
+            })),
+          })),
         })
       });
 
@@ -229,21 +272,19 @@ const InitialDataImport = () => {
 
       if (result.success) {
         // 登録済みリストに追加
-        const ticketName = formData.ticket_type === 'limited'
-          ? limitedOffers.find(o => o.offer_id === formData.offer_id)?.name
-          : ticketPlans.find(p => p.plan_id === formData.plan_id)?.name;
-
         setRegisteredList(prev => [{
           id: Date.now(),
-          customer_name: `${formData.last_name} ${formData.first_name}`,
-          ticket_name: ticketName,
-          purchase_price: formData.purchase_price,
-          paid_amount: formData.paid_amount,
-          remaining: getRemainingAmount(),
+          customer_name: `${customerData.last_name} ${customerData.first_name}`,
+          tickets: tickets.map(t => ({
+            name: t.name,
+            purchase_price: t.purchase_price,
+            paid: getTotalPaid(t.payments),
+            remaining: getRemainingAmount(t),
+          })),
         }, ...prev]);
 
-        setMessage({ type: 'success', text: `${formData.last_name} ${formData.first_name}さんを登録しました` });
-        resetCustomerForm();
+        setMessage({ type: 'success', text: `${customerData.last_name} ${customerData.first_name}さんを登録しました` });
+        resetForm();
       } else {
         setMessage({ type: 'error', text: result.error || '登録に失敗しました' });
       }
@@ -260,6 +301,8 @@ const InitialDataImport = () => {
       <style jsx>{`
         .initial-data-import {
           padding: 1rem;
+          max-width: 900px;
+          margin: 0 auto;
         }
 
         .section {
@@ -322,7 +365,7 @@ const InitialDataImport = () => {
 
         .form-textarea {
           resize: vertical;
-          min-height: 80px;
+          min-height: 60px;
         }
 
         .ticket-type-toggle {
@@ -354,11 +397,77 @@ const InitialDataImport = () => {
           border-color: #9ca3af;
         }
 
+        .payments-section {
+          margin-top: 1rem;
+          padding: 1rem;
+          background: #f9fafb;
+          border-radius: 8px;
+        }
+
+        .payments-title {
+          font-size: 0.875rem;
+          font-weight: 600;
+          color: #374151;
+          margin-bottom: 0.75rem;
+        }
+
+        .payment-row {
+          display: flex;
+          gap: 0.5rem;
+          align-items: center;
+          margin-bottom: 0.5rem;
+        }
+
+        .payment-row input, .payment-row select {
+          padding: 0.5rem;
+          border: 1px solid #d1d5db;
+          border-radius: 4px;
+          font-size: 0.875rem;
+        }
+
+        .payment-row input[type="number"] {
+          width: 120px;
+        }
+
+        .payment-row input[type="date"] {
+          width: 140px;
+        }
+
+        .payment-row select {
+          width: 100px;
+        }
+
+        .remove-btn {
+          padding: 0.25rem;
+          background: none;
+          border: none;
+          color: #ef4444;
+          cursor: pointer;
+        }
+
+        .add-payment-btn {
+          display: flex;
+          align-items: center;
+          gap: 0.25rem;
+          padding: 0.5rem 0.75rem;
+          background: #f3f4f6;
+          border: 1px dashed #d1d5db;
+          border-radius: 4px;
+          font-size: 0.875rem;
+          color: #6b7280;
+          cursor: pointer;
+          margin-top: 0.5rem;
+        }
+
+        .add-payment-btn:hover {
+          background: #e5e7eb;
+        }
+
         .amount-display {
           display: flex;
           gap: 1rem;
           padding: 1rem;
-          background: #f9fafb;
+          background: #f0f9ff;
           border-radius: 8px;
           margin-top: 1rem;
         }
@@ -388,12 +497,93 @@ const InitialDataImport = () => {
           color: #059669;
         }
 
+        .add-ticket-btn {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 0.5rem;
+          width: 100%;
+          padding: 0.75rem;
+          background: #3b82f6;
+          color: white;
+          border: none;
+          border-radius: 8px;
+          font-size: 1rem;
+          font-weight: 500;
+          cursor: pointer;
+          margin-top: 1rem;
+        }
+
+        .add-ticket-btn:hover {
+          background: #2563eb;
+        }
+
+        .ticket-list {
+          margin-top: 1rem;
+        }
+
+        .ticket-item {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 1rem;
+          background: #f9fafb;
+          border: 1px solid #e5e7eb;
+          border-radius: 8px;
+          margin-bottom: 0.5rem;
+        }
+
+        .ticket-info {
+          flex: 1;
+        }
+
+        .ticket-name {
+          font-weight: 600;
+          color: #1f2937;
+        }
+
+        .ticket-details {
+          font-size: 0.875rem;
+          color: #6b7280;
+          margin-top: 0.25rem;
+        }
+
+        .ticket-amount {
+          text-align: right;
+          margin-right: 1rem;
+        }
+
+        .ticket-price {
+          font-weight: 600;
+          color: #1f2937;
+        }
+
+        .ticket-remaining {
+          font-size: 0.875rem;
+          color: #dc2626;
+        }
+
+        .ticket-remaining.zero {
+          color: #059669;
+        }
+
+        .delete-ticket-btn {
+          padding: 0.5rem;
+          background: #fee2e2;
+          border: none;
+          border-radius: 4px;
+          color: #dc2626;
+          cursor: pointer;
+        }
+
+        .delete-ticket-btn:hover {
+          background: #fecaca;
+        }
+
         .actions {
           display: flex;
           gap: 1rem;
           margin-top: 1.5rem;
-          padding-top: 1rem;
-          border-top: 1px solid #e5e7eb;
         }
 
         .btn {
@@ -402,21 +592,22 @@ const InitialDataImport = () => {
           justify-content: center;
           gap: 0.5rem;
           padding: 0.75rem 1.5rem;
+          border: none;
           border-radius: 8px;
-          font-size: 0.9375rem;
+          font-size: 1rem;
           font-weight: 500;
           cursor: pointer;
           transition: all 0.2s;
-          border: none;
         }
 
         .btn-primary {
-          background: #3b82f6;
+          background: #10b981;
           color: white;
+          flex: 1;
         }
 
         .btn-primary:hover:not(:disabled) {
-          background: #2563eb;
+          background: #059669;
         }
 
         .btn-primary:disabled {
@@ -427,7 +618,6 @@ const InitialDataImport = () => {
         .btn-secondary {
           background: #f3f4f6;
           color: #374151;
-          border: 1px solid #d1d5db;
         }
 
         .btn-secondary:hover {
@@ -435,12 +625,12 @@ const InitialDataImport = () => {
         }
 
         .message {
+          padding: 1rem;
+          border-radius: 8px;
+          margin-bottom: 1rem;
           display: flex;
           align-items: center;
           gap: 0.5rem;
-          padding: 0.75rem 1rem;
-          border-radius: 8px;
-          margin-bottom: 1rem;
         }
 
         .message.success {
@@ -453,11 +643,19 @@ const InitialDataImport = () => {
           color: #991b1b;
         }
 
+        .no-ticket-notice {
+          text-align: center;
+          padding: 2rem;
+          color: #6b7280;
+          font-size: 0.875rem;
+        }
+
         .registered-header {
           display: flex;
           justify-content: space-between;
           align-items: center;
           cursor: pointer;
+          padding: 0.5rem 0;
         }
 
         .registered-count {
@@ -471,38 +669,28 @@ const InitialDataImport = () => {
         }
 
         .registered-item {
-          display: grid;
-          grid-template-columns: 1fr 1.5fr 1fr 1fr 1fr;
-          gap: 1rem;
-          padding: 0.75rem;
+          padding: 1rem;
           background: #f9fafb;
-          border-radius: 6px;
+          border-radius: 8px;
           margin-bottom: 0.5rem;
-          font-size: 0.875rem;
         }
 
-        .registered-item-header {
+        .registered-customer-name {
           font-weight: 600;
-          color: #374151;
-          background: #e5e7eb;
-        }
-
-        .registered-item-value {
           color: #1f2937;
+          margin-bottom: 0.5rem;
         }
 
-        @media (max-width: 768px) {
-          .form-grid {
-            grid-template-columns: 1fr 1fr;
-          }
-
-          .registered-item {
-            grid-template-columns: 1fr 1fr;
-          }
+        .registered-ticket {
+          font-size: 0.875rem;
+          color: #6b7280;
+          padding-left: 1rem;
+          border-left: 2px solid #e5e7eb;
+          margin-top: 0.25rem;
         }
       `}</style>
 
-      {/* メッセージ表示 */}
+      {/* メッセージ */}
       {message.text && (
         <div className={`message ${message.type}`}>
           {message.type === 'success' ? <Check size={18} /> : <AlertCircle size={18} />}
@@ -519,8 +707,8 @@ const InitialDataImport = () => {
             <input
               type="text"
               className="form-input"
-              value={formData.last_name}
-              onChange={(e) => setFormData(prev => ({ ...prev, last_name: e.target.value }))}
+              value={customerData.last_name}
+              onChange={(e) => setCustomerData(prev => ({ ...prev, last_name: e.target.value }))}
               placeholder="山田"
             />
           </div>
@@ -529,28 +717,28 @@ const InitialDataImport = () => {
             <input
               type="text"
               className="form-input"
-              value={formData.first_name}
-              onChange={(e) => setFormData(prev => ({ ...prev, first_name: e.target.value }))}
+              value={customerData.first_name}
+              onChange={(e) => setCustomerData(prev => ({ ...prev, first_name: e.target.value }))}
               placeholder="花子"
             />
           </div>
           <div className="form-group">
-            <label className="form-label">姓（カナ）<span className="required">*</span></label>
+            <label className="form-label">セイ<span className="required">*</span></label>
             <input
               type="text"
               className="form-input"
-              value={formData.last_name_kana}
-              onChange={(e) => setFormData(prev => ({ ...prev, last_name_kana: e.target.value }))}
+              value={customerData.last_name_kana}
+              onChange={(e) => setCustomerData(prev => ({ ...prev, last_name_kana: e.target.value }))}
               placeholder="ヤマダ"
             />
           </div>
           <div className="form-group">
-            <label className="form-label">名（カナ）<span className="required">*</span></label>
+            <label className="form-label">メイ<span className="required">*</span></label>
             <input
               type="text"
               className="form-input"
-              value={formData.first_name_kana}
-              onChange={(e) => setFormData(prev => ({ ...prev, first_name_kana: e.target.value }))}
+              value={customerData.first_name_kana}
+              onChange={(e) => setCustomerData(prev => ({ ...prev, first_name_kana: e.target.value }))}
               placeholder="ハナコ"
             />
           </div>
@@ -559,8 +747,8 @@ const InitialDataImport = () => {
             <input
               type="tel"
               className="form-input"
-              value={formData.phone_number}
-              onChange={(e) => setFormData(prev => ({ ...prev, phone_number: e.target.value }))}
+              value={customerData.phone_number}
+              onChange={(e) => setCustomerData(prev => ({ ...prev, phone_number: e.target.value }))}
               placeholder="09012345678"
             />
           </div>
@@ -569,8 +757,8 @@ const InitialDataImport = () => {
             <input
               type="email"
               className="form-input"
-              value={formData.email}
-              onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+              value={customerData.email}
+              onChange={(e) => setCustomerData(prev => ({ ...prev, email: e.target.value }))}
               placeholder="example@email.com"
             />
           </div>
@@ -579,37 +767,66 @@ const InitialDataImport = () => {
             <input
               type="date"
               className="form-input"
-              value={formData.birth_date}
-              onChange={(e) => setFormData(prev => ({ ...prev, birth_date: e.target.value }))}
+              value={customerData.birth_date}
+              onChange={(e) => setCustomerData(prev => ({ ...prev, birth_date: e.target.value }))}
             />
           </div>
-          <div className="form-group full-width">
+          <div className="form-group">
             <label className="form-label">備考</label>
-            <textarea
-              className="form-textarea"
-              value={formData.notes}
-              onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+            <input
+              type="text"
+              className="form-input"
+              value={customerData.notes}
+              onChange={(e) => setCustomerData(prev => ({ ...prev, notes: e.target.value }))}
               placeholder="メモなど"
             />
           </div>
         </div>
       </div>
 
-      {/* 回数券情報 */}
+      {/* 追加済み回数券リスト */}
+      {tickets.length > 0 && (
+        <div className="section">
+          <h3 className="section-title">追加済み回数券 ({tickets.length}件)</h3>
+          <div className="ticket-list">
+            {tickets.map(ticket => (
+              <div key={ticket.id} className="ticket-item">
+                <div className="ticket-info">
+                  <div className="ticket-name">{ticket.name}</div>
+                  <div className="ticket-details">
+                    残り{ticket.sessions_remaining}回 / 期限: {ticket.expiry_date}
+                  </div>
+                </div>
+                <div className="ticket-amount">
+                  <div className="ticket-price">¥{parseInt(ticket.purchase_price).toLocaleString()}</div>
+                  <div className={`ticket-remaining ${getRemainingAmount(ticket) === 0 ? 'zero' : ''}`}>
+                    残 ¥{getRemainingAmount(ticket).toLocaleString()}
+                  </div>
+                </div>
+                <button className="delete-ticket-btn" onClick={() => removeTicket(ticket.id)}>
+                  <Trash2 size={18} />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 回数券追加フォーム */}
       <div className="section">
-        <h3 className="section-title">回数券情報</h3>
+        <h3 className="section-title">回数券を追加</h3>
         
         {/* 回数券タイプ選択 */}
         <div className="ticket-type-toggle">
           <button
-            className={`toggle-btn ${formData.ticket_type === 'limited' ? 'active' : ''}`}
-            onClick={() => setFormData(prev => ({ ...prev, ticket_type: 'limited', plan_id: '' }))}
+            className={`toggle-btn ${currentTicket.ticket_type === 'limited' ? 'active' : ''}`}
+            onClick={() => setCurrentTicket(prev => ({ ...prev, ticket_type: 'limited', plan_id: '' }))}
           >
             福袋・期間限定
           </button>
           <button
-            className={`toggle-btn ${formData.ticket_type === 'regular' ? 'active' : ''}`}
-            onClick={() => setFormData(prev => ({ ...prev, ticket_type: 'regular', offer_id: '' }))}
+            className={`toggle-btn ${currentTicket.ticket_type === 'regular' ? 'active' : ''}`}
+            onClick={() => setCurrentTicket(prev => ({ ...prev, ticket_type: 'regular', offer_id: '' }))}
           >
             通常回数券
           </button>
@@ -617,12 +834,12 @@ const InitialDataImport = () => {
 
         <div className="form-grid">
           {/* 福袋選択 */}
-          {formData.ticket_type === 'limited' && (
+          {currentTicket.ticket_type === 'limited' && (
             <div className="form-group full-width">
-              <label className="form-label">福袋を選択<span className="required">*</span></label>
+              <label className="form-label">福袋を選択</label>
               <select
                 className="form-select"
-                value={formData.offer_id}
+                value={currentTicket.offer_id}
                 onChange={(e) => handleOfferSelect(e.target.value)}
               >
                 <option value="">選択してください</option>
@@ -636,12 +853,12 @@ const InitialDataImport = () => {
           )}
 
           {/* 通常回数券選択 */}
-          {formData.ticket_type === 'regular' && (
+          {currentTicket.ticket_type === 'regular' && (
             <div className="form-group full-width">
-              <label className="form-label">回数券プランを選択<span className="required">*</span></label>
+              <label className="form-label">回数券プランを選択</label>
               <select
                 className="form-select"
-                value={formData.plan_id}
+                value={currentTicket.plan_id}
                 onChange={(e) => handlePlanSelect(e.target.value)}
               >
                 <option value="">選択してください</option>
@@ -659,7 +876,7 @@ const InitialDataImport = () => {
             <input
               type="date"
               className="form-input"
-              value={formData.purchase_date}
+              value={currentTicket.purchase_date}
               onChange={(e) => handlePurchaseDateChange(e.target.value)}
             />
           </div>
@@ -668,8 +885,8 @@ const InitialDataImport = () => {
             <input
               type="date"
               className="form-input"
-              value={formData.expiry_date}
-              onChange={(e) => setFormData(prev => ({ ...prev, expiry_date: e.target.value }))}
+              value={currentTicket.expiry_date}
+              onChange={(e) => setCurrentTicket(prev => ({ ...prev, expiry_date: e.target.value }))}
             />
           </div>
           <div className="form-group">
@@ -677,8 +894,8 @@ const InitialDataImport = () => {
             <input
               type="number"
               className="form-input"
-              value={formData.sessions_remaining}
-              onChange={(e) => setFormData(prev => ({ ...prev, sessions_remaining: e.target.value }))}
+              value={currentTicket.sessions_remaining}
+              onChange={(e) => setCurrentTicket(prev => ({ ...prev, sessions_remaining: e.target.value }))}
             />
           </div>
           <div className="form-group">
@@ -686,52 +903,70 @@ const InitialDataImport = () => {
             <input
               type="number"
               className="form-input"
-              value={formData.purchase_price}
-              onChange={(e) => setFormData(prev => ({ ...prev, purchase_price: e.target.value }))}
+              value={currentTicket.purchase_price}
+              onChange={(e) => setCurrentTicket(prev => ({ ...prev, purchase_price: e.target.value }))}
             />
           </div>
-          <div className="form-group">
-            <label className="form-label">支払済み金額</label>
-            <input
-              type="number"
-              className="form-input"
-              value={formData.paid_amount}
-              onChange={(e) => setFormData(prev => ({ ...prev, paid_amount: e.target.value }))}
-              placeholder="0"
-            />
-          </div>
-          <div className="form-group">
-            <label className="form-label">支払方法</label>
-            <select
-              className="form-select"
-              value={formData.payment_method}
-              onChange={(e) => setFormData(prev => ({ ...prev, payment_method: e.target.value }))}
-            >
-              <option value="cash">現金</option>
-              <option value="card">カード</option>
-              <option value="transfer">振込</option>
-              <option value="other">その他</option>
-            </select>
-          </div>
+        </div>
+
+        {/* 支払い履歴 */}
+        <div className="payments-section">
+          <div className="payments-title">支払い履歴</div>
+          {currentTicket.payments.map((payment, index) => (
+            <div key={index} className="payment-row">
+              <input
+                type="number"
+                placeholder="金額"
+                value={payment.amount}
+                onChange={(e) => updatePayment(index, 'amount', e.target.value)}
+              />
+              <select
+                value={payment.method}
+                onChange={(e) => updatePayment(index, 'method', e.target.value)}
+              >
+                <option value="cash">現金</option>
+                <option value="card">カード</option>
+                <option value="transfer">振込</option>
+                <option value="other">その他</option>
+              </select>
+              <input
+                type="date"
+                value={payment.date}
+                onChange={(e) => updatePayment(index, 'date', e.target.value)}
+              />
+              {currentTicket.payments.length > 1 && (
+                <button className="remove-btn" onClick={() => removePayment(index)}>
+                  <X size={16} />
+                </button>
+              )}
+            </div>
+          ))}
+          <button className="add-payment-btn" onClick={addPayment}>
+            <Plus size={16} /> 支払いを追加
+          </button>
         </div>
 
         {/* 金額表示 */}
         <div className="amount-display">
           <div className="amount-item">
             <div className="amount-label">購入金額</div>
-            <div className="amount-value">¥{(parseInt(formData.purchase_price) || 0).toLocaleString()}</div>
+            <div className="amount-value">¥{(parseInt(currentTicket.purchase_price) || 0).toLocaleString()}</div>
           </div>
           <div className="amount-item">
             <div className="amount-label">支払済み</div>
-            <div className="amount-value">¥{(parseInt(formData.paid_amount) || 0).toLocaleString()}</div>
+            <div className="amount-value">¥{getTotalPaid(currentTicket.payments).toLocaleString()}</div>
           </div>
           <div className="amount-item">
             <div className="amount-label">残り金額</div>
-            <div className={`amount-value remaining ${getRemainingAmount() === 0 ? 'zero' : ''}`}>
-              ¥{getRemainingAmount().toLocaleString()}
+            <div className={`amount-value remaining ${getRemainingAmount(currentTicket) === 0 ? 'zero' : ''}`}>
+              ¥{getRemainingAmount(currentTicket).toLocaleString()}
             </div>
           </div>
         </div>
+
+        <button className="add-ticket-btn" onClick={addTicketToList}>
+          <Plus size={20} /> この回数券を追加
+        </button>
       </div>
 
       {/* アクションボタン */}
@@ -742,7 +977,7 @@ const InitialDataImport = () => {
           disabled={isLoading}
         >
           <Save size={18} />
-          {isLoading ? '登録中...' : '登録'}
+          {isLoading ? '登録中...' : tickets.length > 0 ? '顧客と回数券を登録' : '顧客のみ登録'}
         </button>
         <button
           className="btn btn-secondary"
@@ -769,20 +1004,19 @@ const InitialDataImport = () => {
           
           {showRegisteredList && (
             <div className="registered-list">
-              <div className="registered-item registered-item-header">
-                <div>顧客名</div>
-                <div>回数券</div>
-                <div>購入金額</div>
-                <div>支払済み</div>
-                <div>残り金額</div>
-              </div>
               {registeredList.map(item => (
                 <div key={item.id} className="registered-item">
-                  <div className="registered-item-value">{item.customer_name}</div>
-                  <div className="registered-item-value">{item.ticket_name}</div>
-                  <div className="registered-item-value">¥{parseInt(item.purchase_price).toLocaleString()}</div>
-                  <div className="registered-item-value">¥{parseInt(item.paid_amount || 0).toLocaleString()}</div>
-                  <div className="registered-item-value">¥{parseInt(item.remaining).toLocaleString()}</div>
+                  <div className="registered-customer-name">{item.customer_name}</div>
+                  {item.tickets.length === 0 ? (
+                    <div className="registered-ticket">回数券なし</div>
+                  ) : (
+                    item.tickets.map((t, i) => (
+                      <div key={i} className="registered-ticket">
+                        {t.name} - ¥{parseInt(t.purchase_price).toLocaleString()} 
+                        (支払済: ¥{t.paid.toLocaleString()} / 残: ¥{t.remaining.toLocaleString()})
+                      </div>
+                    ))
+                  )}
                 </div>
               ))}
             </div>

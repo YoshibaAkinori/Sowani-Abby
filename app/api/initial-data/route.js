@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getConnection } from '@/app/lib/db';
+import { getConnection } from '../../../lib/db';
 import { v4 as uuidv4 } from 'uuid';
 
 export async function POST(request) {
@@ -7,7 +7,7 @@ export async function POST(request) {
   const connection = await pool.getConnection();
   
   try {
-    const { customer, ticket } = await request.json();
+    const { customer, tickets = [] } = await request.json();
     
     await connection.beginTransaction();
     
@@ -32,73 +32,86 @@ export async function POST(request) {
       customer.notes || null
     ]);
     
-    // 2. 回数券登録
-    const ticketId = uuidv4();
+    // 2. 回数券登録（複数対応）
+    const ticketResults = [];
     
-    if (ticket.type === 'limited') {
-      // 福袋（期間限定）の場合 → limited_ticket_purchases
-      await connection.query(`
-        INSERT INTO limited_ticket_purchases (
-          purchase_id, offer_id, customer_id,
-          purchase_date, expiry_date, sessions_remaining,
-          purchase_price, payment_method, is_active
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, TRUE)
-      `, [
-        ticketId,
-        ticket.offer_id,
-        customerId,
-        ticket.purchase_date,
-        ticket.expiry_date,
-        ticket.sessions_remaining,
-        ticket.purchase_price,
-        ticket.payment_method
-      ]);
+    for (const ticket of tickets) {
+      const ticketId = uuidv4();
       
-      // limited_offersのcurrent_salesを更新
-      await connection.query(`
-        UPDATE limited_offers 
-        SET current_sales = current_sales + 1 
-        WHERE offer_id = ?
-      `, [ticket.offer_id]);
+      if (ticket.type === 'limited') {
+        // 福袋（期間限定）の場合 → limited_ticket_purchases
+        await connection.query(`
+          INSERT INTO limited_ticket_purchases (
+            purchase_id, offer_id, customer_id,
+            purchase_date, expiry_date, sessions_remaining,
+            purchase_price, payment_method, is_active
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, TRUE)
+        `, [
+          ticketId,
+          ticket.offer_id,
+          customerId,
+          ticket.purchase_date,
+          ticket.expiry_date,
+          ticket.sessions_remaining,
+          ticket.purchase_price,
+          ticket.payments?.[0]?.method || 'cash'
+        ]);
+        
+        // limited_offersのcurrent_salesを更新
+        await connection.query(`
+          UPDATE limited_offers 
+          SET current_sales = current_sales + 1 
+          WHERE offer_id = ?
+        `, [ticket.offer_id]);
+        
+      } else {
+        // 通常回数券の場合 → customer_tickets
+        await connection.query(`
+          INSERT INTO customer_tickets (
+            customer_ticket_id, customer_id, plan_id,
+            purchase_date, expiry_date, sessions_remaining,
+            purchase_price
+          ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        `, [
+          ticketId,
+          customerId,
+          ticket.plan_id,
+          ticket.purchase_date,
+          ticket.expiry_date,
+          ticket.sessions_remaining,
+          ticket.purchase_price
+        ]);
+      }
       
-    } else {
-      // 通常回数券の場合 → customer_tickets
-      await connection.query(`
-        INSERT INTO customer_tickets (
-          customer_ticket_id, customer_id, plan_id,
-          purchase_date, expiry_date, sessions_remaining,
-          purchase_price
-        ) VALUES (?, ?, ?, ?, ?, ?, ?)
-      `, [
-        ticketId,
-        customerId,
-        ticket.plan_id,
-        ticket.purchase_date,
-        ticket.expiry_date,
-        ticket.sessions_remaining,
-        ticket.purchase_price
-      ]);
-    }
-    
-    // 3. 支払い履歴登録（支払済み金額がある場合）
-    if (ticket.paid_amount > 0) {
-      const paymentId = uuidv4();
+      // 3. 支払い履歴登録（複数対応）
       const ticketType = ticket.type === 'limited' ? 'limited' : 'regular';
       
-      await connection.query(`
-        INSERT INTO ticket_payments (
-          payment_id, ticket_type, customer_ticket_id, payment_date,
-          amount_paid, payment_method, notes
-        ) VALUES (?, ?, ?, ?, ?, ?, ?)
-      `, [
-        paymentId,
-        ticketType,
-        ticketId,
-        ticket.purchase_date,
-        ticket.paid_amount,
-        ticket.payment_method,
-        '初期データ登録'
-      ]);
+      if (ticket.payments && ticket.payments.length > 0) {
+        for (const payment of ticket.payments) {
+          if (payment.amount > 0) {
+            const paymentId = uuidv4();
+            await connection.query(`
+              INSERT INTO ticket_payments (
+                payment_id, ticket_type, customer_ticket_id, payment_date,
+                amount_paid, payment_method, notes
+              ) VALUES (?, ?, ?, ?, ?, ?, ?)
+            `, [
+              paymentId,
+              ticketType,
+              ticketId,
+              payment.date,
+              payment.amount,
+              payment.method,
+              '初期データ登録'
+            ]);
+          }
+        }
+      }
+      
+      ticketResults.push({
+        ticket_id: ticketId,
+        type: ticket.type,
+      });
     }
     
     await connection.commit();
@@ -107,9 +120,8 @@ export async function POST(request) {
       success: true,
       data: {
         customer_id: customerId,
-        ticket_id: ticketId,
         customer_name: `${customer.last_name} ${customer.first_name}`,
-        remaining_amount: ticket.purchase_price - (ticket.paid_amount || 0)
+        tickets: ticketResults,
       }
     });
     
