@@ -255,6 +255,7 @@ CREATE TABLE `customers` (
   `birth_date` date DEFAULT NULL,
   `gender` enum('male','female','other','not_specified') COLLATE utf8mb4_unicode_ci DEFAULT 'not_specified' COMMENT '性別',
   `notes` text COLLATE utf8mb4_unicode_ci,
+  `is_existing_customer` tinyint(1) NOT NULL DEFAULT '0' COMMENT '既存顧客フラグ（1=システム導入前からの顧客）',
   `base_visit_count` int DEFAULT '0' COMMENT '基準来店回数（システム導入前）',
   `visit_count` int DEFAULT '0' COMMENT '来店回数（回数券使用回数）',
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
@@ -262,7 +263,8 @@ CREATE TABLE `customers` (
   PRIMARY KEY (`customer_id`),
   KEY `idx_phone` (`phone_number`),
   KEY `idx_email` (`email`),
-  KEY `idx_line_user` (`line_user_id`)
+  KEY `idx_line_user` (`line_user_id`),
+  KEY `idx_is_existing_customer` (`is_existing_customer`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -337,6 +339,7 @@ CREATE TABLE `limited_offers` (
   `name` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'メニュー名',
   `description` text COLLATE utf8mb4_unicode_ci COMMENT '説明',
   `category` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'カテゴリ',
+  `gender_restriction` enum('all','female','male') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'all' COMMENT '性別制限',
   `base_plan_id` char(36) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '元の回数券プランID',
   `duration_minutes` int DEFAULT '60' COMMENT '施術時間',
   `original_price` int NOT NULL COMMENT '通常価格',
@@ -373,8 +376,6 @@ CREATE TABLE `limited_ticket_purchases` (
   `expiry_date` date NOT NULL,
   `sessions_remaining` int NOT NULL,
   `purchase_price` int NOT NULL,
-  `payment_method` enum('cash','card','transfer','other') COLLATE utf8mb4_unicode_ci NOT NULL,
-  `is_active` tinyint(1) DEFAULT '1',
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`purchase_id`),
   KEY `idx_offer` (`offer_id`),
@@ -674,6 +675,7 @@ DROP TABLE IF EXISTS `ticket_payments`;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `ticket_payments` (
   `payment_id` char(36) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT (uuid()),
+  `ticket_type` enum('regular','limited') COLLATE utf8mb4_unicode_ci DEFAULT 'regular' COMMENT '回数券種別（regular=通常, limited=期間限定/福袋）',
   `customer_ticket_id` char(36) COLLATE utf8mb4_unicode_ci NOT NULL,
   `payment_date` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   `amount_paid` int NOT NULL,
@@ -681,8 +683,7 @@ CREATE TABLE `ticket_payments` (
   `notes` text COLLATE utf8mb4_unicode_ci,
   PRIMARY KEY (`payment_id`),
   KEY `idx_ticket` (`customer_ticket_id`),
-  KEY `idx_date` (`payment_date`),
-  CONSTRAINT `ticket_payments_ibfk_1` FOREIGN KEY (`customer_ticket_id`) REFERENCES `customer_tickets` (`customer_ticket_id`)
+  KEY `idx_date` (`payment_date`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -718,4 +719,4 @@ CREATE TABLE `ticket_plans` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2025-12-14 14:22:44
+-- Dump completed on 2026-01-18 12:05:05

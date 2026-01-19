@@ -26,113 +26,62 @@ export async function GET(request) {
 
   try {
     const [rows] = await pool.query(
-      `SELECT 
-        closing_id,
-        date,
-        staff_id,
-        ten_thousand_count,
-        ten_thousand_count_after,
-        five_thousand_count,
-        five_thousand_count_after,
-        two_thousand_count,
-        two_thousand_count_after,
-        one_thousand_count,
-        one_thousand_count_after,
-        five_hundred_count,
-        five_hundred_count_after,
-        one_hundred_count,
-        one_hundred_count_after,
-        fifty_count,
-        fifty_count_after,
-        ten_count,
-        ten_count_after,
-        five_count,
-        five_count_after,
-        one_count,
-        one_count_after,
-        actual_cash,
-        expected_cash,
-        discrepancy,
-        record_amount,
-        cash_sales as cash_amount,
-        card_sales as card_amount,
-        total_sales,
-        transaction_count,
-        fixed_amount,
-        payments,
-        total_payments,
-        notes,
-        created_at
-      FROM daily_closings
-      WHERE date = ?`,
+      `SELECT * FROM daily_closings WHERE date = ?`,
       [date]
     );
 
     if (rows.length === 0) {
-      return NextResponse.json({
-        success: true,
-        data: null
-      });
+      return NextResponse.json({ success: true, data: null });
     }
 
     const closing = rows[0];
     
-    // ★★★ payments処理の修正 ★★★
-    // MySQLのJSON型は既にオブジェクトとして返される場合がある
+    // payments処理
     if (closing.payments) {
-      // すでに配列ならそのまま使用
       if (Array.isArray(closing.payments)) {
-        closing.payments = closing.payments;
-      }
-      // 文字列ならパース
-      else if (typeof closing.payments === 'string') {
+        // そのまま
+      } else if (typeof closing.payments === 'string') {
         try {
           closing.payments = JSON.parse(closing.payments);
         } catch (e) {
-          console.error('JSON parse error:', e);
           closing.payments = [];
         }
-      }
-      // オブジェクトならそのまま（念のため配列チェック）
-      else if (typeof closing.payments === 'object') {
+      } else if (typeof closing.payments === 'object') {
         closing.payments = Array.isArray(closing.payments) ? closing.payments : [closing.payments];
       }
     } else {
       closing.payments = [];
     }
 
-    // cash_countオブジェクトを作成
-    closing.cash_count = {
-      ten_thousand: closing.ten_thousand_count || 0,
-      five_thousand: closing.five_thousand_count || 0,
-      two_thousand: closing.two_thousand_count || 0,
-      one_thousand: closing.one_thousand_count || 0,
-      five_hundred: closing.five_hundred_count || 0,
-      one_hundred: closing.one_hundred_count || 0,
-      fifty: closing.fifty_count || 0,
-      ten: closing.ten_count || 0,
-      five: closing.five_count || 0,
-      one: closing.one_count || 0
+    // レジ内現金の枚数オブジェクト
+    closing.register_count = {
+      ten_thousand: closing.register_ten_thousand || 0,
+      five_thousand: closing.register_five_thousand || 0,
+      two_thousand: closing.register_two_thousand || 0,
+      one_thousand: closing.register_one_thousand || 0,
+      five_hundred: closing.register_five_hundred || 0,
+      one_hundred: closing.register_one_hundred || 0,
+      fifty: closing.register_fifty || 0,
+      ten: closing.register_ten || 0,
+      five: closing.register_five || 0,
+      one: closing.register_one || 0
     };
 
-    // cash_count_afterオブジェクトを作成
-    closing.cash_count_after = {
-      ten_thousand: closing.ten_thousand_count_after || 0,
-      five_thousand: closing.five_thousand_count_after || 0,
-      two_thousand: closing.two_thousand_count_after || 0,
-      one_thousand: closing.one_thousand_count_after || 0,
-      five_hundred: closing.five_hundred_count_after || 0,
-      one_hundred: closing.one_hundred_count_after || 0,
-      fifty: closing.fifty_count_after || 0,
-      ten: closing.ten_count_after || 0,
-      five: closing.five_count_after || 0,
-      one: closing.one_count_after || 0
+    // 両替バッグの枚数オブジェクト
+    closing.bag_count = {
+      ten_thousand: closing.bag_ten_thousand || 0,
+      five_thousand: closing.bag_five_thousand || 0,
+      two_thousand: closing.bag_two_thousand || 0,
+      one_thousand: closing.bag_one_thousand || 0,
+      five_hundred: closing.bag_five_hundred || 0,
+      one_hundred: closing.bag_one_hundred || 0,
+      fifty: closing.bag_fifty || 0,
+      ten: closing.bag_ten || 0,
+      five: closing.bag_five || 0,
+      one: closing.bag_one || 0
     };
 
-    return NextResponse.json({
-      success: true,
-      data: closing
-    });
+    return NextResponse.json({ success: true, data: closing });
 
   } catch (error) {
     console.error('レジ締めデータ取得エラー:', error);
@@ -149,43 +98,7 @@ export async function POST(request) {
   
   try {
     const data = await request.json();
-    
-    const {
-      date,
-      ten_thousand_count,
-      ten_thousand_count_after,
-      five_thousand_count,
-      five_thousand_count_after,
-      two_thousand_count,
-      two_thousand_count_after,
-      one_thousand_count,
-      one_thousand_count_after,
-      five_hundred_count,
-      five_hundred_count_after,
-      one_hundred_count,
-      one_hundred_count_after,
-      fifty_count,
-      fifty_count_after,
-      ten_count,
-      ten_count_after,
-      five_count,
-      five_count_after,
-      one_count,
-      one_count_after,
-      actual_cash,
-      expected_cash,
-      discrepancy,
-      record_amount,
-      cash_amount,
-      card_amount,
-      total_sales,
-      transaction_count,
-      fixed_amount,
-      payments,
-      total_payments,
-      staff_id,
-      notes
-    } = data;
+    const { date, staff_id } = data;
 
     if (!date || !staff_id) {
       return NextResponse.json(
@@ -201,162 +114,83 @@ export async function POST(request) {
       [date]
     );
 
-    const paymentsJson = JSON.stringify(payments || []);
+    const paymentsJson = JSON.stringify(data.payments || []);
+
+    const values = [
+      data.staff_id,
+      data.register_ten_thousand || 0,
+      data.register_five_thousand || 0,
+      data.register_two_thousand || 0,
+      data.register_one_thousand || 0,
+      data.register_five_hundred || 0,
+      data.register_one_hundred || 0,
+      data.register_fifty || 0,
+      data.register_ten || 0,
+      data.register_five || 0,
+      data.register_one || 0,
+      data.register_total || 0,
+      data.bag_ten_thousand || 0,
+      data.bag_five_thousand || 0,
+      data.bag_two_thousand || 0,
+      data.bag_one_thousand || 0,
+      data.bag_five_hundred || 0,
+      data.bag_one_hundred || 0,
+      data.bag_fifty || 0,
+      data.bag_ten || 0,
+      data.bag_five || 0,
+      data.bag_one || 0,
+      data.bag_total || 0,
+      data.envelope_amount || 0,
+      data.expected_envelope || 0,
+      data.discrepancy || 0,
+      data.cash_sales || 0,
+      data.card_sales || 0,
+      data.total_sales || 0,
+      data.transaction_count || 0,
+      data.fixed_amount || 30000,
+      paymentsJson,
+      data.total_payments || 0,
+      data.notes || null
+    ];
 
     if (existing.length > 0) {
-      // 更新
       await connection.query(
         `UPDATE daily_closings SET
           staff_id = ?,
-          ten_thousand_count = ?,
-          ten_thousand_count_after = ?,
-          five_thousand_count = ?,
-          five_thousand_count_after = ?,
-          two_thousand_count = ?,
-          two_thousand_count_after = ?,
-          one_thousand_count = ?,
-          one_thousand_count_after = ?,
-          five_hundred_count = ?,
-          five_hundred_count_after = ?,
-          one_hundred_count = ?,
-          one_hundred_count_after = ?,
-          fifty_count = ?,
-          fifty_count_after = ?,
-          ten_count = ?,
-          ten_count_after = ?,
-          five_count = ?,
-          five_count_after = ?,
-          one_count = ?,
-          one_count_after = ?,
-          actual_cash = ?,
-          expected_cash = ?,
-          discrepancy = ?,
-          record_amount = ?,
-          cash_sales = ?,
-          card_sales = ?,
-          total_sales = ?,
-          transaction_count = ?,
-          fixed_amount = ?,
-          payments = ?,
-          total_payments = ?,
-          notes = ?
+          register_ten_thousand = ?, register_five_thousand = ?, register_two_thousand = ?,
+          register_one_thousand = ?, register_five_hundred = ?, register_one_hundred = ?,
+          register_fifty = ?, register_ten = ?, register_five = ?, register_one = ?,
+          register_total = ?,
+          bag_ten_thousand = ?, bag_five_thousand = ?, bag_two_thousand = ?,
+          bag_one_thousand = ?, bag_five_hundred = ?, bag_one_hundred = ?,
+          bag_fifty = ?, bag_ten = ?, bag_five = ?, bag_one = ?,
+          bag_total = ?,
+          envelope_amount = ?, expected_envelope = ?, discrepancy = ?,
+          cash_sales = ?, card_sales = ?, total_sales = ?,
+          transaction_count = ?, fixed_amount = ?,
+          payments = ?, total_payments = ?, notes = ?
         WHERE date = ?`,
-        [
-          staff_id,
-          ten_thousand_count,
-          ten_thousand_count_after,
-          five_thousand_count,
-          five_thousand_count_after,
-          two_thousand_count,
-          two_thousand_count_after,
-          one_thousand_count,
-          one_thousand_count_after,
-          five_hundred_count,
-          five_hundred_count_after,
-          one_hundred_count,
-          one_hundred_count_after,
-          fifty_count,
-          fifty_count_after,
-          ten_count,
-          ten_count_after,
-          five_count,
-          five_count_after,
-          one_count,
-          one_count_after,
-          actual_cash,
-          expected_cash,
-          discrepancy,
-          record_amount,
-          cash_amount,
-          card_amount,
-          total_sales,
-          transaction_count,
-          fixed_amount,
-          paymentsJson,
-          total_payments,
-          notes || null,
-          date
-        ]
+        [...values, date]
       );
     } else {
-      // 新規作成
       const closingId = crypto.randomUUID();
-      
       await connection.query(
         `INSERT INTO daily_closings (
-          closing_id,
-          date,
-          staff_id,
-          ten_thousand_count,
-          ten_thousand_count_after,
-          five_thousand_count,
-          five_thousand_count_after,
-          two_thousand_count,
-          two_thousand_count_after,
-          one_thousand_count,
-          one_thousand_count_after,
-          five_hundred_count,
-          five_hundred_count_after,
-          one_hundred_count,
-          one_hundred_count_after,
-          fifty_count,
-          fifty_count_after,
-          ten_count,
-          ten_count_after,
-          five_count,
-          five_count_after,
-          one_count,
-          one_count_after,
-          actual_cash,
-          expected_cash,
-          discrepancy,
-          record_amount,
-          cash_sales,
-          card_sales,
-          total_sales,
-          transaction_count,
-          fixed_amount,
-          payments,
-          total_payments,
-          notes
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          closingId,
-          date,
-          staff_id,
-          ten_thousand_count,
-          ten_thousand_count_after,
-          five_thousand_count,
-          five_thousand_count_after,
-          two_thousand_count,
-          two_thousand_count_after,
-          one_thousand_count,
-          one_thousand_count_after,
-          five_hundred_count,
-          five_hundred_count_after,
-          one_hundred_count,
-          one_hundred_count_after,
-          fifty_count,
-          fifty_count_after,
-          ten_count,
-          ten_count_after,
-          five_count,
-          five_count_after,
-          one_count,
-          one_count_after,
-          actual_cash,
-          expected_cash,
-          discrepancy,
-          record_amount,
-          cash_amount,
-          card_amount,
-          total_sales,
-          transaction_count,
-          fixed_amount,
-          paymentsJson,
-          total_payments,
-          notes || null
-        ]
+          closing_id, date, staff_id,
+          register_ten_thousand, register_five_thousand, register_two_thousand,
+          register_one_thousand, register_five_hundred, register_one_hundred,
+          register_fifty, register_ten, register_five, register_one,
+          register_total,
+          bag_ten_thousand, bag_five_thousand, bag_two_thousand,
+          bag_one_thousand, bag_five_hundred, bag_one_hundred,
+          bag_fifty, bag_ten, bag_five, bag_one,
+          bag_total,
+          envelope_amount, expected_envelope, discrepancy,
+          cash_sales, card_sales, total_sales,
+          transaction_count, fixed_amount,
+          payments, total_payments, notes
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [closingId, date, ...values]
       );
     }
 

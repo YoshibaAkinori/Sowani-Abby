@@ -2227,17 +2227,6 @@ const ServicesManagement = () => {
                   </button>
                 </div>
 
-                <div className="services-form-group">
-                  <label>最大販売数</label>
-                  <input
-                    type="number"
-                    name="max_sales"
-                    value={limitedForm.max_sales}
-                    onChange={handleLimitedInputChange}
-                    placeholder="無制限の場合は空欄"
-                  />
-                </div>
-
                 <div className="services-form-group services-form-group--full">
                   <label>説明</label>
                   <textarea
@@ -2282,7 +2271,6 @@ const ServicesManagement = () => {
                   <th>販売価格</th>
                   <th>1回あたり</th>
                   <th>販売終了</th>
-                  <th>販売状況</th>
                   <th>ステータス</th>
                   <th>操作</th>
                 </tr>
@@ -2309,9 +2297,6 @@ const ServicesManagement = () => {
                     </td>
                     <td>
                       {offer.end_date ? new Date(offer.end_date).toLocaleDateString('ja-JP') : '無期限'}
-                    </td>
-                    <td>
-                      {offer.current_bookings || 0} / {offer.max_bookings || '∞'}
                     </td>
                     <td>
                       <span className={`services-status-badge ${offer.is_active ? 'services-status-badge--active' : 'services-status-badge--inactive'}`}>

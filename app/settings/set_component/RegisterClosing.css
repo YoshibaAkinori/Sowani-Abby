@@ -2,7 +2,7 @@
 
 .register-closing {
   padding: 20px;
-  max-width: 1200px;
+  max-width: 1000px;
   margin: 0 auto;
 }
 
@@ -27,12 +27,24 @@
   gap: 12px;
 }
 
-.register-closing__date-input {
-  padding: 8px 12px;
+.register-closing__date-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: white;
   border: 1px solid #d1d5db;
   border-radius: 6px;
-  font-size: 14px;
-  min-width: 180px;
+  font-size: 15px;
+  font-weight: 500;
+  color: #374151;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.register-closing__date-btn:hover {
+  border-color: #3b82f6;
+  background: #f0f9ff;
 }
 
 .register-closing__saved-badge {
@@ -73,20 +85,48 @@
   background: white;
   border: 1px solid #e5e7eb;
   border-radius: 8px;
-  padding: 24px;
-  margin-bottom: 24px;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+.register-closing__section--envelope {
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  border-color: #f59e0b;
+}
+
+.register-closing__section--result {
+  border-width: 2px;
+}
+
+.register-closing__section--ok {
+  background: #ecfdf5;
+  border-color: #10b981;
+}
+
+.register-closing__section--plus {
+  background: #fffbeb;
+  border-color: #f59e0b;
+}
+
+.register-closing__section--minus {
+  background: #fef2f2;
+  border-color: #ef4444;
 }
 
 .register-closing__section-header {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 20px;
+  margin-bottom: 16px;
   color: #3b82f6;
 }
 
 .register-closing__section-header--sales {
   color: #10b981;
+}
+
+.register-closing__section-header--after {
+  color: #8b5cf6;
 }
 
 .register-closing__section-header--payment {
@@ -101,102 +141,88 @@
 }
 
 .register-closing__section-header h3 {
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 600;
   color: #111827;
 }
 
-/* ========== レジ金額テーブル ========== */
-.register-closing__table {
-  width: 100%;
-  border-collapse: collapse;
+/* ========== 売上グリッド ========== */
+.register-closing__sales-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
 }
 
-.register-closing__table thead tr {
+.register-closing__sales-card {
+  padding: 12px;
   background: #f9fafb;
-  border-bottom: 2px solid #e5e7eb;
+  border-radius: 6px;
+  border: 1px solid #f3f4f6;
 }
 
-.register-closing__table th {
-  padding: 14px 16px;
-  font-size: 13px;
-  font-weight: 600;
+.register-closing__sales-label {
+  font-size: 11px;
   color: #6b7280;
+  margin-bottom: 4px;
+  font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
 
-.register-closing__table th:nth-child(1) {
-  text-align: left;
-  width: 100px;
+.register-closing__sales-value {
+  font-size: 18px;
+  font-weight: 700;
+  color: #111827;
 }
 
-.register-closing__table th:nth-child(2) {
-  text-align: center;
-  width: 110px;
+.register-closing__sales-value--total {
+  color: #10b981;
 }
 
-.register-closing__table th:nth-child(3) {
-  text-align: center;
-  width: 90px;
+/* ========== 2列キャッシュグリッド ========== */
+.register-closing__cash-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
 }
 
-.register-closing__table th:nth-child(4) {
-  text-align: center;
-  width: 90px;
-}
-
-.register-closing__table th:nth-child(5) {
-  text-align: center;
-  width: 110px;
-}
-
-.register-closing__table th:nth-child(6) {
-  text-align: right;
-  width: 110px;
-}
-
-.register-closing__table tbody tr {
-  border-bottom: 1px solid #f3f4f6;
-  transition: background 0.15s;
-}
-
-.register-closing__table tbody tr:hover {
+.register-closing__cash-column {
   background: #f9fafb;
+  border-radius: 8px;
+  padding: 16px;
 }
 
-.register-closing__table td {
-  padding: 14px 16px;
+.register-closing__column-header {
   font-size: 14px;
-  color: #1f2937;
-}
-
-.register-closing__count-cell {
-  text-align: center;
-}
-
-.register-closing__default-count {
-  text-align: center;
-  color: #6b7280;
-  font-size: 13px;
-}
-
-.register-closing__difference-count {
-  text-align: center;
   font-weight: 600;
-  color: #3b82f6;
+  color: #374151;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #e5e7eb;
 }
 
-.register-closing__after-count {
-  text-align: center;
-  color: #059669;
-  font-weight: 600;
+.register-closing__cash-row {
+  display: grid;
+  grid-template-columns: 60px 80px 1fr;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.register-closing__cash-row:last-child {
+  border-bottom: none;
+}
+
+.register-closing__denom-label {
   font-size: 14px;
+  color: #374151;
+  font-weight: 500;
 }
 
 .register-closing__count-input {
-  width: 90px;
-  padding: 8px 12px;
+  width: 100%;
+  padding: 8px 10px;
   border: 1px solid #d1d5db;
   border-radius: 6px;
   text-align: center;
@@ -212,185 +238,169 @@
 
 .register-closing__count-input::placeholder {
   color: #d1d5db;
-  opacity: 1;
-}
-
-.register-closing__count-input::-moz-placeholder {
-  color: #d1d5db;
-  opacity: 1;
 }
 
 .register-closing__count-input--after {
-  border-color: #10b981;
-  background: #f0fdf4;
+  border-color: #8b5cf6;
+  background: #faf5ff;
 }
 
 .register-closing__count-input--after:focus {
-  border-color: #10b981;
-  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+  border-color: #8b5cf6;
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
 }
 
-.register-closing__amount {
-  text-align: right;
-  font-weight: 500;
-  color: #374151;
-}
-
-.register-closing__total-row {
-  background: #f9fafb;
-  font-weight: 600;
-  border-top: 1px solid #e5e7eb;
-}
-
-.register-closing__total-row--highlight {
-  background: #fef3c7;
-  border-top: 2px solid #fbbf24;
-}
-
-.register-closing__actual-total {
-  text-align: right;
-  font-size: 16px;
-  color: #3b82f6;
-  font-weight: 700;
-}
-
-.register-closing__expected-total {
-  text-align: right;
-  font-size: 16px;
+.register-closing__row-amount {
+  font-size: 13px;
   color: #6b7280;
-  font-weight: 700;
+  text-align: right;
 }
 
-.register-closing__payment-total {
+/* ========== 合計表示 ========== */
+.register-closing__cash-total {
+  margin-top: 16px;
+  padding: 12px 16px;
+  background: #eff6ff;
+  border-radius: 6px;
+  font-size: 15px;
+  color: #1e40af;
   text-align: right;
-  font-size: 16px;
-  color: #ef4444;
-  font-weight: 700;
 }
 
-.register-closing__record-total {
-  text-align: right;
+.register-closing__cash-total strong {
   font-size: 18px;
-  color: #d97706;
-  font-weight: 700;
+  margin-left: 8px;
 }
 
-/* ========== 売上グリッド ========== */
-.register-closing__sales-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 16px;
+.register-closing__cash-total--after {
+  background: #f5f3ff;
+  color: #6d28d9;
 }
 
-.register-closing__sales-card {
+.register-closing__fixed-note {
+  font-size: 13px;
+  color: #9ca3af;
+  margin-left: 8px;
+  font-weight: normal;
+}
+
+/* ========== 封筒計算 ========== */
+.register-closing__envelope-calc {
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: 8px;
   padding: 16px;
-  background: #f9fafb;
-  border-radius: 8px;
-  border: 1px solid #f3f4f6;
 }
 
-.register-closing__sales-card--expected {
-  background: #e0f2fe;
-  border-color: #bae6fd;
+.register-closing__calc-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  font-size: 14px;
+  color: #374151;
+  border-bottom: 1px dashed #e5e7eb;
 }
 
-.register-closing__sales-card--record {
-  background: #fef3c7;
-  border-color: #fde68a;
-}
-
-.register-closing__sales-label {
-  font-size: 12px;
-  color: #6b7280;
-  margin-bottom: 8px;
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.register-closing__sales-value {
-  font-size: 22px;
+.register-closing__calc-result {
+  display: flex;
+  justify-content: space-between;
+  padding: 12px 0 0;
+  margin-top: 8px;
+  border-top: 2px solid #f59e0b;
+  font-size: 18px;
   font-weight: 700;
-  color: #111827;
+  color: #b45309;
 }
 
-.register-closing__sales-value--total {
-  color: #10b981;
+/* ========== 両替バッグ警告 ========== */
+.register-closing__bag-warning {
+  margin-top: 12px;
+  padding: 10px 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  text-align: center;
 }
 
-.register-closing__sales-value--payment {
-  color: #ef4444;
+.register-closing__bag-warning--over {
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #f59e0b;
 }
 
-.register-closing__sales-value--expected {
-  color: #0369a1;
+.register-closing__bag-warning--under {
+  background: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #ef4444;
 }
 
-.register-closing__sales-value--record {
-  color: #d97706;
-  font-size: 24px;
-}
-
-.register-closing__sales-formula {
-  font-size: 11px;
-  color: #64748b;
-  margin-bottom: 6px;
-  line-height: 1.4;
-}
-
-/* ========== 過不足 ========== */
-.register-closing__discrepancy {
-  margin-top: 20px;
-  padding: 20px;
-  border-radius: 8px;
+/* ========== 過不足結果 ========== */
+.register-closing__result-content {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  margin-bottom: 12px;
 }
 
-.register-closing__discrepancy--zero {
-  background: #d1fae5;
-  border: 2px solid #86efac;
+.register-closing__result-label {
+  font-size: 15px;
+  font-weight: 600;
+  color: #374151;
 }
 
-.register-closing__discrepancy--plus {
-  background: #fef3c7;
-  border: 2px solid #fde68a;
+.register-closing__result-detail {
+  font-size: 12px;
+  color: #6b7280;
+  font-weight: normal;
+  margin-left: 8px;
 }
 
-.register-closing__discrepancy--minus {
-  background: #fee2e2;
-  border: 2px solid #fecaca;
-}
-
-.register-closing__discrepancy-amount {
+.register-closing__result-amount {
   font-size: 28px;
   font-weight: 700;
 }
 
-.register-closing__discrepancy--zero .register-closing__discrepancy-amount {
+.register-closing__section--ok .register-closing__result-amount {
   color: #059669;
 }
 
-.register-closing__discrepancy--plus .register-closing__discrepancy-amount {
+.register-closing__section--plus .register-closing__result-amount {
   color: #d97706;
 }
 
-.register-closing__discrepancy--minus .register-closing__discrepancy-amount {
+.register-closing__section--minus .register-closing__result-amount {
   color: #dc2626;
+}
+
+.register-closing__result-message {
+  font-size: 14px;
+  font-weight: 500;
+  text-align: center;
+  padding: 8px;
+  border-radius: 4px;
+}
+
+.register-closing__section--ok .register-closing__result-message {
+  color: #059669;
+  background: rgba(16, 185, 129, 0.1);
+}
+
+.register-closing__section--plus .register-closing__result-message,
+.register-closing__section--minus .register-closing__result-message {
+  color: #dc2626;
+  background: rgba(239, 68, 68, 0.1);
 }
 
 /* ========== 支払いボタン ========== */
 .register-closing__add-payment-btn {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 10px 18px;
+  gap: 6px;
+  padding: 8px 14px;
   background: #10b981;
   color: white;
   border: none;
   border-radius: 6px;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 500;
   cursor: pointer;
   transition: background 0.2s;
@@ -410,39 +420,36 @@
 
 /* ========== 支払いフォーム ========== */
 .register-closing__payment-form {
-  padding: 20px;
+  padding: 16px;
   background: #f9fafb;
   border: 1px solid #e5e7eb;
   border-radius: 8px;
-  margin-bottom: 24px;
-  box-sizing: border-box;
-}
-
-.register-closing__form-group {
   margin-bottom: 16px;
 }
 
-.register-closing__form-group:last-of-type {
-  margin-bottom: 20px;
+.register-closing__form-row {
+  display: grid;
+  grid-template-columns: 140px 120px 120px 1fr;
+  gap: 12px;
+  margin-bottom: 12px;
 }
 
 .register-closing__form-group label {
   display: block;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   color: #374151;
-  margin-bottom: 6px;
+  margin-bottom: 4px;
 }
 
 .register-closing__form-group input,
 .register-closing__form-group select {
   width: 100%;
-  padding: 10px 12px;
+  padding: 8px 10px;
   border: 1px solid #d1d5db;
   border-radius: 6px;
-  font-size: 14px;
+  font-size: 13px;
   background: white;
-  transition: all 0.2s;
   box-sizing: border-box;
 }
 
@@ -455,15 +462,14 @@
 
 .register-closing__form-submit {
   width: 100%;
-  padding: 12px;
+  padding: 10px;
   background: #3b82f6;
   color: white;
   border: none;
   border-radius: 6px;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.2s;
 }
 
 .register-closing__form-submit:hover {
@@ -471,58 +477,71 @@
 }
 
 /* ========== 支払いテーブル ========== */
-.register-closing__table--payments {
-  table-layout: fixed;
+.register-closing__table {
   width: 100%;
+  border-collapse: collapse;
 }
 
-.register-closing__table--payments th,
-.register-closing__table--payments td {
-  padding: 12px 16px;
+.register-closing__table thead tr {
+  background: #f9fafb;
+  border-bottom: 2px solid #e5e7eb;
 }
 
-.register-closing__table--payments th:nth-child(1),
-.register-closing__table--payments td:nth-child(1) {
-  width: 130px;
+.register-closing__table th {
+  padding: 10px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
   text-align: left;
 }
 
-.register-closing__table--payments th:nth-child(2),
-.register-closing__table--payments td:nth-child(2) {
-  width: 120px;
-  text-align: left;
+.register-closing__table tbody tr {
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.register-closing__table td {
+  padding: 10px 12px;
+  font-size: 13px;
+  color: #1f2937;
 }
 
 .register-closing__table--payments th:nth-child(3),
 .register-closing__table--payments td:nth-child(3) {
-  width: 130px;
   text-align: right;
-}
-
-.register-closing__table--payments th:nth-child(4),
-.register-closing__table--payments td:nth-child(4) {
-  width: auto;
-  text-align: left;
-  color: #6b7280;
 }
 
 .register-closing__table--payments th:nth-child(5),
 .register-closing__table--payments td:nth-child(5) {
-  width: 100px;
   text-align: center;
+  width: 80px;
+}
+
+.register-closing__payment-summary {
+  margin-top: 12px;
+  padding: 10px 16px;
+  background: #fef3c7;
+  border-radius: 6px;
+  text-align: right;
+  font-size: 14px;
+  color: #92400e;
+}
+
+.register-closing__payment-summary strong {
+  font-size: 16px;
+  color: #b45309;
 }
 
 .register-closing__delete-btn {
-  padding: 6px 14px;
+  padding: 4px 10px;
   background: #ffffff;
   color: #dc2626;
   border: 1px solid #fecaca;
-  border-radius: 6px;
-  font-size: 13px;
-  font-weight: 500;
+  border-radius: 4px;
+  font-size: 12px;
   cursor: pointer;
   transition: all 0.2s;
-  white-space: nowrap;
 }
 
 .register-closing__delete-btn:hover {
@@ -533,9 +552,9 @@
 /* ========== 空状態 ========== */
 .register-closing__empty {
   text-align: center;
-  padding: 60px 20px;
+  padding: 24px;
   color: #9ca3af;
-  font-size: 14px;
+  font-size: 13px;
 }
 
 /* ========== レスポンシブ ========== */
@@ -546,7 +565,7 @@
 
   .register-closing__header {
     flex-direction: column;
-    gap: 16px;
+    gap: 12px;
     align-items: stretch;
   }
 
@@ -554,33 +573,42 @@
     justify-content: center;
   }
 
-  .register-closing__section {
-    padding: 16px;
-  }
-
   .register-closing__sales-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, 1fr);
   }
 
-  .register-closing__table {
-    display: block;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
+  .register-closing__cash-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .register-closing__form-row {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .register-closing__form-group--memo {
+    grid-column: span 2;
   }
 
   .register-closing__section-header--payment {
     flex-direction: column;
     gap: 12px;
+    align-items: stretch;
   }
 
   .register-closing__add-payment-btn {
-    width: 100%;
     justify-content: center;
   }
 
-  .register-closing__discrepancy {
+  .register-closing__result-content {
     flex-direction: column;
-    gap: 12px;
+    gap: 8px;
     text-align: center;
+  }
+
+  .register-closing__result-detail {
+    display: block;
+    margin-left: 0;
+    margin-top: 4px;
   }
 }

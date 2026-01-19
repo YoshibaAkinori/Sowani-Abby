@@ -3,7 +3,6 @@ import { NextResponse } from 'next/server';
 import { getConnection } from '../../../lib/db';
 
 // 顧客一覧取得
-// 顧客一覧取得
 export async function GET(request) {
   try {
     const pool = await getConnection();
@@ -23,6 +22,7 @@ export async function GET(request) {
         c.birth_date,
         c.gender,
         c.notes,
+        c.is_existing_customer,
         c.base_visit_count,
         c.visit_count,
         c.created_at,
@@ -54,7 +54,6 @@ export async function GET(request) {
 
     const [rows] = await pool.execute(query);
 
-    // visit_count はDBから取得した値をそのまま使用
     return NextResponse.json({
       success: true,
       data: rows
@@ -84,6 +83,7 @@ export async function POST(request) {
       birth_date,
       gender,
       notes,
+      is_existing_customer,
       base_visit_count,
       line_user_id
     } = body;
@@ -122,9 +122,10 @@ export async function POST(request) {
         birth_date,
         gender,
         notes,
+        is_existing_customer,
         base_visit_count,
         line_user_id
-      ) VALUES (UUID(), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (UUID(), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         last_name,
         first_name,
@@ -135,6 +136,7 @@ export async function POST(request) {
         birth_date || null,
         gender || 'not_specified',
         notes || '',
+        is_existing_customer ? 1 : 0,
         base_visit_count || 0,
         line_user_id || null
       ]

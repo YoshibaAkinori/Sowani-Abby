@@ -23,8 +23,9 @@ const ServiceAnalysis = ({ data, period }) => {
     );
   }
 
-  // 全期間通してのトップサービス
-  const topService = serviceData[0];
+  // 全期間通してのトップサービス（購入回数順）
+  const sortedByPurchase = [...serviceData].sort((a, b) => (Number(b.purchase_count) || 0) - (Number(a.purchase_count) || 0));
+  const topService = sortedByPurchase[0];
 
   // 期間のリストを取得してソート
   const allPeriods = React.useMemo(() => {
@@ -42,13 +43,13 @@ const ServiceAnalysis = ({ data, period }) => {
     return sorted;
   }, [serviceByPeriod, selectedPeriod]);
 
-  // 選択された期間のデータのみをフィルタリング
+  // 選択された期間のデータのみをフィルタリング（購入回数でソート）
   const periodServiceData = React.useMemo(() => {
     if (!selectedPeriod) return [];
     
     return serviceByPeriod
       .filter(row => row.period === selectedPeriod)
-      .sort((a, b) => (Number(b.total_revenue) || 0) - (Number(a.total_revenue) || 0));
+      .sort((a, b) => (Number(b.purchase_count) || 0) - (Number(a.purchase_count) || 0));
   }, [serviceByPeriod, selectedPeriod]);
 
   // 性別別データを整形(利用回数の表用)
@@ -113,8 +114,8 @@ const ServiceAnalysis = ({ data, period }) => {
               <div className="stat-value">{formatCurrency(topService.total_revenue)}</div>
             </div>
             <div className="stat-item">
-              <div className="stat-label">利用回数</div>
-              <div className="stat-value">{topService.usage_count}回</div>
+              <div className="stat-label">購入回数</div>
+              <div className="stat-value">{topService.purchase_count}回</div>
             </div>
             <div className="stat-item">
               <div className="stat-label">平均単価</div>
@@ -128,7 +129,7 @@ const ServiceAnalysis = ({ data, period }) => {
       <div className="analytics-card">
         <h3 className="analytics-card__title">
           <Briefcase size={20} style={{ display: 'inline', marginRight: '0.5rem' }} />
-          サービス別売上ランキング(全期間)
+          サービス別購入ランキング(全期間)
         </h3>
         
         <div className="service-table">
@@ -137,13 +138,13 @@ const ServiceAnalysis = ({ data, period }) => {
             <div className="service-cell service-cell--rank">順位</div>
             <div className="service-cell service-cell--name">サービス名</div>
             <div className="service-cell service-cell--category">カテゴリ</div>
-            <div className="service-cell service-cell--number">回数</div>
+            <div className="service-cell service-cell--number">購入回数</div>
             <div className="service-cell service-cell--number">売上</div>
             <div className="service-cell service-cell--number">平均単価</div>
           </div>
           
-          {/* データ行 */}
-          {serviceData.slice(0, 10).map((service, index) => (
+          {/* データ行 - 購入回数でソート */}
+          {[...serviceData].sort((a, b) => (Number(b.purchase_count) || 0) - (Number(a.purchase_count) || 0)).slice(0, 10).map((service, index) => (
             <div key={index} className="service-row">
               <div className="service-cell service-cell--rank">
                 <div className={`rank-badge rank-${index + 1}`}>
@@ -157,7 +158,7 @@ const ServiceAnalysis = ({ data, period }) => {
                 {index === 2 && <span className="medal">🥉</span>}
               </div>
               <div className="service-cell service-cell--category">{service.category}</div>
-              <div className="service-cell service-cell--number">{service.usage_count}回</div>
+              <div className="service-cell service-cell--number">{service.purchase_count}回</div>
               <div className="service-cell service-cell--number">{formatCurrency(service.total_revenue)}</div>
               <div className="service-cell service-cell--number">
                 {formatCurrency(service.avg_price)}
@@ -172,7 +173,7 @@ const ServiceAnalysis = ({ data, period }) => {
         <div className="analytics-card">
           <h3 className="analytics-card__title">
             <Briefcase size={20} style={{ display: 'inline', marginRight: '0.5rem' }} />
-            {period === 'yearly' ? '年別' : '月別'}サービス売上ランキング
+            {period === 'yearly' ? '年別' : '月別'}サービス購入ランキング
           </h3>
           
           {/* 期間タブ */}
@@ -205,7 +206,7 @@ const ServiceAnalysis = ({ data, period }) => {
               <div className="service-cell service-cell--rank">順位</div>
               <div className="service-cell service-cell--name">サービス名</div>
               <div className="service-cell service-cell--category">カテゴリ</div>
-              <div className="service-cell service-cell--number">回数</div>
+              <div className="service-cell service-cell--number">購入回数</div>
               <div className="service-cell service-cell--number">売上</div>
               <div className="service-cell service-cell--number">平均単価</div>
             </div>
@@ -225,7 +226,7 @@ const ServiceAnalysis = ({ data, period }) => {
                   {index === 2 && <span className="medal">🥉</span>}
                 </div>
                 <div className="service-cell service-cell--category">{service.category}</div>
-                <div className="service-cell service-cell--number">{service.usage_count}回</div>
+                <div className="service-cell service-cell--number">{service.purchase_count}回</div>
                 <div className="service-cell service-cell--number">{formatCurrency(service.total_revenue)}</div>
                 <div className="service-cell service-cell--number">
                   {formatCurrency(service.avg_price)}

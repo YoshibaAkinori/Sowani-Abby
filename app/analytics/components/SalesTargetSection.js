@@ -1,7 +1,7 @@
 // app/analytics/components/SalesTargetSection.js
 "use client";
-import React, { useState, useEffect } from 'react';
-import { Target, Store, Users, Save, Edit3, TrendingUp, Award } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Target, Store, Users, Save, Edit3, TrendingUp, Award, Calendar } from 'lucide-react';
 
 const SalesTargetSection = () => {
   const [data, setData] = useState(null);
@@ -17,11 +17,35 @@ const SalesTargetSection = () => {
     const now = new Date();
     return { year: now.getFullYear(), month: now.getMonth() + 1 };
   });
+  const [showMonthPicker, setShowMonthPicker] = useState(false);
+  const [pickerYear, setPickerYear] = useState(() => new Date().getFullYear());
+  const [pickerMonth, setPickerMonth] = useState(() => new Date().getMonth() + 1);
+  
+  const yearScrollRef = useRef(null);
+  const monthScrollRef = useRef(null);
 
   useEffect(() => {
     fetchData();
     fetchStaff();
   }, [selectedMonth]);
+
+  // モーダルが開いた時に選択位置にスクロール
+  useEffect(() => {
+    if (showMonthPicker) {
+      setTimeout(() => {
+        // 年のスクロール位置
+        if (yearScrollRef.current) {
+          const yearIndex = pickerYear - 2025;
+          yearScrollRef.current.scrollTop = yearIndex * 44;
+        }
+        // 月のスクロール位置
+        if (monthScrollRef.current) {
+          const monthIndex = pickerMonth - 1;
+          monthScrollRef.current.scrollTop = monthIndex * 44;
+        }
+      }, 50);
+    }
+  }, [showMonthPicker, pickerYear, pickerMonth]);
 
   const fetchData = async () => {
     setLoading(true);
@@ -139,20 +163,31 @@ const SalesTargetSection = () => {
       {/* ヘッダー */}
       <div className="sales-target-header">
         <div className="sales-target-header__left">
-          <select
-            className="sales-target-month-select"
-            value={`${selectedMonth.year}-${selectedMonth.month}`}
-            onChange={(e) => {
-              const [year, month] = e.target.value.split('-');
-              setSelectedMonth({ year: parseInt(year), month: parseInt(month) });
+          <button
+            type="button"
+            className="sales-target-month-btn"
+            onClick={() => {
+              setPickerYear(selectedMonth.year);
+              setPickerMonth(selectedMonth.month);
+              setShowMonthPicker(true);
+            }}
+            style={{
+              padding: '10px 16px',
+              border: '1px solid #d1d5db',
+              borderRadius: '6px',
+              background: '#fff',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              fontSize: '14px',
+              fontWeight: '500'
             }}
           >
-            {getMonthOptions().map(opt => (
-              <option key={`${opt.year}-${opt.month}`} value={`${opt.year}-${opt.month}`}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
+            <Calendar size={16} color="#6b7280" />
+            {selectedMonth.year}年{selectedMonth.month}月
+            <span style={{ color: '#9ca3af' }}>▼</span>
+          </button>
         </div>
         <div className="sales-target-header__right">
           {editMode ? (
@@ -763,6 +798,194 @@ const SalesTargetSection = () => {
           }
         }
       `}</style>
+
+      {/* 月選択ドラムピッカー */}
+      {showMonthPicker && (
+        <div 
+          className="month-picker-overlay"
+          onClick={() => setShowMonthPicker(false)}
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0,0,0,0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000
+          }}
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: '#fff',
+              borderRadius: '12px',
+              padding: '20px',
+              width: '320px',
+              maxWidth: '90vw'
+            }}
+          >
+            <div style={{ textAlign: 'center', marginBottom: '16px', fontWeight: '600', fontSize: '16px' }}>
+              年月を選択
+            </div>
+            
+            <div style={{ display: 'flex', gap: '16px', marginBottom: '20px' }}>
+              {/* 年選択 */}
+              <div style={{ flex: 1, position: 'relative' }}>
+                <div 
+                  style={{
+                    position: 'absolute',
+                    top: '50%',
+                    left: 0,
+                    right: 0,
+                    height: '44px',
+                    transform: 'translateY(-50%)',
+                    background: '#f3f4f6',
+                    borderRadius: '8px',
+                    pointerEvents: 'none',
+                    zIndex: 1
+                  }}
+                />
+                <div
+                  ref={yearScrollRef}
+                  style={{
+                    height: '176px',
+                    overflowY: 'auto',
+                    position: 'relative',
+                    zIndex: 2,
+                    scrollSnapType: 'y mandatory'
+                  }}
+                  onScroll={(e) => {
+                    const scrollTop = e.target.scrollTop;
+                    const index = Math.round(scrollTop / 44);
+                    const currentYear = new Date().getFullYear();
+                    const years = Array.from({ length: currentYear - 2025 + 1 }, (_, i) => 2025 + i);
+                    if (years[index] !== undefined) {
+                      setPickerYear(years[index]);
+                    }
+                  }}
+                >
+                  <div style={{ height: '66px' }} />
+                  {(() => {
+                    const currentYear = new Date().getFullYear();
+                    return Array.from({ length: currentYear - 2025 + 1 }, (_, i) => 2025 + i).map(year => (
+                    <div
+                      key={year}
+                      style={{
+                        height: '44px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '18px',
+                        fontWeight: pickerYear === year ? '600' : '400',
+                        color: pickerYear === year ? '#111827' : '#9ca3af',
+                        scrollSnapAlign: 'center'
+                      }}
+                    >
+                      {year}年
+                    </div>
+                  ));
+                  })()}
+                  <div style={{ height: '66px' }} />
+                </div>
+              </div>
+
+              {/* 月選択 */}
+              <div style={{ flex: 1, position: 'relative' }}>
+                <div 
+                  style={{
+                    position: 'absolute',
+                    top: '50%',
+                    left: 0,
+                    right: 0,
+                    height: '44px',
+                    transform: 'translateY(-50%)',
+                    background: '#f3f4f6',
+                    borderRadius: '8px',
+                    pointerEvents: 'none',
+                    zIndex: 1
+                  }}
+                />
+                <div
+                  ref={monthScrollRef}
+                  style={{
+                    height: '176px',
+                    overflowY: 'auto',
+                    position: 'relative',
+                    zIndex: 2,
+                    scrollSnapType: 'y mandatory'
+                  }}
+                  onScroll={(e) => {
+                    const scrollTop = e.target.scrollTop;
+                    const index = Math.round(scrollTop / 44);
+                    if (index >= 0 && index < 12) {
+                      setPickerMonth(index + 1);
+                    }
+                  }}
+                >
+                  <div style={{ height: '66px' }} />
+                  {Array.from({ length: 12 }, (_, i) => i + 1).map(month => (
+                    <div
+                      key={month}
+                      style={{
+                        height: '44px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '18px',
+                        fontWeight: pickerMonth === month ? '600' : '400',
+                        color: pickerMonth === month ? '#111827' : '#9ca3af',
+                        scrollSnapAlign: 'center'
+                      }}
+                    >
+                      {month}月
+                    </div>
+                  ))}
+                  <div style={{ height: '66px' }} />
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <button
+                onClick={() => setShowMonthPicker(false)}
+                style={{
+                  flex: 1,
+                  padding: '12px',
+                  border: '1px solid #d1d5db',
+                  borderRadius: '8px',
+                  background: '#fff',
+                  cursor: 'pointer',
+                  fontSize: '14px'
+                }}
+              >
+                キャンセル
+              </button>
+              <button
+                onClick={() => {
+                  setSelectedMonth({ year: pickerYear, month: pickerMonth });
+                  setShowMonthPicker(false);
+                }}
+                style={{
+                  flex: 1,
+                  padding: '12px',
+                  border: 'none',
+                  borderRadius: '8px',
+                  background: '#3b82f6',
+                  color: '#fff',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  fontWeight: '600'
+                }}
+              >
+                確定
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

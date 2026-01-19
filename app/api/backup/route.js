@@ -94,6 +94,22 @@ export async function POST(request) {
         
         const stats = fs.statSync(backupPath);
 
+        // 30日以上前のバックアップを自動削除
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        
+        let deletedCount = 0;
+        const files = fs.readdirSync(backupDir).filter(file => file.endsWith('.sql'));
+        for (const file of files) {
+          if (file === backupFileName) continue; // 今作ったファイルはスキップ
+          const filePath = path.join(backupDir, file);
+          const fileStats = fs.statSync(filePath);
+          if (fileStats.mtime < thirtyDaysAgo) {
+            fs.unlinkSync(filePath);
+            deletedCount++;
+          }
+        }
+
         return NextResponse.json({
           success: true,
           message: 'バックアップを作成しました',
@@ -102,7 +118,8 @@ export async function POST(request) {
             path: backupPath,
             size: stats.size,
             sizeFormatted: formatFileSize(stats.size),
-            createdAt: new Date().toISOString()
+            createdAt: new Date().toISOString(),
+            deletedOldBackups: deletedCount
           }
         });
       }
