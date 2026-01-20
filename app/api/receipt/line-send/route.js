@@ -107,11 +107,32 @@ async function getReceiptData(paymentId) {
   const ticketPurchases = [];
 
   // 親payment = 通常サービス
-  if (payment.service_id && !payment.ticket_id) {
-    const [serviceInfo] = await pool.execute('SELECT * FROM services WHERE service_id = ?', [payment.service_id]);
+  // payment.service_name に直接スナップショットがある
+  if (payment.service_name && !payment.ticket_id) {
+    services.push({
+      service_name: payment.service_name,
+      price: payment.total_amount
+    });
+  } else if (payment.service_id && !payment.ticket_id) {
+    // service_nameがない場合はservicesテーブルから取得
+    const [serviceInfo] = await pool.execute('SELECT service_name FROM services WHERE service_id = ?', [payment.service_id]);
     if (serviceInfo.length > 0) {
       services.push({
         service_name: serviceInfo[0].service_name,
+        price: payment.total_amount
+      });
+    }
+  } else if (!payment.ticket_id && payment.booking_id) {
+    // それでもない場合、bookingからサービス名を取得
+    const [bookingInfo] = await pool.execute(`
+      SELECT s.service_name 
+      FROM bookings b
+      LEFT JOIN services s ON b.service_id = s.service_id
+      WHERE b.booking_id = ?
+    `, [payment.booking_id]);
+    if (bookingInfo.length > 0 && bookingInfo[0].service_name) {
+      services.push({
+        service_name: bookingInfo[0].service_name,
         price: payment.total_amount
       });
     }
