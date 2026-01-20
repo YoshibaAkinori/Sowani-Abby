@@ -426,7 +426,7 @@ export async function POST(request) {
 
     // 挨拶メッセージ作成
     let greetingMessage = `ご来店ありがとうございました✨
-コルギ施術後のお顔の状態はいかがでしょうか？
+コルギ施術後のお顔の状態はいかがでしょうか？\n\n
 気になる点やご不安なことがございましたら、
 いつでもお気軽にご相談ください。`;
 
@@ -434,15 +434,15 @@ export async function POST(request) {
     let expiryDate = null;
     let expiryLabel = '回数券';
     
-    console.log('[LINE] ticketUses:', JSON.stringify(receiptData.ticketUses));
-    console.log('[LINE] ticketPurchases:', JSON.stringify(receiptData.ticketPurchases));
-    console.log('[LINE] limitedOfferExpiry:', receiptData.limitedOfferExpiry);
+    //console.log('[LINE] ticketUses:', JSON.stringify(receiptData.ticketUses));
+    //console.log('[LINE] ticketPurchases:', JSON.stringify(receiptData.ticketPurchases));
+    //console.log('[LINE] limitedOfferExpiry:', receiptData.limitedOfferExpiry);
     
     // 回数券の有効期限をチェック
     const ticketWithExpiry = [...(receiptData.ticketUses || []), ...(receiptData.ticketPurchases || [])]
       .find(t => t.expiry_date);
     
-    console.log('[LINE] ticketWithExpiry:', JSON.stringify(ticketWithExpiry));
+    //console.log('[LINE] ticketWithExpiry:', JSON.stringify(ticketWithExpiry));
     
     if (ticketWithExpiry) {
       expiryDate = ticketWithExpiry.expiry_date;
@@ -455,7 +455,7 @@ export async function POST(request) {
       expiryLabel = '期間限定オファー';
     }
     
-    console.log('[LINE] expiryDate:', expiryDate);
+    //console.log('[LINE] expiryDate:', expiryDate);
     
     if (expiryDate) {
       const expiry = new Date(expiryDate);
@@ -471,7 +471,7 @@ export async function POST(request) {
     const ticketWithBalance = [...(receiptData.ticketUses || []), ...(receiptData.ticketPurchases || [])]
       .find(t => t.remaining_balance > 0);
     
-    console.log('[LINE] ticketWithBalance:', JSON.stringify(ticketWithBalance));
+    //console.log('[LINE] ticketWithBalance:', JSON.stringify(ticketWithBalance));
     
     if (ticketWithBalance) {
       greetingMessage += `

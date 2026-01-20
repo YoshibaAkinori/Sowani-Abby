@@ -241,6 +241,7 @@ export async function POST(request) {
       }
 
       // payments に登録（★フラグ付き）
+      // ※ ticket_idはcustomer_ticketsへの外部キーがあるため、期間限定のpurchase_idは入れない
       await connection.execute(
         `INSERT INTO payments (
           payment_id,
@@ -275,7 +276,7 @@ export async function POST(request) {
           0,
           0,
           ticket_id ? 'ticket' : 'limited_offer',
-          ticket_id || limited_purchase_id,  // ★期間限定の場合はpurchase_idを保存
+          ticket_id || null,  // ★通常回数券のみ（期間限定はnull）
           snapshot.sessions,
           snapshot.balance,
           false,  // is_ticket_purchase
@@ -463,10 +464,10 @@ export async function POST(request) {
     }
 
     // ★ 使用するスナップショットを決定
-    const finalSnapshot = ticket_id ? ticketSnapshot : limitedSnapshot;
-    const finalTicketId = ticket_id || limited_purchase_id;
+    const finalSnapshot = limited_purchase_id ? limitedSnapshot : ticketSnapshot;
 
     // payments テーブルに登録（★フラグ付き）
+    // ※ ticket_idはcustomer_ticketsへの外部キーがあるため、期間限定のpurchase_idは入れない
     await connection.execute(
       `INSERT INTO payments (
         payment_id,
@@ -506,7 +507,7 @@ export async function POST(request) {
         serviceData.price,
         serviceData.duration,
         normalizedPaymentType,
-        finalTicketId || null,  // ★期間限定の場合はpurchase_idを保存
+        ticket_id || null,  // ★通常回数券のみ（期間限定はnull）
         finalSnapshot.sessions,
         finalSnapshot.balance,
         false,  // is_ticket_purchase (購入はticket-purchasesで処理)
