@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 
 const MonthScrollPicker = ({ isOpen, onClose, onConfirm, initialYear, initialMonth }) => {
   const today = new Date();
@@ -9,15 +9,22 @@ const MonthScrollPicker = ({ isOpen, onClose, onConfirm, initialYear, initialMon
   
   const yearRef = useRef(null);
   const monthRef = useRef(null);
+  const scrollTimeoutRef = useRef({ year: null, month: null });
   
   const ITEM_HEIGHT = 44;
   
-  // 年の範囲（2024年 〜 今年+1年）
+  // 年の範囲（2025年 〜 今年+1年）
   const currentYear = today.getFullYear();
-  const years = Array.from({ length: currentYear + 1 - 2025 + 1 }, (_, i) => 2025 + i);
+  const years = useMemo(() => 
+    Array.from({ length: currentYear + 1 - 2025 + 1 }, (_, i) => 2025 + i),
+    [currentYear]
+  );
   
   // 月（1-12）
-  const months = Array.from({ length: 12 }, (_, i) => i + 1);
+  const months = useMemo(() => 
+    Array.from({ length: 12 }, (_, i) => i + 1),
+    []
+  );
   
   // マウスホイールで1項目ずつ移動
   const handleWheel = useCallback((e, ref, items, setter) => {
@@ -54,6 +61,12 @@ const MonthScrollPicker = ({ isOpen, onClose, onConfirm, initialYear, initialMon
     };
   }, [years, months, handleWheel]);
   
+  const scrollToSelected = (ref, index) => {
+    if (ref.current) {
+      ref.current.scrollTop = index * ITEM_HEIGHT;
+    }
+  };
+  
   // モーダルが開いたときに初期値をセット
   useEffect(() => {
     if (isOpen) {
@@ -69,22 +82,33 @@ const MonthScrollPicker = ({ isOpen, onClose, onConfirm, initialYear, initialMon
         scrollToSelected(monthRef, month - 1);
       }, 50);
     }
-  }, [isOpen, initialYear, initialMonth]);
+  }, [isOpen, initialYear, initialMonth, years]);
   
-  const scrollToSelected = (ref, index) => {
-    if (ref.current) {
-      ref.current.scrollTop = index * ITEM_HEIGHT;
-    }
-  };
-  
-  const handleScroll = (ref, items, setter) => {
+  // スクロール終了時にスナップする
+  const handleScrollEnd = useCallback((ref, items, setter) => {
     if (ref.current) {
       const scrollTop = ref.current.scrollTop;
       const index = Math.round(scrollTop / ITEM_HEIGHT);
       const clampedIndex = Math.max(0, Math.min(index, items.length - 1));
+      
+      ref.current.scrollTo({
+        top: clampedIndex * ITEM_HEIGHT,
+        behavior: 'smooth'
+      });
+      
       setter(items[clampedIndex]);
     }
-  };
+  }, []);
+  
+  const handleScroll = useCallback((ref, items, setter, key) => {
+    if (scrollTimeoutRef.current[key]) {
+      clearTimeout(scrollTimeoutRef.current[key]);
+    }
+    
+    scrollTimeoutRef.current[key] = setTimeout(() => {
+      handleScrollEnd(ref, items, setter);
+    }, 100);
+  }, [handleScrollEnd]);
   
   const handleConfirm = () => {
     onConfirm({ year: selectedYear, month: selectedMonth });
@@ -131,7 +155,7 @@ const MonthScrollPicker = ({ isOpen, onClose, onConfirm, initialYear, initialMon
             <div
               ref={yearRef}
               className="month-picker-scroll"
-              onScroll={() => handleScroll(yearRef, years, setSelectedYear)}
+              onScroll={() => handleScroll(yearRef, years, setSelectedYear, 'year')}
             >
               <div className="month-picker-padding"></div>
               {years.map(year => (
@@ -152,7 +176,7 @@ const MonthScrollPicker = ({ isOpen, onClose, onConfirm, initialYear, initialMon
             <div
               ref={monthRef}
               className="month-picker-scroll"
-              onScroll={() => handleScroll(monthRef, months, setSelectedMonth)}
+              onScroll={() => handleScroll(monthRef, months, setSelectedMonth, 'month')}
             >
               <div className="month-picker-padding"></div>
               {months.map(month => (

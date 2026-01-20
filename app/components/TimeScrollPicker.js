@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 
 const TimeScrollPicker = ({ isOpen, onClose, onConfirm, initialTime, showSeconds = false }) => {
   const initial = initialTime ? initialTime.split(':') : ['12', '00', '00'];
@@ -11,17 +11,18 @@ const TimeScrollPicker = ({ isOpen, onClose, onConfirm, initialTime, showSeconds
   const hourRef = useRef(null);
   const minuteRef = useRef(null);
   const secondRef = useRef(null);
+  const scrollTimeoutRef = useRef({ hour: null, minute: null, second: null });
   
   const ITEM_HEIGHT = 44;
   
   // 時（0-23）
-  const hours = Array.from({ length: 24 }, (_, i) => i);
+  const hours = useMemo(() => Array.from({ length: 24 }, (_, i) => i), []);
   
   // 分（0-55、5分刻み）
-  const minutes = Array.from({ length: 12 }, (_, i) => i * 5);
+  const minutes = useMemo(() => Array.from({ length: 12 }, (_, i) => i * 5), []);
   
   // 秒（0-59）
-  const seconds = Array.from({ length: 60 }, (_, i) => i);
+  const seconds = useMemo(() => Array.from({ length: 60 }, (_, i) => i), []);
   
   // マウスホイールで1項目ずつ移動
   const handleWheel = useCallback((e, ref, items, setter) => {
@@ -62,6 +63,12 @@ const TimeScrollPicker = ({ isOpen, onClose, onConfirm, initialTime, showSeconds
     };
   }, [hours, minutes, seconds, handleWheel]);
   
+  const scrollToSelected = (ref, index) => {
+    if (ref.current) {
+      ref.current.scrollTop = index * ITEM_HEIGHT;
+    }
+  };
+  
   // モーダルが開いたときに初期値をセット
   useEffect(() => {
     if (isOpen) {
@@ -85,22 +92,33 @@ const TimeScrollPicker = ({ isOpen, onClose, onConfirm, initialTime, showSeconds
         }
       }, 50);
     }
-  }, [isOpen, initialTime]);
+  }, [isOpen, initialTime, showSeconds]);
   
-  const scrollToSelected = (ref, index) => {
-    if (ref.current) {
-      ref.current.scrollTop = index * ITEM_HEIGHT;
-    }
-  };
-  
-  const handleScroll = (ref, items, setter) => {
+  // スクロール終了時にスナップする
+  const handleScrollEnd = useCallback((ref, items, setter) => {
     if (ref.current) {
       const scrollTop = ref.current.scrollTop;
       const index = Math.round(scrollTop / ITEM_HEIGHT);
       const clampedIndex = Math.max(0, Math.min(index, items.length - 1));
+      
+      ref.current.scrollTo({
+        top: clampedIndex * ITEM_HEIGHT,
+        behavior: 'smooth'
+      });
+      
       setter(items[clampedIndex]);
     }
-  };
+  }, []);
+  
+  const handleScroll = useCallback((ref, items, setter, key) => {
+    if (scrollTimeoutRef.current[key]) {
+      clearTimeout(scrollTimeoutRef.current[key]);
+    }
+    
+    scrollTimeoutRef.current[key] = setTimeout(() => {
+      handleScrollEnd(ref, items, setter);
+    }, 100);
+  }, [handleScrollEnd]);
   
   const handleConfirm = () => {
     const hourStr = String(selectedHour).padStart(2, '0');
@@ -160,7 +178,7 @@ const TimeScrollPicker = ({ isOpen, onClose, onConfirm, initialTime, showSeconds
             <div
               ref={hourRef}
               className="time-picker-scroll"
-              onScroll={() => handleScroll(hourRef, hours, setSelectedHour)}
+              onScroll={() => handleScroll(hourRef, hours, setSelectedHour, 'hour')}
             >
               <div className="time-picker-padding"></div>
               {hours.map(hour => (
@@ -181,7 +199,7 @@ const TimeScrollPicker = ({ isOpen, onClose, onConfirm, initialTime, showSeconds
             <div
               ref={minuteRef}
               className="time-picker-scroll"
-              onScroll={() => handleScroll(minuteRef, minutes, setSelectedMinute)}
+              onScroll={() => handleScroll(minuteRef, minutes, setSelectedMinute, 'minute')}
             >
               <div className="time-picker-padding"></div>
               {minutes.map(minute => (
@@ -203,7 +221,7 @@ const TimeScrollPicker = ({ isOpen, onClose, onConfirm, initialTime, showSeconds
               <div
                 ref={secondRef}
                 className="time-picker-scroll"
-                onScroll={() => handleScroll(secondRef, seconds, setSelectedSecond)}
+                onScroll={() => handleScroll(secondRef, seconds, setSelectedSecond, 'second')}
               >
                 <div className="time-picker-padding"></div>
                 {seconds.map(second => (

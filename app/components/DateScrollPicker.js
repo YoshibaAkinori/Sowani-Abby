@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 
 const DateScrollPicker = ({ isOpen, onClose, onConfirm, initialDate }) => {
   const today = new Date();
@@ -12,15 +12,35 @@ const DateScrollPicker = ({ isOpen, onClose, onConfirm, initialDate }) => {
   const yearRef = useRef(null);
   const monthRef = useRef(null);
   const dayRef = useRef(null);
-  
-  // スクロール中かどうかを管理
-  const scrollingRef = useRef({ year: false, month: false, day: false });
   const scrollTimeoutRef = useRef({ year: null, month: null, day: null });
   
   const ITEM_HEIGHT = 44;
   
+  // 年の範囲（1900年 〜 今年+2年）
+  const currentYear = today.getFullYear();
+  const years = useMemo(() => 
+    Array.from({ length: currentYear + 2 - 1900 + 1 }, (_, i) => 1900 + i),
+    [currentYear]
+  );
+  
+  // 月（1-12）
+  const months = useMemo(() => 
+    Array.from({ length: 12 }, (_, i) => i + 1),
+    []
+  );
+  
+  // 日（選択された年月に応じて変動）
+  const getDaysInMonth = (year, month) => {
+    return new Date(year, month, 0).getDate();
+  };
+  
+  const days = useMemo(() => 
+    Array.from({ length: getDaysInMonth(selectedYear, selectedMonth) }, (_, i) => i + 1),
+    [selectedYear, selectedMonth]
+  );
+  
   // マウスホイールで1項目ずつ移動
-  const handleWheel = useCallback((e, ref, items, setter, key) => {
+  const handleWheel = useCallback((e, ref, items, setter) => {
     e.preventDefault();
     
     if (!ref.current) return;
@@ -43,9 +63,9 @@ const DateScrollPicker = ({ isOpen, onClose, onConfirm, initialDate }) => {
     const monthEl = monthRef.current;
     const dayEl = dayRef.current;
     
-    const yearHandler = (e) => handleWheel(e, yearRef, years, setSelectedYear, 'year');
-    const monthHandler = (e) => handleWheel(e, monthRef, months, setSelectedMonth, 'month');
-    const dayHandler = (e) => handleWheel(e, dayRef, days, setSelectedDay, 'day');
+    const yearHandler = (e) => handleWheel(e, yearRef, years, setSelectedYear);
+    const monthHandler = (e) => handleWheel(e, monthRef, months, setSelectedMonth);
+    const dayHandler = (e) => handleWheel(e, dayRef, days, setSelectedDay);
     
     if (yearEl) yearEl.addEventListener('wheel', yearHandler, { passive: false });
     if (monthEl) monthEl.addEventListener('wheel', monthHandler, { passive: false });
@@ -58,23 +78,6 @@ const DateScrollPicker = ({ isOpen, onClose, onConfirm, initialDate }) => {
     };
   }, [years, months, days, handleWheel]);
   
-  // 年の範囲（1900年 〜 今年+2年）
-  const currentYear = today.getFullYear();
-  const years = Array.from({ length: currentYear + 2 - 1900 + 1 }, (_, i) => 1900 + i);
-  
-  // 月（1-12）
-  const months = Array.from({ length: 12 }, (_, i) => i + 1);
-  
-  // 日（選択された年月に応じて変動）
-  const getDaysInMonth = (year, month) => {
-    return new Date(year, month, 0).getDate();
-  };
-  
-  const days = Array.from(
-    { length: getDaysInMonth(selectedYear, selectedMonth) },
-    (_, i) => i + 1
-  );
-  
   // 日が月の日数を超えた場合は調整
   useEffect(() => {
     const maxDay = getDaysInMonth(selectedYear, selectedMonth);
@@ -82,6 +85,12 @@ const DateScrollPicker = ({ isOpen, onClose, onConfirm, initialDate }) => {
       setSelectedDay(maxDay);
     }
   }, [selectedYear, selectedMonth, selectedDay]);
+  
+  const scrollToIndex = (ref, index) => {
+    if (ref.current) {
+      ref.current.scrollTop = index * ITEM_HEIGHT;
+    }
+  };
   
   // モーダルが開いたときに初期値をセット
   useEffect(() => {
@@ -102,16 +111,10 @@ const DateScrollPicker = ({ isOpen, onClose, onConfirm, initialDate }) => {
         scrollToIndex(dayRef, day - 1);
       }, 50);
     }
-  }, [isOpen, initialDate]);
-  
-  const scrollToIndex = (ref, index) => {
-    if (ref.current) {
-      ref.current.scrollTop = index * ITEM_HEIGHT;
-    }
-  };
+  }, [isOpen, initialDate, years]);
   
   // スクロール終了時にスナップする
-  const handleScrollEnd = useCallback((ref, items, setter, key) => {
+  const handleScrollEnd = useCallback((ref, items, setter) => {
     if (ref.current) {
       const scrollTop = ref.current.scrollTop;
       const index = Math.round(scrollTop / ITEM_HEIGHT);
@@ -124,13 +127,10 @@ const DateScrollPicker = ({ isOpen, onClose, onConfirm, initialDate }) => {
       });
       
       setter(items[clampedIndex]);
-      scrollingRef.current[key] = false;
     }
   }, []);
   
   const handleScroll = useCallback((ref, items, setter, key) => {
-    scrollingRef.current[key] = true;
-    
     // 既存のタイムアウトをクリア
     if (scrollTimeoutRef.current[key]) {
       clearTimeout(scrollTimeoutRef.current[key]);
@@ -138,7 +138,7 @@ const DateScrollPicker = ({ isOpen, onClose, onConfirm, initialDate }) => {
     
     // スクロール停止を検知してスナップ
     scrollTimeoutRef.current[key] = setTimeout(() => {
-      handleScrollEnd(ref, items, setter, key);
+      handleScrollEnd(ref, items, setter);
     }, 100);
   }, [handleScrollEnd]);
   

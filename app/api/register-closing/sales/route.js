@@ -44,16 +44,23 @@ export async function GET(request) {
     previousDate.setDate(previousDate.getDate() - 1);
     const previousDateStr = previousDate.toISOString().split('T')[0];
 
-    const [previousRows] = await pool.query(
-      `SELECT actual_cash as previous_balance
-      FROM daily_closings
-      WHERE date = ?`,
-      [previousDateStr]
-    );
+    let previous_balance = 50000; // デフォルト値
 
-    const previous_balance = previousRows.length > 0 
-      ? (previousRows[0].previous_balance || 50000) 
-      : 50000;
+    try {
+      // 前日のレジ締めデータから前日繰越を取得
+      const [previousRows] = await pool.query(
+        `SELECT register_total as previous_balance
+        FROM daily_closings
+        WHERE date = ?`,
+        [previousDateStr]
+      );
+
+      if (previousRows.length > 0 && previousRows[0].previous_balance) {
+        previous_balance = previousRows[0].previous_balance;
+      }
+    } catch (err) {
+      console.log('Previous balance lookup failed, using default:', err.message);
+    }
 
     return NextResponse.json({
       success: true,
