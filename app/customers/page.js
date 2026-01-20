@@ -33,8 +33,7 @@ const CustomersPage = () => {
     birth_date: '',
     gender: 'not_specified',
     notes: '',
-    base_visit_count: '',
-    line_user_id: ''
+    base_visit_count: ''
   });
   const [isSaving, setIsSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
@@ -176,8 +175,7 @@ const CustomersPage = () => {
       birth_date: selectedCustomer.birth_date || '',
       gender: selectedCustomer.gender || 'not_specified',
       notes: selectedCustomer.notes || '',
-      base_visit_count: selectedCustomer.base_visit_count || '',
-      line_user_id: selectedCustomer.line_user_id || ''
+      base_visit_count: selectedCustomer.base_visit_count || ''
     });
     setIsEditMode(true);
     setErrorMessage('');
@@ -197,8 +195,7 @@ const CustomersPage = () => {
       birth_date: '',
       gender: 'not_specified',
       notes: '',
-      base_visit_count: '',
-      line_user_id: ''
+      base_visit_count: ''
     });
     setErrorMessage('');
     setSuccessMessage('');
@@ -695,22 +692,20 @@ const CustomersPage = () => {
                   </div>
 
 
-                  {/* LINE ユーザーID */}
+                  {/* LINE連携状態 */}
                   <div className="customers-page__info-item">
-                    <div className="customers-page__info-label">LINE ユーザーID</div>
-                    {isEditMode ? (
-                      <input
-                        type="text"
-                        className="customers-page__info-input"
-                        value={editFormData.line_user_id}
-                        onChange={(e) => setEditFormData({ ...editFormData, line_user_id: e.target.value })}
-                        placeholder="LINE連携時に自動入力されます"
-                      />
-                    ) : (
-                      <div className="customers-page__info-value">
-                        {selectedCustomer.line_user_id || <span className="customers-page__info-value--empty">未登録</span>}
-                      </div>
-                    )}
+                    <div className="customers-page__info-label">LINE連携</div>
+                    <div className="customers-page__info-value">
+                      {selectedCustomer.line_user_id ? (
+                        <span className="customers-page__line-status customers-page__line-status--linked">
+                          連携済み
+                        </span>
+                      ) : (
+                        <span className="customers-page__line-status customers-page__line-status--unlinked">
+                          未連携
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   {/* 初回登録日 - 編集不可 */}

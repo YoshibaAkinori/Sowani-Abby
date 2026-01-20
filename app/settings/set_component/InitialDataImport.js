@@ -16,6 +16,9 @@ const InitialDataImport = () => {
     phone_number: '',
     email: '',
     birth_date: '',
+    gender: 'not_specified',
+    visit_count: 0,
+    is_existing: true,  // 既存顧客フラグ（デフォルトtrue）
     notes: '',
   });
 
@@ -210,6 +213,9 @@ const InitialDataImport = () => {
       phone_number: '',
       email: '',
       birth_date: '',
+      gender: 'not_specified',
+      visit_count: 0,
+      is_existing: true,
       notes: '',
     });
     setTickets([]);
@@ -772,6 +778,40 @@ const InitialDataImport = () => {
             />
           </div>
           <div className="form-group">
+            <label className="form-label">性別</label>
+            <select
+              className="form-select"
+              value={customerData.gender}
+              onChange={(e) => setCustomerData(prev => ({ ...prev, gender: e.target.value }))}
+            >
+              <option value="not_specified">未設定</option>
+              <option value="male">男性</option>
+              <option value="female">女性</option>
+            </select>
+          </div>
+          <div className="form-group">
+            <label className="form-label">来店回数</label>
+            <input
+              type="number"
+              className="form-input"
+              value={customerData.visit_count}
+              onChange={(e) => setCustomerData(prev => ({ ...prev, visit_count: parseInt(e.target.value) || 0 }))}
+              placeholder="0"
+              min="0"
+            />
+          </div>
+          <div className="form-group">
+            <label className="form-label">既存顧客</label>
+            <select
+              className="form-select"
+              value={customerData.is_existing ? '1' : '0'}
+              onChange={(e) => setCustomerData(prev => ({ ...prev, is_existing: e.target.value === '1' }))}
+            >
+              <option value="1">はい（既存）</option>
+              <option value="0">いいえ（新規）</option>
+            </select>
+          </div>
+          <div className="form-group">
             <label className="form-label">備考</label>
             <input
               type="text"
@@ -843,7 +883,15 @@ const InitialDataImport = () => {
                 onChange={(e) => handleOfferSelect(e.target.value)}
               >
                 <option value="">選択してください</option>
-                {limitedOffers.map(offer => (
+                {limitedOffers
+                  .filter(offer => {
+                    // 性別フィルタ
+                    const gender = offer.base_gender_restriction || 'all';
+                    if (gender === 'all') return true;
+                    if (!customerData.gender || customerData.gender === 'not_specified') return true;
+                    return gender === customerData.gender;
+                  })
+                  .map(offer => (
                   <option key={offer.offer_id} value={offer.offer_id}>
                     {offer.name} - ¥{(offer.special_price || offer.original_price).toLocaleString()} ({offer.total_sessions}回)
                   </option>
@@ -862,7 +910,15 @@ const InitialDataImport = () => {
                 onChange={(e) => handlePlanSelect(e.target.value)}
               >
                 <option value="">選択してください</option>
-                {ticketPlans.map(plan => (
+                {ticketPlans
+                  .filter(plan => {
+                    // 性別フィルタ（gender_restrictionカラムで判定）
+                    const planGender = plan.gender_restriction || 'all';
+                    if (planGender === 'all') return true;
+                    if (!customerData.gender || customerData.gender === 'not_specified') return true;
+                    return planGender === customerData.gender;
+                  })
+                  .map(plan => (
                   <option key={plan.plan_id} value={plan.plan_id}>
                     {plan.name} - ¥{plan.price.toLocaleString()} ({plan.total_sessions}回)
                   </option>

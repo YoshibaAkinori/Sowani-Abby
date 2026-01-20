@@ -630,8 +630,8 @@ const RegisterPage = () => {
       });
 
       const result = await response.json();
-      console.log('API レスポンス:', result);  // デバッグ用
-      console.log('response.ok:', response.ok);  // デバッグ用
+      //console.log('API レスポンス:', result);  // デバッグ用
+      //console.log('response.ok:', response.ok);  // デバッグ用
       if (result.success) {
         const newCustomerData = {
           customer_id: result.data.customer_id,

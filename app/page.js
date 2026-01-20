@@ -18,8 +18,8 @@ const SalonBoard = () => {
   const { activeStaff, loading: staffLoading } = useStaff();
   const [shiftsCache, setShiftsCache] = useState({});
 
-  //console.log('activeStaff:', activeStaff);
-  //console.log('staffLoading:', staffLoading);
+  ////console.log('activeStaff:', activeStaff);
+  ////console.log('staffLoading:', staffLoading);
 
   // ★ 初期値としてスタッフの骨組みを即座に作成
   const [staffShifts, setStaffShifts] = useState([]);
@@ -57,10 +57,10 @@ const SalonBoard = () => {
       // ★ キャッシュチェック：同じ月のシフトデータがあれば再利用
       let monthShiftsData;
       if (shiftsCache[cacheKey]) {
-        console.log(`キャッシュを使用: ${cacheKey}`);
+        //console.log(`キャッシュを使用: ${cacheKey}`);
         monthShiftsData = shiftsCache[cacheKey];
       } else {
-        console.log(`APIから取得: ${cacheKey}`);
+        //console.log(`APIから取得: ${cacheKey}`);
         const response = await fetch(
           `/api/shifts?staffIds=${nonManagerStaff.map(s => s.staff_id).join(',')}&year=${year}&month=${month}`
         );
@@ -163,7 +163,7 @@ const SalonBoard = () => {
     ? [headerRowData, ...activeStaff]
     : [];
 
-  console.log('displayStaff:', displayStaff);
+  //console.log('displayStaff:', displayStaff);
 
   const timeToMinutes = (time) => {
     const [hours, minutes] = time.split(':').map(Number);
@@ -199,7 +199,7 @@ const SalonBoard = () => {
     const [oldYear, oldMonth] = selectedDate.split('-');
     const [newYear, newMonth] = newDate.split('-');
     if (oldYear !== newYear || oldMonth !== newMonth) {
-      console.log('月が変わったのでキャッシュをクリア');
+      //console.log('月が変わったのでキャッシュをクリア');
       setShiftsCache({});
     }
 

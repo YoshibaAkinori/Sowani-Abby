@@ -228,7 +228,7 @@ const BookingModal = ({ activeModal, selectedSlot, onClose, onModalChange }) => 
   };
 
   const selectCustomer = async (customer) => {
-    //console.log('選択された顧客データ:', customer); // デバッグ用
+    ////console.log('選択された顧客データ:', customer); // デバッグ用
     setFormData(prev => ({
       ...prev,
       customerId: customer.customer_id,
@@ -243,7 +243,7 @@ const BookingModal = ({ activeModal, selectedSlot, onClose, onModalChange }) => 
       gender: customer.gender || 'not_specified'
     }));
 
-    //console.log('設定後のgender:', customer.gender); // デバッグ用
+    ////console.log('設定後のgender:', customer.gender); // デバッグ用
 
     try {
       const response = await fetch(`/api/customers/${customer.customer_id}/tickets`);

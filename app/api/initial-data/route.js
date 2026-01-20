@@ -17,8 +17,8 @@ export async function POST(request) {
       INSERT INTO customers (
         customer_id, line_user_id, last_name, first_name,
         last_name_kana, first_name_kana, phone_number, email,
-        birth_date, notes
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        birth_date, gender, visit_count, is_existing_customer, notes
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `, [
       customerId,
       null,
@@ -29,6 +29,9 @@ export async function POST(request) {
       customer.phone_number,
       customer.email || '',
       customer.birth_date || null,
+      customer.gender || 'not_specified',
+      customer.visit_count || 0,
+      customer.is_existing ? 1 : 0,
       customer.notes || null
     ]);
     
@@ -44,8 +47,8 @@ export async function POST(request) {
           INSERT INTO limited_ticket_purchases (
             purchase_id, offer_id, customer_id,
             purchase_date, expiry_date, sessions_remaining,
-            purchase_price, is_active
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, TRUE)
+            purchase_price
+          ) VALUES (?, ?, ?, ?, ?, ?, ?)
         `, [
           ticketId,
           ticket.offer_id,

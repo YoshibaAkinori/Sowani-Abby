@@ -81,18 +81,18 @@ const ShiftManagement = () => {
       if (response.ok) {
         const data = await response.json();
 
-        console.log('取得したシフトデータ:', data);
-        console.log('shifts配列:', data.data.shifts);
+        //console.log('取得したシフトデータ:', data);
+        //console.log('shifts配列:', data.data.shifts);
 
         // APIデータをコンポーネントの形式に変換
         const shiftData = {};
         data.data.shifts.forEach(record => {
-          console.log('処理中のレコード:', record);
+          //console.log('処理中のレコード:', record);
 
           // 日付を文字列として使用（タイムゾーン変換なし）
           const dateKey = record.date; // すでにYYYY-MM-DD形式の文字列
 
-          console.log('dateKey:', dateKey);
+          //console.log('dateKey:', dateKey);
 
           shiftData[dateKey] = {
             startTime: record.start_time || '',
@@ -101,10 +101,10 @@ const ShiftManagement = () => {
             transportCost: record.transport_cost || transportAllowance
           };
 
-          console.log('変換後:', shiftData[dateKey]);
+          //console.log('変換後:', shiftData[dateKey]);
         });
 
-        console.log('最終的なshiftData:', shiftData);
+        //console.log('最終的なshiftData:', shiftData);
 
         setShifts(shiftData);
         setSavedShifts(JSON.parse(JSON.stringify(shiftData))); // 深いコピーを保存
@@ -385,7 +385,7 @@ const ShiftManagement = () => {
       });
 
       const data = await response.json();
-      console.log('APIレスポンス:', data);
+      //console.log('APIレスポンス:', data);
 
       if (!response.ok) {
         throw new Error(data.error || 'サーバーでの保存に失敗しました。');

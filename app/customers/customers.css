@@ -837,3 +837,23 @@
 .customers-page__receipt-btn:active {
   transform: scale(0.95);
 }
+
+/* LINE連携状態 */
+.customers-page__line-status {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.customers-page__line-status--linked {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+.customers-page__line-status--unlinked {
+  background: #f3f4f6;
+  color: #6b7280;
+}

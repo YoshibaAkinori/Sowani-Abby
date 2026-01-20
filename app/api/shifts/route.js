@@ -245,7 +245,7 @@ export async function PUT(request) {
       shifts
     } = body;
 
-    console.log('一括保存開始:', { staff_id, year, month, shiftsCount: Object.keys(shifts).length });
+    //console.log('一括保存開始:', { staff_id, year, month, shiftsCount: Object.keys(shifts).length });
 
     if (!staff_id || !year || !month || !shifts) {
       return NextResponse.json(
@@ -270,7 +270,7 @@ export async function PUT(request) {
         'DELETE FROM shifts WHERE staff_id = ? AND YEAR(date) = ? AND MONTH(date) = ?',
         [staff_id, year, month]
       );
-      console.log('削除したシフト件数:', deleteResult[0].affectedRows);
+      //console.log('削除したシフト件数:', deleteResult[0].affectedRows);
 
       // 新しいシフトを挿入（給与計算込み）
       let insertCount = 0;
@@ -296,7 +296,7 @@ export async function PUT(request) {
           insertCount++;
         }
       }
-      console.log('挿入したシフト件数:', insertCount);
+      //console.log('挿入したシフト件数:', insertCount);
 
       await connection.commit();
 

@@ -67,7 +67,7 @@ export async function POST(request) {
       
       if (existing.length > 0) {
         // すでに連携済み - スキップ
-        console.log(`LINE UserID ${userId} は連携済み`);
+        //console.log(`LINE UserID ${userId} は連携済み`);
         continue;
       }
       
@@ -87,7 +87,7 @@ export async function POST(request) {
              received_at = NOW()`,
           [userId, profile?.displayName || null, profile?.pictureUrl || null]
         );
-        console.log(`友だち追加: ${profile?.displayName || userId}`);
+        //console.log(`友だち追加: ${profile?.displayName || userId}`);
         
       } else if (event.type === 'message' && event.message?.type === 'text') {
         // テキストメッセージイベント
@@ -106,7 +106,7 @@ export async function POST(request) {
              received_at = NOW()`,
           [userId, profile?.displayName || null, profile?.pictureUrl || null, messageText]
         );
-        console.log(`メッセージ受信: ${profile?.displayName || userId} - "${messageText}"`);
+        //console.log(`メッセージ受信: ${profile?.displayName || userId} - "${messageText}"`);
       }
     }
     
