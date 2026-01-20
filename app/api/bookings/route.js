@@ -336,12 +336,14 @@ export async function POST(request) {
 
     await connection.commit();
 
-    // ★Excel更新処理（Node.js版）
+    // ★Excel更新処理（Node.js版）- 常に実行
     if (type === 'booking' && finalCustomerId) {
       try {
         const [bookingDetail] = await pool.execute(
           `SELECT 
             b.date,
+            b.customer_ticket_id,
+            b.limited_offer_id,
             c.last_name,
             c.first_name,
             c.base_visit_count,
@@ -363,8 +365,11 @@ export async function POST(request) {
           );
           const currentVisitCount = parseInt(customerRows[0]?.visit_count) || 0;
 
-          // 回数券使用予約かつservice_categoryが「その他」以外の場合のみ+1
+          // 来店回数をカウントするか判定
+          // 回数券使用（「その他」以外）または福袋使用の場合のみ+1
           let shouldCountVisit = false;
+          
+          // 1. 回数券使用の場合
           if (customer_ticket_ids && customer_ticket_ids.length > 0) {
             const [ticketInfo] = await pool.execute(
               `SELECT tp.service_category 
@@ -374,6 +379,19 @@ export async function POST(request) {
               [customer_ticket_ids[0]]
             );
             if (ticketInfo.length > 0 && ticketInfo[0].service_category !== 'その他') {
+              shouldCountVisit = true;
+            }
+          }
+          
+          // 2. 福袋（期間限定オファー）の回数券使用の場合
+          if (finalLimitedOfferId) {
+            const [limitedTicketCheck] = await pool.execute(
+              `SELECT ltp.purchase_id 
+               FROM limited_ticket_purchases ltp
+               WHERE ltp.offer_id = ? AND ltp.customer_id = ?`,
+              [finalLimitedOfferId, finalCustomerId]
+            );
+            if (limitedTicketCheck.length > 0) {
               shouldCountVisit = true;
             }
           }
@@ -451,7 +469,7 @@ export async function PUT(request) {
       customer_ticket_ids,
       coupon_id,
       limited_offer_ids,
-      limited_purchase_ids,  // ★追加: 購入済み期間限定回数券のID
+      limited_purchase_ids,
       option_ids
     } = body;
 
@@ -480,11 +498,10 @@ export async function PUT(request) {
 
     // 更新前のデータを取得
     const [beforeData] = await connection.execute(
-      `SELECT b.*, c.last_name, c.first_name, c.visit_count, s.name as staff_name,
+      `SELECT b.*, c.last_name, c.first_name, c.visit_count,
               tp.service_category as ticket_service_category
        FROM bookings b
        LEFT JOIN customers c ON b.customer_id = c.customer_id
-       LEFT JOIN staff s ON b.staff_id = s.staff_id
        LEFT JOIN customer_tickets ct ON b.customer_ticket_id = ct.customer_ticket_id
        LEFT JOIN ticket_plans tp ON ct.plan_id = tp.plan_id
        WHERE b.booking_id = ?`,
@@ -502,25 +519,25 @@ export async function PUT(request) {
 
     // 基本情報の更新
     await connection.execute(
-      `UPDATE bookings 
-       SET date = ?,
-           start_time = ?,
-           end_time = ?,
-           staff_id = ?,
-           bed_id = ?,
-           status = ?,
-           notes = ?,
-           service_id = ?,
-           coupon_id = ?,
-           customer_ticket_id = ?,
-           limited_offer_id = ?
+      `UPDATE bookings SET
+        date = ?,
+        start_time = ?,
+        end_time = ?,
+        staff_id = ?,
+        bed_id = ?,
+        status = ?,
+        notes = ?,
+        service_id = ?,
+        coupon_id = ?,
+        customer_ticket_id = ?,
+        limited_offer_id = ?
        WHERE booking_id = ?`,
       [
         date,
         start_time,
         end_time,
         staff_id,
-        bed_id,
+        bed_id ?? null,
         status,
         notes,
         service_id ?? null,
@@ -531,13 +548,13 @@ export async function PUT(request) {
       ]
     );
 
-    // 回数券の更新（既存を削除して再登録）
+    // 回数券の更新
     if (customer_ticket_ids !== undefined) {
       await connection.execute(
         'DELETE FROM booking_tickets WHERE booking_id = ?',
         [booking_id]
       );
-      
+
       if (customer_ticket_ids && customer_ticket_ids.length > 0) {
         for (const ticketId of customer_ticket_ids) {
           await connection.execute(
@@ -555,8 +572,7 @@ export async function PUT(request) {
         'DELETE FROM booking_limited_offers WHERE booking_id = ?',
         [booking_id]
       );
-      
-      // finalLimitedOfferIdがあれば登録
+
       if (finalLimitedOfferId) {
         await connection.execute(
           `INSERT INTO booking_limited_offers (
@@ -632,7 +648,7 @@ export async function PUT(request) {
 
     await connection.commit();
 
-    // ★Excel更新処理（スタッフ名が変わった場合など）
+    // ★Excel更新処理（スタッフ名が変わった場合など）- 常に実行
     if (before.customer_id && before.type === 'booking') {
       try {
         // 新しいスタッフ名を取得
@@ -657,20 +673,34 @@ export async function PUT(request) {
 
         const customerName = `${before.last_name} ${before.first_name}`;
         
-        // ★変更前の予約が「回数券」かつ「その他以外」なら+1して検索
+        // ★変更前の予約で検索する来店回数を決定
         const baseVisitCount = parseInt(before.visit_count) || 0;
-        const beforeWasTicketWithVisitCount = before.customer_ticket_id && 
-          before.ticket_service_category && 
-          before.ticket_service_category !== 'その他';
-        const searchVisitCount = beforeWasTicketWithVisitCount ? baseVisitCount + 1 : baseVisitCount;
+        let searchVisitCount = baseVisitCount;
+        
+        // 変更前が回数券（その他以外）だった場合
+        if (before.customer_ticket_id && before.ticket_service_category && before.ticket_service_category !== 'その他') {
+          searchVisitCount = baseVisitCount + 1;
+        }
+        // 変更前が福袋回数券だった場合
+        if (before.limited_offer_id) {
+          const [oldLimitedCheck] = await pool.execute(
+            `SELECT ltp.purchase_id FROM limited_ticket_purchases ltp
+             WHERE ltp.offer_id = ? AND ltp.customer_id = ?`,
+            [before.limited_offer_id, before.customer_id]
+          );
+          if (oldLimitedCheck.length > 0) {
+            searchVisitCount = baseVisitCount + 1;
+          }
+        }
 
         // 旧データでExcelから削除
         await deleteExcelRow(oldDateStr, customerName, searchVisitCount);
 
-        // ★新しい予約が「回数券」かつ「その他以外」なら+1して追加
+        // ★新しい予約の来店回数を決定
         let newVisitCount = baseVisitCount;
+        
+        // 新しい予約が回数券（その他以外）の場合
         if (customer_ticket_ids && customer_ticket_ids.length > 0) {
-          // 新しい回数券のカテゴリを確認
           const [newTicketInfo] = await pool.execute(
             `SELECT tp.service_category 
              FROM customer_tickets ct
@@ -679,6 +709,18 @@ export async function PUT(request) {
             [customer_ticket_ids[0]]
           );
           if (newTicketInfo.length > 0 && newTicketInfo[0].service_category !== 'その他') {
+            newVisitCount = baseVisitCount + 1;
+          }
+        }
+        
+        // 新しい予約が福袋回数券の場合
+        if (finalLimitedOfferId) {
+          const [newLimitedCheck] = await pool.execute(
+            `SELECT ltp.purchase_id FROM limited_ticket_purchases ltp
+             WHERE ltp.offer_id = ? AND ltp.customer_id = ?`,
+            [finalLimitedOfferId, before.customer_id]
+          );
+          if (newLimitedCheck.length > 0) {
             newVisitCount = baseVisitCount + 1;
           }
         }
@@ -797,12 +839,26 @@ export async function DELETE(request) {
 
         const customerName = `${bookingData.last_name} ${bookingData.first_name}`;
         
-        // ★予約が「回数券」かつ「その他以外」なら+1して検索
+        // ★検索する来店回数を決定
         const baseVisitCount = parseInt(bookingData.visit_count) || 0;
-        const wasTicketWithVisitCount = bookingData.customer_ticket_id && 
-          bookingData.ticket_service_category && 
-          bookingData.ticket_service_category !== 'その他';
-        const searchVisitCount = wasTicketWithVisitCount ? baseVisitCount + 1 : baseVisitCount;
+        let searchVisitCount = baseVisitCount;
+        
+        // 回数券（その他以外）だった場合
+        if (bookingData.customer_ticket_id && bookingData.ticket_service_category && bookingData.ticket_service_category !== 'その他') {
+          searchVisitCount = baseVisitCount + 1;
+        }
+        
+        // 福袋回数券だった場合
+        if (bookingData.limited_offer_id) {
+          const [limitedCheck] = await pool.execute(
+            `SELECT ltp.purchase_id FROM limited_ticket_purchases ltp
+             WHERE ltp.offer_id = ? AND ltp.customer_id = ?`,
+            [bookingData.limited_offer_id, bookingData.customer_id]
+          );
+          if (limitedCheck.length > 0) {
+            searchVisitCount = baseVisitCount + 1;
+          }
+        }
 
         const deleteResult = await deleteExcelRow(dateStr, customerName, searchVisitCount);
         if (!deleteResult.success) {

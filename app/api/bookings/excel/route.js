@@ -10,6 +10,8 @@ export async function POST(request) {
     const body = await request.json();
     const { booking_id } = body;
 
+    console.log('[Excel API] 開始 - booking_id:', booking_id);
+
     if (!booking_id) {
       return NextResponse.json(
         { success: false, error: '予約IDが必要です' },
@@ -17,13 +19,14 @@ export async function POST(request) {
       );
     }
 
-    // 予約情報を取得（visit_count、customer_ticket_idを含む）
+    // 予約情報を取得（回数券・福袋情報も含む）
     const [bookingRows] = await pool.execute(
       `SELECT 
           b.booking_id,
           b.date,
           b.customer_id,
           b.customer_ticket_id,
+          b.limited_offer_id,
           c.last_name,
           c.first_name,
           c.base_visit_count,
@@ -39,6 +42,7 @@ export async function POST(request) {
     );
 
     if (bookingRows.length === 0) {
+      console.log('[Excel API] 予約が見つかりません');
       return NextResponse.json(
         { success: false, error: '予約が見つかりません' },
         { status: 404 }
@@ -46,6 +50,7 @@ export async function POST(request) {
     }
 
     const booking = bookingRows[0];
+    console.log('[Excel API] 予約:', booking.last_name, booking.first_name);
 
     // 来店回数: customersテーブルのvisit_countを取得
     const [customerRows] = await pool.execute(
@@ -53,14 +58,35 @@ export async function POST(request) {
       [booking.customer_id]
     );
     const currentVisitCount = parseInt(customerRows[0]?.visit_count) || 0;
+    console.log('[Excel API] 現在の来店回数:', currentVisitCount);
 
-    // 回数券使用予約かつservice_categoryが「その他」以外の場合のみ+1
+    // 来店回数をカウントするか判定
+    // 回数券使用（「その他」以外）または福袋使用の場合のみ+1
     let shouldCountVisit = false;
+    
+    // 1. 回数券使用の場合
     if (booking.customer_ticket_id && booking.ticket_category !== 'その他') {
       shouldCountVisit = true;
+      console.log('[Excel API] 回数券使用（その他以外）→ +1');
+    }
+    
+    // 2. 福袋（期間限定オファー）の回数券使用の場合
+    if (booking.limited_offer_id) {
+      // 福袋の回数券かどうか確認
+      const [limitedTicketCheck] = await pool.execute(
+        `SELECT ltp.purchase_id 
+         FROM limited_ticket_purchases ltp
+         WHERE ltp.offer_id = ? AND ltp.customer_id = ?`,
+        [booking.limited_offer_id, booking.customer_id]
+      );
+      if (limitedTicketCheck.length > 0) {
+        shouldCountVisit = true;
+        console.log('[Excel API] 福袋回数券使用 → +1');
+      }
     }
 
     const totalVisitCount = shouldCountVisit ? currentVisitCount + 1 : currentVisitCount;
+    console.log('[Excel API] Excel登録する来店回数:', totalVisitCount);
 
     // 日付をYYYY-MM-DD形式に変換
     let dateStr = booking.date;
@@ -78,12 +104,17 @@ export async function POST(request) {
       visit_count: totalVisitCount
     };
 
+    console.log('[Excel API] Excelデータ:', bookingData);
+
     // Node.js版でExcel更新
     const result = await updateExcel(bookingData);
 
     if (!result.success) {
+      console.error('[Excel API] Excel更新失敗:', result.error);
       throw new Error(result.error || 'Excel更新に失敗しました');
     }
+
+    console.log('[Excel API] 成功 - 行:', result.row);
 
     return NextResponse.json({
       success: true,
@@ -97,7 +128,7 @@ export async function POST(request) {
     });
 
   } catch (error) {
-    console.error('Excel更新エラー:', error);
+    console.error('[Excel API] エラー:', error);
     return NextResponse.json(
       { success: false, error: 'Excel更新中にエラーが発生しました: ' + error.message },
       { status: 500 }

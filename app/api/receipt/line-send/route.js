@@ -83,7 +83,7 @@ async function getReceiptData(paymentId) {
     const placeholders = ticketIds.map(() => '?').join(',');
     const [tickets] = await pool.execute(`
       SELECT 
-        ct.ticket_id,
+        ct.customer_ticket_id as ticket_id,
         ct.sessions_remaining,
         ct.total_sessions,
         ct.remaining_balance,
@@ -93,7 +93,7 @@ async function getReceiptData(paymentId) {
       FROM customer_tickets ct
       LEFT JOIN ticket_plans tp ON ct.plan_id = tp.plan_id
       LEFT JOIN services s ON tp.service_id = s.service_id
-      WHERE ct.ticket_id IN (${placeholders})
+      WHERE ct.customer_ticket_id IN (${placeholders})
     `, ticketIds);
 
     tickets.forEach(t => {
@@ -159,6 +159,7 @@ async function getReceiptData(paymentId) {
         sessions_remaining: ticketInfo?.sessions_remaining,
         total_sessions: ticketInfo?.total_sessions,
         remaining_balance: ticketInfo?.remaining_balance,
+        expiry_date: ticketInfo?.expiry_date,
         remaining_payment: child.total_amount || 0
       });
     }
@@ -174,8 +175,20 @@ async function getReceiptData(paymentId) {
         sessions_remaining: ticketInfo?.sessions_remaining,
         total_sessions: ticketInfo?.total_sessions,
         remaining_balance: ticketInfo?.remaining_balance,
+        expiry_date: ticketInfo?.expiry_date,
         remaining_payment: grandchild.total_amount || 0
       });
+    }
+  }
+
+  // 期間限定オファーの有効期限を取得
+  let limitedOfferExpiry = null;
+  if (payment.limited_offer_id) {
+    const [offerInfo] = await pool.execute(`
+      SELECT end_date FROM limited_time_offers WHERE offer_id = ?
+    `, [payment.limited_offer_id]);
+    if (offerInfo.length > 0) {
+      limitedOfferExpiry = offerInfo[0].end_date;
     }
   }
 
@@ -187,7 +200,8 @@ async function getReceiptData(paymentId) {
     services,
     options,
     ticketUses,
-    ticketPurchases
+    ticketPurchases,
+    limitedOfferExpiry
   };
 }
 
@@ -359,13 +373,65 @@ export async function POST(request) {
     // テキスト形式に変換
     const receiptText = formatReceiptText(receiptData, config.shop_name);
 
+    // 挨拶メッセージ作成
+    let greetingMessage = `ご来店ありがとうございました✨
+コルギ施術後のお顔の状態はいかがでしょうか？
+気になる点やご不安なことがございましたら、
+いつでもお気軽にご相談ください。`;
+
+    // 有効期限がある場合（回数券使用・購入 または 期間限定オファー）
+    let expiryDate = null;
+    let expiryLabel = '回数券';
+    
+    // 回数券の有効期限をチェック
+    const ticketWithExpiry = [...(receiptData.ticketUses || []), ...(receiptData.ticketPurchases || [])]
+      .find(t => t.expiry_date);
+    
+    if (ticketWithExpiry) {
+      expiryDate = ticketWithExpiry.expiry_date;
+      expiryLabel = '回数券';
+    }
+    
+    // 期間限定オファーの有効期限をチェック
+    if (!expiryDate && receiptData.limitedOfferExpiry) {
+      expiryDate = receiptData.limitedOfferExpiry;
+      expiryLabel = '期間限定オファー';
+    }
+    
+    if (expiryDate) {
+      const expiry = new Date(expiryDate);
+      const expiryStr = `${expiry.getFullYear()}年${expiry.getMonth() + 1}月${expiry.getDate()}日`;
+      greetingMessage += `
+
+🎟${expiryLabel}について
+有効期限は${expiryStr}までとなります。
+お客様のペースで無理なくご利用ください🌿`;
+    }
+
+    // 残金がある場合
+    const ticketWithBalance = [...(receiptData.ticketUses || []), ...(receiptData.ticketPurchases || [])]
+      .find(t => t.remaining_balance > 0);
+    
+    if (ticketWithBalance) {
+      greetingMessage += `
+
+💰お支払い残金
+残金 ¥${ticketWithBalance.remaining_balance.toLocaleString()} は次回以降のご来店時にてお支払いをお願いいたします。`;
+    }
+
+    // 予約リンク追加
+    greetingMessage += `
+
+▼次回予約はこちら
+https://beauty.hotpepper.jp/kr/slnH000417938/`;
+
     // LINE送信
     await client.pushMessage({
       to: lineUserId,
       messages: [
         {
           type: 'text',
-          text: '本日はご来店ありがとうございました\nレシートをお送りいたします。'
+          text: greetingMessage
         },
         {
           type: 'text',
