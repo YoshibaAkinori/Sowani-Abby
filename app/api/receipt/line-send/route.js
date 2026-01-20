@@ -74,7 +74,7 @@ async function getReceiptData(paymentId) {
     grandchildPayments = grandchildren;
   }
 
-  // チケット基本情報を取得
+  // チケット基本情報を取得（通常回数券）
   const allPayments = [payment, ...childPayments, ...grandchildPayments];
   const ticketIds = [...new Set(allPayments.filter(p => p.ticket_id).map(p => p.ticket_id))];
   let ticketInfoMap = new Map();
@@ -88,7 +88,13 @@ async function getReceiptData(paymentId) {
         tp.total_sessions,
         ct.expiry_date,
         tp.name as plan_name,
-        s.name as service_name
+        tp.price as full_price,
+        s.name as service_name,
+        COALESCE((
+          SELECT SUM(amount_paid) 
+          FROM ticket_payments 
+          WHERE customer_ticket_id = ct.customer_ticket_id
+        ), 0) as total_paid
       FROM customer_tickets ct
       LEFT JOIN ticket_plans tp ON ct.plan_id = tp.plan_id
       LEFT JOIN services s ON tp.service_id = s.service_id
@@ -96,8 +102,46 @@ async function getReceiptData(paymentId) {
     `, ticketIds);
 
     tickets.forEach(t => {
-      ticketInfoMap.set(t.ticket_id, t);
+      // 残金を計算
+      const remainingBalance = (t.full_price || 0) - (t.total_paid || 0);
+      ticketInfoMap.set(t.ticket_id, {
+        ...t,
+        remaining_balance: remainingBalance > 0 ? remainingBalance : 0
+      });
     });
+  }
+
+  // 期間限定オファー情報を取得
+  let limitedOfferInfo = null;
+  if (payment.limited_offer_id && payment.customer_id) {
+    const [purchaseInfo] = await pool.execute(`
+      SELECT 
+        ltp.purchase_id,
+        ltp.expiry_date,
+        ltp.sessions_remaining,
+        ltp.purchase_price,
+        lo.name as offer_name,
+        lo.total_sessions,
+        lo.special_price,
+        COALESCE((
+          SELECT SUM(amount_paid) 
+          FROM ticket_payments 
+          WHERE customer_ticket_id = ltp.purchase_id AND ticket_type = 'limited'
+        ), 0) as total_paid
+      FROM limited_ticket_purchases ltp
+      JOIN limited_offers lo ON ltp.offer_id = lo.offer_id
+      WHERE ltp.offer_id = ? AND ltp.customer_id = ?
+      ORDER BY ltp.purchase_date DESC LIMIT 1
+    `, [payment.limited_offer_id, payment.customer_id]);
+    
+    if (purchaseInfo.length > 0) {
+      const info = purchaseInfo[0];
+      const remainingBalance = (info.purchase_price || info.special_price || 0) - (info.total_paid || 0);
+      limitedOfferInfo = {
+        ...info,
+        remaining_balance: remainingBalance > 0 ? remainingBalance : 0
+      };
+    }
   }
 
   // 分類
@@ -139,7 +183,8 @@ async function getReceiptData(paymentId) {
 
   // 子payment
   for (const child of childPayments) {
-    if (child.payment_type === 'ticket_purchase') {
+    // 回数券購入: payment_type === 'ticket' && is_ticket_purchase === 1
+    if (child.payment_type === 'ticket' && child.is_ticket_purchase) {
       const ticketInfo = ticketInfoMap.get(child.ticket_id);
       ticketPurchases.push({
         plan_name: ticketInfo?.plan_name || '回数券',
@@ -147,17 +192,19 @@ async function getReceiptData(paymentId) {
         amount: child.total_amount,
         sessions_remaining: ticketInfo?.sessions_remaining,
         total_sessions: ticketInfo?.total_sessions,
-        remaining_balance: child.ticket_balance_at_payment || 0,
+        remaining_balance: child.ticket_balance_at_payment ?? ticketInfo?.remaining_balance ?? 0,
         expiry_date: ticketInfo?.expiry_date
       });
-    } else if (child.payment_type === 'ticket_use') {
+    } 
+    // 回数券使用: payment_type === 'ticket' && is_ticket_purchase !== 1
+    else if (child.payment_type === 'ticket' && !child.is_ticket_purchase && !child.is_remaining_payment) {
       const ticketInfo = ticketInfoMap.get(child.ticket_id);
       ticketUses.push({
         plan_name: ticketInfo?.plan_name || '回数券',
         service_name: ticketInfo?.service_name,
         sessions_remaining: ticketInfo?.sessions_remaining,
         total_sessions: ticketInfo?.total_sessions,
-        remaining_balance: child.ticket_balance_at_payment || 0,
+        remaining_balance: child.ticket_balance_at_payment ?? ticketInfo?.remaining_balance ?? 0,
         expiry_date: ticketInfo?.expiry_date,
         remaining_payment: child.total_amount || 0
       });
@@ -166,41 +213,33 @@ async function getReceiptData(paymentId) {
 
   // 孫payment
   for (const grandchild of grandchildPayments) {
-    if (grandchild.payment_type === 'ticket_use') {
+    // 回数券使用
+    if (grandchild.payment_type === 'ticket' && !grandchild.is_ticket_purchase && !grandchild.is_remaining_payment) {
       const ticketInfo = ticketInfoMap.get(grandchild.ticket_id);
       ticketUses.push({
         plan_name: ticketInfo?.plan_name || '回数券',
         service_name: ticketInfo?.service_name,
         sessions_remaining: ticketInfo?.sessions_remaining,
         total_sessions: ticketInfo?.total_sessions,
-        remaining_balance: grandchild.ticket_balance_at_payment || 0,
+        remaining_balance: grandchild.ticket_balance_at_payment || ticketInfo?.remaining_balance || 0,
         expiry_date: ticketInfo?.expiry_date,
         remaining_payment: grandchild.total_amount || 0
       });
     }
   }
 
-  // 期間限定オファー（福袋回数券）の有効期限を取得
-  let limitedOfferExpiry = null;
-  if (payment.limited_offer_id && payment.customer_id) {
-    // まずlimited_ticket_purchases（購入済み福袋）の有効期限を確認
-    const [purchaseInfo] = await pool.execute(`
-      SELECT expiry_date FROM limited_ticket_purchases 
-      WHERE offer_id = ? AND customer_id = ?
-      ORDER BY purchase_date DESC LIMIT 1
-    `, [payment.limited_offer_id, payment.customer_id]);
-    
-    if (purchaseInfo.length > 0) {
-      limitedOfferExpiry = purchaseInfo[0].expiry_date;
-    } else {
-      // 購入データがない場合はlimited_offersのend_dateを使用
-      const [offerInfo] = await pool.execute(`
-        SELECT end_date FROM limited_offers WHERE offer_id = ?
-      `, [payment.limited_offer_id]);
-      if (offerInfo.length > 0) {
-        limitedOfferExpiry = offerInfo[0].end_date;
-      }
-    }
+  // 期間限定オファー（福袋）をticketUsesに追加
+  if (limitedOfferInfo) {
+    ticketUses.push({
+      plan_name: limitedOfferInfo.offer_name || '期間限定オファー',
+      service_name: null,
+      sessions_remaining: limitedOfferInfo.sessions_remaining,
+      total_sessions: limitedOfferInfo.total_sessions,
+      remaining_balance: limitedOfferInfo.remaining_balance || 0,
+      expiry_date: limitedOfferInfo.expiry_date,
+      remaining_payment: 0,
+      is_limited_offer: true
+    });
   }
 
   return {
@@ -212,7 +251,8 @@ async function getReceiptData(paymentId) {
     options,
     ticketUses,
     ticketPurchases,
-    limitedOfferExpiry
+    limitedOfferExpiry: limitedOfferInfo?.expiry_date || null,
+    limitedOfferInfo
   };
 }
 

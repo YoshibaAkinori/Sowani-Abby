@@ -1,4 +1,4 @@
-// app/api/payments/route.js - フラグ対応版
+// app/api/payments/route.js - フラグ対応版（期間限定スナップショット対応）
 import { NextResponse } from 'next/server';
 import { getConnection } from '../../../lib/db';
 
@@ -95,7 +95,7 @@ export async function POST(request) {
       ticket_id,
       coupon_id,
       limited_offer_id,
-      limited_purchase_id,  // ★追加: 購入済み期間限定回数券のID
+      limited_purchase_id,  // ★購入済み期間限定回数券のID
       options = [],
       discount_amount = 0,
       payment_method = 'cash',
@@ -117,7 +117,7 @@ export async function POST(request) {
 
     await connection.beginTransaction();
 
-    // スナップショット取得用ヘルパー
+    // ★ 通常回数券のスナップショット取得
     const getTicketSnapshot = async (ticketId) => {
       if (!ticketId) return { sessions: null, balance: null };
       
@@ -144,20 +144,74 @@ export async function POST(request) {
       };
     };
 
-    // ★★★ 残金支払い専用処理（フラグで判定） ★★★
-    if (is_remaining_payment && payment_amount > 0 && ticket_id) {
-      const [ticketRows] = await connection.execute(
+    // ★ 期間限定回数券のスナップショット取得
+    const getLimitedTicketSnapshot = async (purchaseId) => {
+      if (!purchaseId) return { sessions: null, balance: null };
+      
+      const [rows] = await connection.execute(
         `SELECT 
-          tp.name as plan_name,
-          s.name as service_name
-        FROM customer_tickets ct
-        JOIN ticket_plans tp ON ct.plan_id = tp.plan_id
-        JOIN services s ON tp.service_id = s.service_id
-        WHERE ct.customer_ticket_id = ?`,
-        [ticket_id]
+          ltp.sessions_remaining,
+          ltp.purchase_price,
+          COALESCE((
+            SELECT SUM(amount_paid) 
+            FROM ticket_payments 
+            WHERE customer_ticket_id = ltp.purchase_id AND ticket_type = 'limited'
+          ), 0) as total_paid
+        FROM limited_ticket_purchases ltp
+        WHERE ltp.purchase_id = ?`,
+        [purchaseId]
       );
+      
+      if (rows.length === 0) return { sessions: null, balance: null };
+      
+      const ticket = rows[0];
+      return {
+        sessions: ticket.sessions_remaining,
+        balance: ticket.purchase_price - ticket.total_paid
+      };
+    };
 
-      const ticketInfo = ticketRows.length > 0 ? ticketRows[0] : { plan_name: '回数券', service_name: '' };
+    // ★★★ 残金支払い専用処理（フラグで判定） ★★★
+    if (is_remaining_payment && payment_amount > 0) {
+      let ticketInfo = { plan_name: '回数券', service_name: '' };
+      let ticketType = 'regular';
+      let targetTicketId = ticket_id;
+
+      // 通常回数券の残金支払い
+      if (ticket_id) {
+        const [ticketRows] = await connection.execute(
+          `SELECT 
+            tp.name as plan_name,
+            s.name as service_name
+          FROM customer_tickets ct
+          JOIN ticket_plans tp ON ct.plan_id = tp.plan_id
+          JOIN services s ON tp.service_id = s.service_id
+          WHERE ct.customer_ticket_id = ?`,
+          [ticket_id]
+        );
+        if (ticketRows.length > 0) {
+          ticketInfo = ticketRows[0];
+        }
+        ticketType = 'regular';
+        targetTicketId = ticket_id;
+      }
+      // 期間限定回数券の残金支払い
+      else if (limited_purchase_id) {
+        const [limitedRows] = await connection.execute(
+          `SELECT 
+            lo.name as plan_name,
+            lo.name as service_name
+          FROM limited_ticket_purchases ltp
+          JOIN limited_offers lo ON ltp.offer_id = lo.offer_id
+          WHERE ltp.purchase_id = ?`,
+          [limited_purchase_id]
+        );
+        if (limitedRows.length > 0) {
+          ticketInfo = limitedRows[0];
+        }
+        ticketType = 'limited';
+        targetTicketId = limited_purchase_id;
+      }
 
       let finalCashAmount = 0;
       let finalCardAmount = 0;
@@ -174,12 +228,17 @@ export async function POST(request) {
       // ticket_payments に登録
       await connection.execute(`
         INSERT INTO ticket_payments (
-          customer_ticket_id, payment_date, amount_paid, payment_method, notes
-        ) VALUES (?, NOW(), ?, ?, ?)
-      `, [ticket_id, payment_amount, payment_method, notes]);
+          ticket_type, customer_ticket_id, payment_date, amount_paid, payment_method, notes
+        ) VALUES (?, ?, NOW(), ?, ?, ?)
+      `, [ticketType, targetTicketId, payment_amount, payment_method, notes]);
 
       // 支払い後のスナップショットを取得
-      const snapshot = await getTicketSnapshot(ticket_id);
+      let snapshot;
+      if (ticket_id) {
+        snapshot = await getTicketSnapshot(ticket_id);
+      } else {
+        snapshot = await getLimitedTicketSnapshot(limited_purchase_id);
+      }
 
       // payments に登録（★フラグ付き）
       await connection.execute(
@@ -197,6 +256,7 @@ export async function POST(request) {
           is_ticket_purchase,
           is_remaining_payment,
           is_immediate_use,
+          limited_offer_id,
           service_subtotal,
           options_total,
           discount_amount,
@@ -207,20 +267,21 @@ export async function POST(request) {
           card_amount,
           notes,
           related_payment_id
-        ) VALUES (UUID(), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        ) VALUES (UUID(), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           customer_id,
           staff_id,
           `${ticketInfo.plan_name} 残金支払い`,
           0,
           0,
-          'ticket',
-          ticket_id,
+          ticket_id ? 'ticket' : 'limited_offer',
+          ticket_id || limited_purchase_id,  // ★期間限定の場合はpurchase_idを保存
           snapshot.sessions,
           snapshot.balance,
           false,  // is_ticket_purchase
           true,   // ★ is_remaining_payment = TRUE
           false,  // is_immediate_use
+          limited_offer_id || null,
           0,
           0,
           0,
@@ -375,9 +436,11 @@ export async function POST(request) {
       normalizedPaymentType = 'limited_offer';
     }
 
-    // 回数券使用時：先に回数を減らしてからスナップショット取得
+    // ★ スナップショット変数
     let ticketSnapshot = { sessions: null, balance: null };
-    
+    let limitedSnapshot = { sessions: null, balance: null };
+
+    // 回数券使用時：先に回数を減らしてからスナップショット取得
     if (ticket_id && payment_type === 'ticket') {
       await connection.execute(
         `UPDATE customer_tickets 
@@ -388,7 +451,7 @@ export async function POST(request) {
       ticketSnapshot = await getTicketSnapshot(ticket_id);
     }
 
-    // ★ 期間限定回数券使用時：残回数を減らす
+    // ★ 期間限定回数券使用時：残回数を減らしてスナップショット取得
     if (limited_purchase_id && (payment_type === 'limited_offer' || payment_type === 'limited')) {
       await connection.execute(
         `UPDATE limited_ticket_purchases 
@@ -396,7 +459,12 @@ export async function POST(request) {
          WHERE purchase_id = ?`,
         [limited_purchase_id]
       );
+      limitedSnapshot = await getLimitedTicketSnapshot(limited_purchase_id);
     }
+
+    // ★ 使用するスナップショットを決定
+    const finalSnapshot = ticket_id ? ticketSnapshot : limitedSnapshot;
+    const finalTicketId = ticket_id || limited_purchase_id;
 
     // payments テーブルに登録（★フラグ付き）
     await connection.execute(
@@ -438,9 +506,9 @@ export async function POST(request) {
         serviceData.price,
         serviceData.duration,
         normalizedPaymentType,
-        ticket_id || null,
-        ticketSnapshot.sessions,
-        ticketSnapshot.balance,
+        finalTicketId || null,  // ★期間限定の場合はpurchase_idを保存
+        finalSnapshot.sessions,
+        finalSnapshot.balance,
         false,  // is_ticket_purchase (購入はticket-purchasesで処理)
         false,  // is_remaining_payment
         false,  // is_immediate_use
