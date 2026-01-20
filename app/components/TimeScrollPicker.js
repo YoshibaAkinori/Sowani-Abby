@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 
 const TimeScrollPicker = ({ isOpen, onClose, onConfirm, initialTime, showSeconds = false }) => {
   const initial = initialTime ? initialTime.split(':') : ['12', '00', '00'];
@@ -22,6 +22,45 @@ const TimeScrollPicker = ({ isOpen, onClose, onConfirm, initialTime, showSeconds
   
   // 秒（0-59）
   const seconds = Array.from({ length: 60 }, (_, i) => i);
+  
+  // マウスホイールで1項目ずつ移動
+  const handleWheel = useCallback((e, ref, items, setter) => {
+    e.preventDefault();
+    
+    if (!ref.current) return;
+    
+    const direction = e.deltaY > 0 ? 1 : -1;
+    const currentIndex = Math.round(ref.current.scrollTop / ITEM_HEIGHT);
+    const newIndex = Math.max(0, Math.min(currentIndex + direction, items.length - 1));
+    
+    ref.current.scrollTo({
+      top: newIndex * ITEM_HEIGHT,
+      behavior: 'smooth'
+    });
+    
+    setter(items[newIndex]);
+  }, []);
+  
+  // wheelイベントを登録
+  useEffect(() => {
+    const hourEl = hourRef.current;
+    const minuteEl = minuteRef.current;
+    const secondEl = secondRef.current;
+    
+    const hourHandler = (e) => handleWheel(e, hourRef, hours, setSelectedHour);
+    const minuteHandler = (e) => handleWheel(e, minuteRef, minutes, setSelectedMinute);
+    const secondHandler = (e) => handleWheel(e, secondRef, seconds, setSelectedSecond);
+    
+    if (hourEl) hourEl.addEventListener('wheel', hourHandler, { passive: false });
+    if (minuteEl) minuteEl.addEventListener('wheel', minuteHandler, { passive: false });
+    if (secondEl) secondEl.addEventListener('wheel', secondHandler, { passive: false });
+    
+    return () => {
+      if (hourEl) hourEl.removeEventListener('wheel', hourHandler);
+      if (minuteEl) minuteEl.removeEventListener('wheel', minuteHandler);
+      if (secondEl) secondEl.removeEventListener('wheel', secondHandler);
+    };
+  }, [hours, minutes, seconds, handleWheel]);
   
   // モーダルが開いたときに初期値をセット
   useEffect(() => {
@@ -91,6 +130,15 @@ const TimeScrollPicker = ({ isOpen, onClose, onConfirm, initialTime, showSeconds
     }, 50);
   };
   
+  // タップで選択
+  const handleItemClick = (ref, items, setter, value) => {
+    const index = items.indexOf(value);
+    if (index !== -1) {
+      setter(value);
+      scrollToSelected(ref, index);
+    }
+  };
+  
   if (!isOpen) return null;
   
   return (
@@ -119,6 +167,7 @@ const TimeScrollPicker = ({ isOpen, onClose, onConfirm, initialTime, showSeconds
                 <div
                   key={hour}
                   className={`time-picker-item ${hour === selectedHour ? 'selected' : ''}`}
+                  onClick={() => handleItemClick(hourRef, hours, setSelectedHour, hour)}
                 >
                   {String(hour).padStart(2, '0')}時
                 </div>
@@ -139,6 +188,7 @@ const TimeScrollPicker = ({ isOpen, onClose, onConfirm, initialTime, showSeconds
                 <div
                   key={minute}
                   className={`time-picker-item ${minute === selectedMinute ? 'selected' : ''}`}
+                  onClick={() => handleItemClick(minuteRef, minutes, setSelectedMinute, minute)}
                 >
                   {String(minute).padStart(2, '0')}分
                 </div>
@@ -160,6 +210,7 @@ const TimeScrollPicker = ({ isOpen, onClose, onConfirm, initialTime, showSeconds
                   <div
                     key={second}
                     className={`time-picker-item ${second === selectedSecond ? 'selected' : ''}`}
+                    onClick={() => handleItemClick(secondRef, seconds, setSelectedSecond, second)}
                   >
                     {String(second).padStart(2, '0')}秒
                   </div>
@@ -259,6 +310,7 @@ const TimeScrollPicker = ({ isOpen, onClose, onConfirm, initialTime, showSeconds
           scroll-snap-type: y mandatory;
           -webkit-overflow-scrolling: touch;
           scrollbar-width: none;
+          overscroll-behavior: contain;
         }
         
         .time-picker-scroll::-webkit-scrollbar {
@@ -277,7 +329,14 @@ const TimeScrollPicker = ({ isOpen, onClose, onConfirm, initialTime, showSeconds
           font-size: 20px;
           color: #9ca3af;
           scroll-snap-align: center;
+          scroll-snap-stop: always;
           transition: all 0.15s ease;
+          cursor: pointer;
+          user-select: none;
+        }
+        
+        .time-picker-item:active {
+          background: rgba(59, 130, 246, 0.1);
         }
         
         .time-picker-item.selected {

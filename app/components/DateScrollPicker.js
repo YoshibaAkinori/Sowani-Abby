@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 
 const DateScrollPicker = ({ isOpen, onClose, onConfirm, initialDate }) => {
   const today = new Date();
@@ -13,8 +13,50 @@ const DateScrollPicker = ({ isOpen, onClose, onConfirm, initialDate }) => {
   const monthRef = useRef(null);
   const dayRef = useRef(null);
   
+  // スクロール中かどうかを管理
+  const scrollingRef = useRef({ year: false, month: false, day: false });
+  const scrollTimeoutRef = useRef({ year: null, month: null, day: null });
+  
   const ITEM_HEIGHT = 44;
-  const VISIBLE_ITEMS = 5;
+  
+  // マウスホイールで1項目ずつ移動
+  const handleWheel = useCallback((e, ref, items, setter, key) => {
+    e.preventDefault();
+    
+    if (!ref.current) return;
+    
+    const direction = e.deltaY > 0 ? 1 : -1;
+    const currentIndex = Math.round(ref.current.scrollTop / ITEM_HEIGHT);
+    const newIndex = Math.max(0, Math.min(currentIndex + direction, items.length - 1));
+    
+    ref.current.scrollTo({
+      top: newIndex * ITEM_HEIGHT,
+      behavior: 'smooth'
+    });
+    
+    setter(items[newIndex]);
+  }, []);
+  
+  // wheelイベントを登録
+  useEffect(() => {
+    const yearEl = yearRef.current;
+    const monthEl = monthRef.current;
+    const dayEl = dayRef.current;
+    
+    const yearHandler = (e) => handleWheel(e, yearRef, years, setSelectedYear, 'year');
+    const monthHandler = (e) => handleWheel(e, monthRef, months, setSelectedMonth, 'month');
+    const dayHandler = (e) => handleWheel(e, dayRef, days, setSelectedDay, 'day');
+    
+    if (yearEl) yearEl.addEventListener('wheel', yearHandler, { passive: false });
+    if (monthEl) monthEl.addEventListener('wheel', monthHandler, { passive: false });
+    if (dayEl) dayEl.addEventListener('wheel', dayHandler, { passive: false });
+    
+    return () => {
+      if (yearEl) yearEl.removeEventListener('wheel', yearHandler);
+      if (monthEl) monthEl.removeEventListener('wheel', monthHandler);
+      if (dayEl) dayEl.removeEventListener('wheel', dayHandler);
+    };
+  }, [years, months, days, handleWheel]);
   
   // 年の範囲（1900年 〜 今年+2年）
   const currentYear = today.getFullYear();
@@ -39,7 +81,7 @@ const DateScrollPicker = ({ isOpen, onClose, onConfirm, initialDate }) => {
     if (selectedDay > maxDay) {
       setSelectedDay(maxDay);
     }
-  }, [selectedYear, selectedMonth]);
+  }, [selectedYear, selectedMonth, selectedDay]);
   
   // モーダルが開いたときに初期値をセット
   useEffect(() => {
@@ -55,27 +97,50 @@ const DateScrollPicker = ({ isOpen, onClose, onConfirm, initialDate }) => {
       
       // スクロール位置を設定
       setTimeout(() => {
-        scrollToSelected(yearRef, years.indexOf(year));
-        scrollToSelected(monthRef, month - 1);
-        scrollToSelected(dayRef, day - 1);
+        scrollToIndex(yearRef, years.indexOf(year));
+        scrollToIndex(monthRef, month - 1);
+        scrollToIndex(dayRef, day - 1);
       }, 50);
     }
   }, [isOpen, initialDate]);
   
-  const scrollToSelected = (ref, index) => {
+  const scrollToIndex = (ref, index) => {
     if (ref.current) {
       ref.current.scrollTop = index * ITEM_HEIGHT;
     }
   };
   
-  const handleScroll = (ref, items, setter) => {
+  // スクロール終了時にスナップする
+  const handleScrollEnd = useCallback((ref, items, setter, key) => {
     if (ref.current) {
       const scrollTop = ref.current.scrollTop;
       const index = Math.round(scrollTop / ITEM_HEIGHT);
       const clampedIndex = Math.max(0, Math.min(index, items.length - 1));
+      
+      // 確実にスナップ位置に移動
+      ref.current.scrollTo({
+        top: clampedIndex * ITEM_HEIGHT,
+        behavior: 'smooth'
+      });
+      
       setter(items[clampedIndex]);
+      scrollingRef.current[key] = false;
     }
-  };
+  }, []);
+  
+  const handleScroll = useCallback((ref, items, setter, key) => {
+    scrollingRef.current[key] = true;
+    
+    // 既存のタイムアウトをクリア
+    if (scrollTimeoutRef.current[key]) {
+      clearTimeout(scrollTimeoutRef.current[key]);
+    }
+    
+    // スクロール停止を検知してスナップ
+    scrollTimeoutRef.current[key] = setTimeout(() => {
+      handleScrollEnd(ref, items, setter, key);
+    }, 100);
+  }, [handleScrollEnd]);
   
   const handleConfirm = () => {
     const dateStr = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-${String(selectedDay).padStart(2, '0')}`;
@@ -89,10 +154,19 @@ const DateScrollPicker = ({ isOpen, onClose, onConfirm, initialDate }) => {
     setSelectedMonth(t.getMonth() + 1);
     setSelectedDay(t.getDate());
     setTimeout(() => {
-      scrollToSelected(yearRef, years.indexOf(t.getFullYear()));
-      scrollToSelected(monthRef, t.getMonth());
-      scrollToSelected(dayRef, t.getDate() - 1);
+      scrollToIndex(yearRef, years.indexOf(t.getFullYear()));
+      scrollToIndex(monthRef, t.getMonth());
+      scrollToIndex(dayRef, t.getDate() - 1);
     }, 50);
+  };
+  
+  // タップで選択
+  const handleItemClick = (ref, items, setter, value) => {
+    const index = items.indexOf(value);
+    if (index !== -1) {
+      setter(value);
+      scrollToIndex(ref, index);
+    }
   };
   
   if (!isOpen) return null;
@@ -116,13 +190,14 @@ const DateScrollPicker = ({ isOpen, onClose, onConfirm, initialDate }) => {
             <div
               ref={yearRef}
               className="date-picker-scroll"
-              onScroll={() => handleScroll(yearRef, years, setSelectedYear)}
+              onScroll={() => handleScroll(yearRef, years, setSelectedYear, 'year')}
             >
               <div className="date-picker-padding"></div>
               {years.map(year => (
                 <div
                   key={year}
                   className={`date-picker-item ${year === selectedYear ? 'selected' : ''}`}
+                  onClick={() => handleItemClick(yearRef, years, setSelectedYear, year)}
                 >
                   {year}年
                 </div>
@@ -136,13 +211,14 @@ const DateScrollPicker = ({ isOpen, onClose, onConfirm, initialDate }) => {
             <div
               ref={monthRef}
               className="date-picker-scroll"
-              onScroll={() => handleScroll(monthRef, months, setSelectedMonth)}
+              onScroll={() => handleScroll(monthRef, months, setSelectedMonth, 'month')}
             >
               <div className="date-picker-padding"></div>
               {months.map(month => (
                 <div
                   key={month}
                   className={`date-picker-item ${month === selectedMonth ? 'selected' : ''}`}
+                  onClick={() => handleItemClick(monthRef, months, setSelectedMonth, month)}
                 >
                   {month}月
                 </div>
@@ -156,13 +232,14 @@ const DateScrollPicker = ({ isOpen, onClose, onConfirm, initialDate }) => {
             <div
               ref={dayRef}
               className="date-picker-scroll"
-              onScroll={() => handleScroll(dayRef, days, setSelectedDay)}
+              onScroll={() => handleScroll(dayRef, days, setSelectedDay, 'day')}
             >
               <div className="date-picker-padding"></div>
               {days.map(day => (
                 <div
                   key={day}
                   className={`date-picker-item ${day === selectedDay ? 'selected' : ''}`}
+                  onClick={() => handleItemClick(dayRef, days, setSelectedDay, day)}
                 >
                   {day}日
                 </div>
@@ -261,6 +338,7 @@ const DateScrollPicker = ({ isOpen, onClose, onConfirm, initialDate }) => {
           scroll-snap-type: y mandatory;
           -webkit-overflow-scrolling: touch;
           scrollbar-width: none;
+          overscroll-behavior: contain;
         }
         
         .date-picker-scroll::-webkit-scrollbar {
@@ -279,7 +357,14 @@ const DateScrollPicker = ({ isOpen, onClose, onConfirm, initialDate }) => {
           font-size: 18px;
           color: #9ca3af;
           scroll-snap-align: center;
+          scroll-snap-stop: always;
           transition: all 0.15s ease;
+          cursor: pointer;
+          user-select: none;
+        }
+        
+        .date-picker-item:active {
+          background: rgba(59, 130, 246, 0.1);
         }
         
         .date-picker-item.selected {

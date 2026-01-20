@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 
 const MonthScrollPicker = ({ isOpen, onClose, onConfirm, initialYear, initialMonth }) => {
   const today = new Date();
@@ -18,6 +18,41 @@ const MonthScrollPicker = ({ isOpen, onClose, onConfirm, initialYear, initialMon
   
   // 月（1-12）
   const months = Array.from({ length: 12 }, (_, i) => i + 1);
+  
+  // マウスホイールで1項目ずつ移動
+  const handleWheel = useCallback((e, ref, items, setter) => {
+    e.preventDefault();
+    
+    if (!ref.current) return;
+    
+    const direction = e.deltaY > 0 ? 1 : -1;
+    const currentIndex = Math.round(ref.current.scrollTop / ITEM_HEIGHT);
+    const newIndex = Math.max(0, Math.min(currentIndex + direction, items.length - 1));
+    
+    ref.current.scrollTo({
+      top: newIndex * ITEM_HEIGHT,
+      behavior: 'smooth'
+    });
+    
+    setter(items[newIndex]);
+  }, []);
+  
+  // wheelイベントを登録
+  useEffect(() => {
+    const yearEl = yearRef.current;
+    const monthEl = monthRef.current;
+    
+    const yearHandler = (e) => handleWheel(e, yearRef, years, setSelectedYear);
+    const monthHandler = (e) => handleWheel(e, monthRef, months, setSelectedMonth);
+    
+    if (yearEl) yearEl.addEventListener('wheel', yearHandler, { passive: false });
+    if (monthEl) monthEl.addEventListener('wheel', monthHandler, { passive: false });
+    
+    return () => {
+      if (yearEl) yearEl.removeEventListener('wheel', yearHandler);
+      if (monthEl) monthEl.removeEventListener('wheel', monthHandler);
+    };
+  }, [years, months, handleWheel]);
   
   // モーダルが開いたときに初期値をセット
   useEffect(() => {
@@ -66,6 +101,15 @@ const MonthScrollPicker = ({ isOpen, onClose, onConfirm, initialYear, initialMon
     }, 50);
   };
   
+  // タップで選択
+  const handleItemClick = (ref, items, setter, value) => {
+    const index = items.indexOf(value);
+    if (index !== -1) {
+      setter(value);
+      scrollToSelected(ref, index);
+    }
+  };
+  
   if (!isOpen) return null;
   
   return (
@@ -94,6 +138,7 @@ const MonthScrollPicker = ({ isOpen, onClose, onConfirm, initialYear, initialMon
                 <div
                   key={year}
                   className={`month-picker-item ${year === selectedYear ? 'selected' : ''}`}
+                  onClick={() => handleItemClick(yearRef, years, setSelectedYear, year)}
                 >
                   {year}年
                 </div>
@@ -114,6 +159,7 @@ const MonthScrollPicker = ({ isOpen, onClose, onConfirm, initialYear, initialMon
                 <div
                   key={month}
                   className={`month-picker-item ${month === selectedMonth ? 'selected' : ''}`}
+                  onClick={() => handleItemClick(monthRef, months, setSelectedMonth, month)}
                 >
                   {month}月
                 </div>
@@ -212,6 +258,7 @@ const MonthScrollPicker = ({ isOpen, onClose, onConfirm, initialYear, initialMon
           scroll-snap-type: y mandatory;
           -webkit-overflow-scrolling: touch;
           scrollbar-width: none;
+          overscroll-behavior: contain;
         }
         
         .month-picker-scroll::-webkit-scrollbar {
@@ -230,7 +277,14 @@ const MonthScrollPicker = ({ isOpen, onClose, onConfirm, initialYear, initialMon
           font-size: 18px;
           color: #9ca3af;
           scroll-snap-align: center;
+          scroll-snap-stop: always;
           transition: all 0.15s ease;
+          cursor: pointer;
+          user-select: none;
+        }
+        
+        .month-picker-item:active {
+          background: rgba(59, 130, 246, 0.1);
         }
         
         .month-picker-item.selected {
