@@ -1,6 +1,26 @@
-// app/api/ticket-purchases/route.js - 回数券購入API（フラグ対応版）
+// app/api/ticket-purchases/route.js - 回数券購入API（フラグ対応版・1年後月末対応）
 import { NextResponse } from 'next/server';
 import { getConnection } from '../../../lib/db';
+
+/**
+ * 1年後の月末を計算
+ * 例: 2025/1/20 → 2026/1/31
+ */
+function getExpiryDateOneYearEndOfMonth(baseDate = new Date()) {
+  const date = new Date(baseDate);
+  
+  // 1年後
+  date.setFullYear(date.getFullYear() + 1);
+  
+  // その月の末日を取得（翌月の0日 = 当月の末日）
+  const year = date.getFullYear();
+  const month = date.getMonth() + 1;
+  const lastDay = new Date(year, month, 0).getDate();
+  
+  date.setDate(lastDay);
+  
+  return date;
+}
 
 export async function POST(request) {
   const pool = await getConnection();
@@ -53,12 +73,10 @@ export async function POST(request) {
 
     const plan = plans[0];
     const fullPrice = plan.price;
-    const validityDays = plan.validity_days;
 
-    // 2. 有効期限計算
+    // 2. 有効期限計算（★1年後の月末）
     const purchaseDate = new Date();
-    const expiryDate = new Date(purchaseDate);
-    expiryDate.setDate(expiryDate.getDate() + validityDays);
+    const expiryDate = getExpiryDateOneYearEndOfMonth(purchaseDate);
 
     // 3. 初回使用時は残回数を1減らす
     const initialSessions = use_immediately 
@@ -155,10 +173,11 @@ export async function POST(request) {
     );
     const purchasePaymentId = purchasePayment[0].payment_id;
 
-    // 7. 初回使用の場合は使用記録も作成（★フラグ付き）
+    // 7. 初回使用の場合、使用レコードも作成（★フラグ付き）
     if (use_immediately) {
       await connection.query(`
         INSERT INTO payments (
+          payment_id,
           customer_id, staff_id, service_id, service_name, service_price, service_duration,
           payment_type, ticket_id,
           ticket_sessions_at_payment, ticket_balance_at_payment,
@@ -166,14 +185,14 @@ export async function POST(request) {
           service_subtotal, options_total, discount_amount, 
           payment_amount, total_amount,
           payment_method, cash_amount, card_amount, notes, related_payment_id
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (UUID(), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `, [
         customer_id,
         staff_id,
         plan.service_id,
         plan.service_name,
         0,
-        0,
+        plan.duration_minutes || 0,
         'ticket',
         customerTicketId,
         sessionsAtPayment,
@@ -189,20 +208,22 @@ export async function POST(request) {
         'cash',
         0,
         0,
-        null,  // notesは不要に
+        null,
         purchasePaymentId
       ]);
 
-      // 来店回数を+1
-      await connection.query(
-        `UPDATE customers SET visit_count = visit_count + 1 WHERE customer_id = ?`,
-        [customer_id]
-      );
+      // 来店カウント（その他以外）
+      if (plan.service_category !== 'その他') {
+        await connection.query(
+          'UPDATE customers SET visit_count = visit_count + 1 WHERE customer_id = ?',
+          [customer_id]
+        );
+      }
     }
 
     await connection.commit();
 
-    // 8. 残額計算
+    // 残額計算
     const remainingAmount = fullPrice - payment_amount;
 
     return NextResponse.json({
@@ -297,7 +318,8 @@ export async function PATCH(request) {
 
     await connection.commit();
 
-    const newRemainingAmount = remainingAmount - payment_amount;
+    const newTotalPaid = totalPaid + payment_amount;
+    const newRemainingAmount = ticket.full_price - newTotalPaid;
 
     return NextResponse.json({
       success: true,
@@ -305,7 +327,7 @@ export async function PATCH(request) {
         customer_ticket_id,
         plan_name: ticket.plan_name,
         full_price: ticket.full_price,
-        total_paid: totalPaid + payment_amount,
+        total_paid: newTotalPaid,
         remaining_amount: newRemainingAmount,
         is_fully_paid: newRemainingAmount === 0
       }
@@ -313,7 +335,7 @@ export async function PATCH(request) {
 
   } catch (error) {
     await connection.rollback();
-    console.error('Additional payment error:', error);
+    console.error('Ticket additional payment error:', error);
     return NextResponse.json(
       { success: false, error: error.message },
       { status: 500 }

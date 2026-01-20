@@ -1,6 +1,26 @@
-// app/api/limited-offer-purchases/route.js - 期間限定オファー（回数券ベース）購入API
+// app/api/limited-offer-purchases/route.js - 期間限定オファー購入API（1年後月末対応）
 import { NextResponse } from 'next/server';
 import { getConnection } from '../../../lib/db';
+
+/**
+ * 1年後の月末を計算
+ * 例: 2025/1/20 → 2026/1/31
+ */
+function getExpiryDateOneYearEndOfMonth(baseDate = new Date()) {
+  const date = new Date(baseDate);
+  
+  // 1年後
+  date.setFullYear(date.getFullYear() + 1);
+  
+  // その月の末日を取得（翌月の0日 = 当月の末日）
+  const year = date.getFullYear();
+  const month = date.getMonth() + 1;
+  const lastDay = new Date(year, month, 0).getDate();
+  
+  date.setDate(lastDay);
+  
+  return date;
+}
 
 export async function POST(request) {
   const pool = await getConnection();
@@ -65,13 +85,11 @@ export async function POST(request) {
     }
 
     const fullPrice = purchase_price || offer.special_price;
-    const validityDays = offer.validity_days || 180;
     const totalSessions = offer.total_sessions;
 
-    // 2. 有効期限計算
+    // 2. 有効期限計算（★1年後の月末）
     const purchaseDate = new Date();
-    const expiryDate = new Date(purchaseDate);
-    expiryDate.setDate(expiryDate.getDate() + validityDays);
+    const expiryDate = getExpiryDateOneYearEndOfMonth(purchaseDate);
 
     // 3. 初回使用時は残回数を1減らす
     const initialSessions = use_immediately 
