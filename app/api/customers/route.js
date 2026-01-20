@@ -2,12 +2,13 @@
 import { NextResponse } from 'next/server';
 import { getConnection } from '../../../lib/db';
 
-// 顧客一覧取得
+// 顧客一覧取得（検索対応）
 export async function GET(request) {
   try {
     const pool = await getConnection();
     const { searchParams } = new URL(request.url);
     const includeStats = searchParams.get('includeStats') === 'true';
+    const search = searchParams.get('search');
 
     let query = `
       SELECT 
@@ -22,12 +23,13 @@ export async function GET(request) {
         c.birth_date,
         c.gender,
         c.notes,
-        c.is_existing_customer,
         c.base_visit_count,
         c.visit_count,
         c.created_at,
         c.updated_at
     `;
+
+    const params = [];
 
     // 統計情報を含める場合
     if (includeStats) {
@@ -42,7 +44,6 @@ export async function GET(request) {
         END), 0) as total_spent
       FROM customers c
       LEFT JOIN payments p ON c.customer_id = p.customer_id
-      GROUP BY c.customer_id
       `;
     } else {
       query += `
@@ -50,9 +51,36 @@ export async function GET(request) {
       `;
     }
 
-    query += `ORDER BY c.created_at DESC`;
+    // 検索条件がある場合
+    if (search && search.trim()) {
+      query += `
+        WHERE (
+          c.last_name LIKE ? OR 
+          c.first_name LIKE ? OR 
+          CONCAT(c.last_name, c.first_name) LIKE ? OR
+          CONCAT(c.last_name, ' ', c.first_name) LIKE ? OR
+          c.last_name_kana LIKE ? OR
+          c.first_name_kana LIKE ? OR
+          CONCAT(c.last_name_kana, c.first_name_kana) LIKE ? OR
+          c.phone_number LIKE ?
+        )
+      `;
+      const searchTerm = `%${search.trim()}%`;
+      params.push(searchTerm, searchTerm, searchTerm, searchTerm, searchTerm, searchTerm, searchTerm, searchTerm);
+    }
 
-    const [rows] = await pool.execute(query);
+    if (includeStats) {
+      query += ` GROUP BY c.customer_id`;
+    }
+
+    query += ` ORDER BY c.created_at DESC`;
+
+    // 検索時は50件に制限
+    if (search && search.trim()) {
+      query += ` LIMIT 50`;
+    }
+
+    const [rows] = await pool.execute(query, params);
 
     return NextResponse.json({
       success: true,
@@ -83,7 +111,6 @@ export async function POST(request) {
       birth_date,
       gender,
       notes,
-      is_existing_customer,
       base_visit_count,
       line_user_id
     } = body;
@@ -122,21 +149,19 @@ export async function POST(request) {
         birth_date,
         gender,
         notes,
-        is_existing_customer,
         base_visit_count,
         line_user_id
-      ) VALUES (UUID(), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (UUID(), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         last_name,
         first_name,
         last_name_kana || '',
         first_name_kana || '',
         phone_number,
-        email || '',
+        email || null,
         birth_date || null,
         gender || 'not_specified',
-        notes || '',
-        is_existing_customer ? 1 : 0,
+        notes || null,
         base_visit_count || 0,
         line_user_id || null
       ]
@@ -144,19 +169,18 @@ export async function POST(request) {
 
     // 登録した顧客のIDを取得
     const [newCustomer] = await pool.execute(
-      'SELECT customer_id, last_name, first_name FROM customers WHERE phone_number = ? ORDER BY created_at DESC LIMIT 1',
+      'SELECT customer_id FROM customers WHERE phone_number = ? ORDER BY created_at DESC LIMIT 1',
       [phone_number]
     );
 
     return NextResponse.json({
       success: true,
-      message: '顧客を登録しました',
-      data: newCustomer[0]
+      data: { customer_id: newCustomer[0].customer_id }
     });
   } catch (error) {
     console.error('顧客登録エラー:', error);
     return NextResponse.json(
-      { success: false, error: 'データベースエラー: ' + error.message },
+      { success: false, error: 'データベースエラー' },
       { status: 500 }
     );
   }

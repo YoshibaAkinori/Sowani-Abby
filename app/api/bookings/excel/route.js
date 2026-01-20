@@ -10,7 +10,7 @@ export async function POST(request) {
     const body = await request.json();
     const { booking_id } = body;
 
-    console.log('[Excel API] 開始 - booking_id:', booking_id);
+    //console.log('[Excel API] 開始 - booking_id:', booking_id);
 
     if (!booking_id) {
       return NextResponse.json(
@@ -42,7 +42,7 @@ export async function POST(request) {
     );
 
     if (bookingRows.length === 0) {
-      console.log('[Excel API] 予約が見つかりません');
+      //console.log('[Excel API] 予約が見つかりません');
       return NextResponse.json(
         { success: false, error: '予約が見つかりません' },
         { status: 404 }
@@ -50,7 +50,7 @@ export async function POST(request) {
     }
 
     const booking = bookingRows[0];
-    console.log('[Excel API] 予約:', booking.last_name, booking.first_name);
+    //console.log('[Excel API] 予約:', booking.last_name, booking.first_name);
 
     // 来店回数: customersテーブルのvisit_countを取得
     const [customerRows] = await pool.execute(
@@ -58,7 +58,7 @@ export async function POST(request) {
       [booking.customer_id]
     );
     const currentVisitCount = parseInt(customerRows[0]?.visit_count) || 0;
-    console.log('[Excel API] 現在の来店回数:', currentVisitCount);
+    //console.log('[Excel API] 現在の来店回数:', currentVisitCount);
 
     // 来店回数をカウントするか判定
     // 回数券使用（「その他」以外）または福袋使用の場合のみ+1
@@ -67,7 +67,7 @@ export async function POST(request) {
     // 1. 回数券使用の場合
     if (booking.customer_ticket_id && booking.ticket_category !== 'その他') {
       shouldCountVisit = true;
-      console.log('[Excel API] 回数券使用（その他以外）→ +1');
+      //console.log('[Excel API] 回数券使用（その他以外）→ +1');
     }
     
     // 2. 福袋（期間限定オファー）の回数券使用の場合
@@ -81,12 +81,12 @@ export async function POST(request) {
       );
       if (limitedTicketCheck.length > 0) {
         shouldCountVisit = true;
-        console.log('[Excel API] 福袋回数券使用 → +1');
+        //console.log('[Excel API] 福袋回数券使用 → +1');
       }
     }
 
     const totalVisitCount = shouldCountVisit ? currentVisitCount + 1 : currentVisitCount;
-    console.log('[Excel API] Excel登録する来店回数:', totalVisitCount);
+    //console.log('[Excel API] Excel登録する来店回数:', totalVisitCount);
 
     // 日付をYYYY-MM-DD形式に変換
     let dateStr = booking.date;
@@ -104,7 +104,7 @@ export async function POST(request) {
       visit_count: totalVisitCount
     };
 
-    console.log('[Excel API] Excelデータ:', bookingData);
+    //console.log('[Excel API] Excelデータ:', bookingData);
 
     // Node.js版でExcel更新
     const result = await updateExcel(bookingData);
@@ -114,7 +114,7 @@ export async function POST(request) {
       throw new Error(result.error || 'Excel更新に失敗しました');
     }
 
-    console.log('[Excel API] 成功 - 行:', result.row);
+    //console.log('[Excel API] 成功 - 行:', result.row);
 
     return NextResponse.json({
       success: true,

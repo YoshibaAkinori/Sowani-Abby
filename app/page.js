@@ -18,8 +18,8 @@ const SalonBoard = () => {
   const { activeStaff, loading: staffLoading } = useStaff();
   const [shiftsCache, setShiftsCache] = useState({});
 
-  ////console.log('activeStaff:', activeStaff);
-  ////console.log('staffLoading:', staffLoading);
+  //console.log('activeStaff:', activeStaff);
+  //console.log('staffLoading:', staffLoading);
 
   // ★ 初期値としてスタッフの骨組みを即座に作成
   const [staffShifts, setStaffShifts] = useState([]);

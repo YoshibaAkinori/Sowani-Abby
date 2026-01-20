@@ -59,7 +59,7 @@ export async function GET(request) {
         previous_balance = previousRows[0].previous_balance;
       }
     } catch (err) {
-      console.log('Previous balance lookup failed, using default:', err.message);
+      //console.log('Previous balance lookup failed, using default:', err.message);
     }
 
     return NextResponse.json({

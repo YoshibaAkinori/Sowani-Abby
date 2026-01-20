@@ -85,11 +85,10 @@ async function getReceiptData(paymentId) {
       SELECT 
         ct.customer_ticket_id as ticket_id,
         ct.sessions_remaining,
-        ct.total_sessions,
-        ct.remaining_balance,
+        tp.total_sessions,
         ct.expiry_date,
-        tp.plan_name,
-        s.service_name
+        tp.name as plan_name,
+        s.name as service_name
       FROM customer_tickets ct
       LEFT JOIN ticket_plans tp ON ct.plan_id = tp.plan_id
       LEFT JOIN services s ON tp.service_id = s.service_id
@@ -148,7 +147,7 @@ async function getReceiptData(paymentId) {
         amount: child.total_amount,
         sessions_remaining: ticketInfo?.sessions_remaining,
         total_sessions: ticketInfo?.total_sessions,
-        remaining_balance: ticketInfo?.remaining_balance,
+        remaining_balance: child.ticket_balance_at_payment || 0,
         expiry_date: ticketInfo?.expiry_date
       });
     } else if (child.payment_type === 'ticket_use') {
@@ -158,7 +157,7 @@ async function getReceiptData(paymentId) {
         service_name: ticketInfo?.service_name,
         sessions_remaining: ticketInfo?.sessions_remaining,
         total_sessions: ticketInfo?.total_sessions,
-        remaining_balance: ticketInfo?.remaining_balance,
+        remaining_balance: child.ticket_balance_at_payment || 0,
         expiry_date: ticketInfo?.expiry_date,
         remaining_payment: child.total_amount || 0
       });
@@ -174,21 +173,33 @@ async function getReceiptData(paymentId) {
         service_name: ticketInfo?.service_name,
         sessions_remaining: ticketInfo?.sessions_remaining,
         total_sessions: ticketInfo?.total_sessions,
-        remaining_balance: ticketInfo?.remaining_balance,
+        remaining_balance: grandchild.ticket_balance_at_payment || 0,
         expiry_date: ticketInfo?.expiry_date,
         remaining_payment: grandchild.total_amount || 0
       });
     }
   }
 
-  // 期間限定オファーの有効期限を取得
+  // 期間限定オファー（福袋回数券）の有効期限を取得
   let limitedOfferExpiry = null;
-  if (payment.limited_offer_id) {
-    const [offerInfo] = await pool.execute(`
-      SELECT end_date FROM limited_time_offers WHERE offer_id = ?
-    `, [payment.limited_offer_id]);
-    if (offerInfo.length > 0) {
-      limitedOfferExpiry = offerInfo[0].end_date;
+  if (payment.limited_offer_id && payment.customer_id) {
+    // まずlimited_ticket_purchases（購入済み福袋）の有効期限を確認
+    const [purchaseInfo] = await pool.execute(`
+      SELECT expiry_date FROM limited_ticket_purchases 
+      WHERE offer_id = ? AND customer_id = ?
+      ORDER BY purchase_date DESC LIMIT 1
+    `, [payment.limited_offer_id, payment.customer_id]);
+    
+    if (purchaseInfo.length > 0) {
+      limitedOfferExpiry = purchaseInfo[0].expiry_date;
+    } else {
+      // 購入データがない場合はlimited_offersのend_dateを使用
+      const [offerInfo] = await pool.execute(`
+        SELECT end_date FROM limited_offers WHERE offer_id = ?
+      `, [payment.limited_offer_id]);
+      if (offerInfo.length > 0) {
+        limitedOfferExpiry = offerInfo[0].end_date;
+      }
     }
   }
 
@@ -425,17 +436,13 @@ export async function POST(request) {
 ▼次回予約はこちら
 https://beauty.hotpepper.jp/kr/slnH000417938/`;
 
-    // LINE送信
+    // LINE送信（挨拶メッセージのみ）
     await client.pushMessage({
       to: lineUserId,
       messages: [
         {
           type: 'text',
           text: greetingMessage
-        },
-        {
-          type: 'text',
-          text: receiptText
         }
       ]
     });
@@ -453,7 +460,7 @@ https://beauty.hotpepper.jp/kr/slnH000417938/`;
 
     return NextResponse.json({ 
       success: true, 
-      message: 'LINEにレシートを送信しました' 
+      message: 'LINEにメッセージを送信しました' 
     });
 
   } catch (error) {
