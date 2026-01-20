@@ -198,9 +198,9 @@ function formatReceiptText(data, shopName) {
   let text = '';
   
   // ヘッダー
-  text += `━━━━━━━━━━━━━━━━━━━━\n`;
-  text += `  ${shopName || 'サロン'}\n`;
-  text += `━━━━━━━━━━━━━━━━━━━━\n\n`;
+  text += `━━━━━━━━━━━━\n`;
+  text += `${shopName || 'サロン'}\n`;
+  text += `━━━━━━━━━━━━\n\n`;
   
   // 日時・担当
   const paymentDate = new Date(payment.payment_date);
@@ -271,9 +271,9 @@ function formatReceiptText(data, shopName) {
   }
   
   // 合計
-  text += `━━━━━━━━━━━━━━━━━━━━\n`;
+  text += `━━━━━━━━━━━━\n`;
   text += `合計  ¥${payment.total_amount.toLocaleString()}\n`;
-  text += `━━━━━━━━━━━━━━━━━━━━\n\n`;
+  text += `━━━━━━━━━━━━\n\n`;
   
   // 支払方法
   if (payment.payment_method === 'cash') {
