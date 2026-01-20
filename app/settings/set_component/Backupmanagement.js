@@ -519,108 +519,45 @@ const BackupManagement = () => {
             </div>
           </div>
 
-          {/* ワンクリックアップデート */}
+          {/* バッチファイルでアップデート */}
           <div className="backup-card backup-card--highlight">
             <div className="backup-card__header">
               <Play size={20} />
-              <span>ワンクリック更新</span>
+              <span>アプリを更新する</span>
             </div>
             <div className="backup-card__body">
-              <p>ボタン一つで最新版に更新します（fetch → pull → npm install）</p>
+              <p>最新版に更新するには、以下のバッチファイルを実行してください：</p>
               
-              <button 
-                className="backup-btn backup-btn--primary backup-btn--large"
-                onClick={executeFullUpdate}
-                disabled={updateStatus.running || gitStatus.loading}
-              >
-                {updateStatus.running ? (
-                  <>
-                    <Loader2 size={20} className="spinning" />
-                    更新中...
-                  </>
-                ) : (
-                  <>
-                    <Play size={20} />
-                    アップデートを実行
-                  </>
-                )}
-              </button>
-
-              {/* 実行結果 */}
-              {updateStatus.completed && updateStatus.results.length > 0 && (
-                <div className="backup-update-results">
-                  <h4>実行結果:</h4>
-                  {updateStatus.results.map((result, index) => (
-                    <div 
-                      key={index} 
-                      className={`backup-update-step ${result.success ? 'backup-update-step--success' : 'backup-update-step--error'}`}
-                    >
-                      {result.success ? (
-                        <CheckCircle2 size={16} />
-                      ) : (
-                        <XCircle size={16} />
-                      )}
-                      <span className="backup-update-step__name">
-                        {result.step === 'fetch' && 'git fetch'}
-                        {result.step === 'pull' && 'git pull'}
-                        {result.step === 'npm-install' && 'npm install'}
-                      </span>
-                      <span className="backup-update-step__status">
-                        {result.success ? '成功' : 'エラー'}
-                      </span>
-                    </div>
-                  ))}
-                  
-                  {!updateStatus.error && (
-                    <div className="backup-alert backup-alert--success" style={{ marginTop: '1rem' }}>
-                      <Check size={16} />
-                      アプリを再起動してください（npm run dev）
-                    </div>
-                  )}
+              <div className="backup-command" style={{ marginTop: '1rem' }}>
+                <span className="backup-command-label">実行するファイル</span>
+                <div className="backup-command-box">
+                  <code>docker\update.bat</code>
+                  <button 
+                    className="backup-command-copy"
+                    onClick={() => copyCommand('docker\\update.bat')}
+                    title="コピー"
+                  >
+                    <Copy size={14} />
+                  </button>
                 </div>
-              )}
-
-              {updateStatus.error && (
-                <div className="backup-alert backup-alert--error" style={{ marginTop: '1rem' }}>
-                  <AlertCircle size={16} />
-                  {updateStatus.error}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* 個別コマンド実行 */}
-          <div className="backup-card">
-            <div className="backup-card__header">
-              <Terminal size={20} />
-              <span>個別コマンド実行</span>
-            </div>
-            <div className="backup-card__body">
-              <p>各ステップを個別に実行できます：</p>
-              
-              <div className="backup-command-buttons">
-                <button 
-                  className="backup-btn backup-btn--outline"
-                  onClick={() => executeGitCommand('fetch', 'Fetch')}
-                  disabled={updateStatus.running}
-                >
-                  git fetch
-                </button>
-                <button 
-                  className="backup-btn backup-btn--outline"
-                  onClick={() => executeGitCommand('pull', 'Pull')}
-                  disabled={updateStatus.running}
-                >
-                  git pull
-                </button>
-                <button 
-                  className="backup-btn backup-btn--outline"
-                  onClick={() => executeGitCommand('npm-install', 'npm install')}
-                  disabled={updateStatus.running}
-                >
-                  npm install
-                </button>
               </div>
+
+              <div className="backup-alert backup-alert--info" style={{ marginTop: '1rem' }}>
+                <AlertCircle size={16} />
+                <div>
+                  <strong>手順:</strong><br />
+                  1. エクスプローラーで <code>docker</code> フォルダを開く<br />
+                  2. <code>update.bat</code> をダブルクリック<br />
+                  3. 完了後、ブラウザを更新
+                </div>
+              </div>
+
+              {commandCopied && (
+                <div className="backup-copy-toast">
+                  <Check size={14} />
+                  コピーしました
+                </div>
+              )}
             </div>
           </div>
 

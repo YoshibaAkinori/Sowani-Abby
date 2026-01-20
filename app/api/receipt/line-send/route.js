@@ -1,8 +1,6 @@
 // app/api/receipt/line-send/route.js
 import { NextResponse } from 'next/server';
 import { getConnection } from '../../../../lib/db';
-import fs from 'fs';
-import path from 'path';
 
 // LINE Messaging API
 async function getLineClient() {
@@ -16,16 +14,111 @@ async function getLineClient() {
   });
 }
 
-export async function POST(request) {
-  const tempFilePath = null;
+// レシートデータをテキスト形式に変換
+function formatReceiptText(data) {
+  const { payment, services, options, ticketUses, ticketPurchases, shopName } = data;
   
-  try {
-    const { payment_id, image_base64, customer_id } = await request.json();
+  let text = '';
+  
+  // ヘッダー
+  text += `━━━━━━━━━━━━━━━━━━━━\n`;
+  text += `  ${shopName || 'サロン'}\n`;
+  text += `━━━━━━━━━━━━━━━━━━━━\n\n`;
+  
+  // 日時・担当
+  const paymentDate = new Date(payment.payment_date);
+  const dateStr = `${paymentDate.getFullYear()}/${(paymentDate.getMonth() + 1).toString().padStart(2, '0')}/${paymentDate.getDate().toString().padStart(2, '0')}`;
+  const timeStr = `${paymentDate.getHours().toString().padStart(2, '0')}:${paymentDate.getMinutes().toString().padStart(2, '0')}`;
+  
+  text += `日時: ${dateStr} ${timeStr}\n`;
+  text += `${payment.customer_name} 様\n`;
+  if (payment.staff_name) {
+    text += `担当: ${payment.staff_name}\n`;
+  }
+  text += `\n`;
+  
+  // 施術内容
+  if (services && services.length > 0) {
+    text += `【施術内容】\n`;
+    for (const service of services) {
+      text += `・${service.service_name}\n`;
+      if (service.price > 0) {
+        text += `    ¥${service.price.toLocaleString()}\n`;
+      }
+    }
+    text += `\n`;
+  }
+  
+  // オプション
+  if (options && options.length > 0) {
+    text += `【オプション】\n`;
+    for (const opt of options) {
+      const priceText = opt.is_free ? '(無料)' : `¥${opt.price.toLocaleString()}`;
+      text += `・${opt.option_name} ${priceText}\n`;
+    }
+    text += `\n`;
+  }
+  
+  // 回数券使用
+  if (ticketUses && ticketUses.length > 0) {
+    text += `【回数券使用】\n`;
+    for (const t of ticketUses) {
+      text += `・${t.plan_name || t.service_name}\n`;
+      text += `  残り ${t.sessions_remaining}/${t.total_sessions} 回\n`;
+      if (t.remaining_payment > 0) {
+        text += `  残金支払 ¥${t.remaining_payment.toLocaleString()}\n`;
+      }
+    }
+    text += `\n`;
+  }
+  
+  // 回数券購入
+  if (ticketPurchases && ticketPurchases.length > 0) {
+    text += `【回数券購入】\n`;
+    for (const t of ticketPurchases) {
+      text += `・${t.plan_name || t.service_name}\n`;
+      text += `  ¥${(t.amount || 0).toLocaleString()}\n`;
+      text += `  残り ${t.sessions_remaining}/${t.total_sessions} 回\n`;
+      if (t.expiry_date) {
+        const expiry = new Date(t.expiry_date);
+        text += `  有効期限: ${expiry.getFullYear()}/${expiry.getMonth() + 1}/${expiry.getDate()}\n`;
+      }
+    }
+    text += `\n`;
+  }
+  
+  // 割引
+  if (payment.discount_amount > 0) {
+    text += `【割引】\n`;
+    text += `  -¥${payment.discount_amount.toLocaleString()}\n\n`;
+  }
+  
+  // 合計
+  text += `━━━━━━━━━━━━━━━━━━━━\n`;
+  text += `合計  ¥${payment.total_amount.toLocaleString()}\n`;
+  text += `━━━━━━━━━━━━━━━━━━━━\n\n`;
+  
+  // 支払方法
+  if (payment.payment_method === 'cash') {
+    text += `現金  ¥${payment.cash_amount.toLocaleString()}\n`;
+  } else if (payment.payment_method === 'card') {
+    text += `カード  ¥${payment.card_amount.toLocaleString()}\n`;
+  } else if (payment.payment_method === 'mixed') {
+    text += `現金  ¥${payment.cash_amount.toLocaleString()}\n`;
+    text += `カード  ¥${payment.card_amount.toLocaleString()}\n`;
+  }
+  
+  return text;
+}
 
-    if (!payment_id || !image_base64) {
+export async function POST(request) {
+  try {
+    const { payment_id, customer_id } = await request.json();
+
+    if (!payment_id) {
       return NextResponse.json({ 
         success: false, 
-        error: 'payment_idとimage_base64が必要です' 
+        error: 'payment_idが必要です' 
       }, { status: 400 });
     }
 
@@ -74,33 +167,19 @@ export async function POST(request) {
       }, { status: 500 });
     }
 
-    // Base64から画像データを抽出
-    const base64Data = image_base64.replace(/^data:image\/\w+;base64,/, '');
-    const imageBuffer = Buffer.from(base64Data, 'base64');
-
-    // 一時ファイル保存
-    const tempDir = '/tmp/receipts';
-    if (!fs.existsSync(tempDir)) {
-      fs.mkdirSync(tempDir, { recursive: true });
-    }
+    // レシートデータを取得
+    const receiptRes = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/receipt/print?payment_id=${payment_id}`);
+    const receiptResult = await receiptRes.json();
     
-    const fileName = `receipt_${payment_id}_${Date.now()}.png`;
-    const tempFilePath = path.join(tempDir, fileName);
-    fs.writeFileSync(tempFilePath, imageBuffer);
-
-    // 公開URL生成（Next.jsのpublicディレクトリ経由）
-    // 注意: 本番環境ではドメインを環境変数から取得
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
-    
-    // publicディレクトリにも一時コピー（LINEがアクセスできるように）
-    const publicDir = path.join(process.cwd(), 'public', 'temp');
-    if (!fs.existsSync(publicDir)) {
-      fs.mkdirSync(publicDir, { recursive: true });
+    if (!receiptResult.success) {
+      return NextResponse.json({ 
+        success: false, 
+        error: 'レシートデータの取得に失敗しました' 
+      }, { status: 500 });
     }
-    const publicFilePath = path.join(publicDir, fileName);
-    fs.copyFileSync(tempFilePath, publicFilePath);
 
-    const imageUrl = `${baseUrl}/temp/${fileName}`;
+    // テキスト形式に変換
+    const receiptText = formatReceiptText(receiptResult.data);
 
     // LINE送信
     await client.pushMessage({
@@ -111,22 +190,11 @@ export async function POST(request) {
           text: '本日はご来店ありがとうございました✨\nレシートをお送りいたします。'
         },
         {
-          type: 'image',
-          originalContentUrl: imageUrl,
-          previewImageUrl: imageUrl
+          type: 'text',
+          text: receiptText
         }
       ]
     });
-
-    // 送信後、少し待ってからファイル削除（LINEがダウンロードする時間を確保）
-    setTimeout(() => {
-      try {
-        if (fs.existsSync(tempFilePath)) fs.unlinkSync(tempFilePath);
-        if (fs.existsSync(publicFilePath)) fs.unlinkSync(publicFilePath);
-      } catch (e) {
-        console.error('一時ファイル削除エラー:', e);
-      }
-    }, 30000); // 30秒後に削除
 
     // 送信ログ記録
     try {
@@ -146,11 +214,6 @@ export async function POST(request) {
 
   } catch (error) {
     console.error('LINE送信エラー:', error);
-    
-    // エラー時もファイル削除を試みる
-    if (tempFilePath && fs.existsSync(tempFilePath)) {
-      try { fs.unlinkSync(tempFilePath); } catch (e) {}
-    }
 
     return NextResponse.json({ 
       success: false, 
