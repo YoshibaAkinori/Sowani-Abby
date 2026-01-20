@@ -395,14 +395,15 @@ const RegisterPage = () => {
     });
     setSelectedBookingId(booking.booking_id);
 
-    // ★ 顧客の性別を取得（予約データにない場合のため）
+    // ★ 顧客の性別とLINE連携情報を取得（予約データにない場合のため）
     try {
       const customerDetailRes = await fetch(`/api/customers/${booking.customer_id}`);
       const customerDetailData = await customerDetailRes.json();
       if (customerDetailData.success) {
         setSelectedCustomer(prev => ({
           ...prev,
-          gender: customerDetailData.data.gender
+          gender: customerDetailData.data.gender,
+          line_user_id: customerDetailData.data.line_user_id
         }));
       }
     } catch (err) {
@@ -548,14 +549,15 @@ const RegisterPage = () => {
     // 選択された顧客のみを検索結果に設定
     setSearchResults([customer]);
 
-    // 顧客の詳細情報（性別含む）を取得
+    // 顧客の詳細情報（性別・LINE連携含む）を取得
     try {
       const customerDetailRes = await fetch(`/api/customers/${customer.customer_id}`);
       const customerDetailData = await customerDetailRes.json();
       if (customerDetailData.success) {
         setSelectedCustomer({
           ...customer,
-          gender: customerDetailData.data.gender
+          gender: customerDetailData.data.gender,
+          line_user_id: customerDetailData.data.line_user_id
         });
       }
     } catch (err) {
