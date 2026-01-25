@@ -1,10 +1,11 @@
 "use client";
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Calendar, ChevronLeft, ChevronRight, Settings, User, Clock, Users, BarChart3, CreditCard } from 'lucide-react';
+import { Calendar, ChevronLeft, ChevronRight, Settings, User, Clock, Users, BarChart3, CreditCard, MessageCircle } from 'lucide-react';
 import { useStaff } from '../contexts/StaffContext';
 import BookingModal from './components/BookingModal';
 import CalendarModal from './components/CalendarModal';
+import TomorrowReminderModal from './components/TomorrowReminderModal';
 import './global.css';
 
 const SalonBoard = () => {
@@ -12,6 +13,8 @@ const SalonBoard = () => {
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [activeModal, setActiveModal] = useState(null);
   const [selectedSlot, setSelectedSlot] = useState(null);
+  const [showReminderModal, setShowReminderModal] = useState(false);
+  const [reminderStatus, setReminderStatus] = useState({ totalBookings: 0, lineConnected: 0, sentToday: 0 });
 
 
   // ★ Contextから取得
@@ -44,6 +47,51 @@ const SalonBoard = () => {
       fetchDataForDate();
     }
   }, [selectedDate, activeStaff]);
+
+  // ★ アプリ起動時に今日初回かチェックしてリマインドモーダル表示
+  useEffect(() => {
+    const checkDailyReminder = () => {
+      const today = new Date().toISOString().split('T')[0];
+      const lastShown = localStorage.getItem('reminderLastShown');
+      
+      if (lastShown !== today) {
+        // 今日まだ表示していない場合、少し遅延してモーダル表示
+        setTimeout(() => {
+          setShowReminderModal(true);
+          localStorage.setItem('reminderLastShown', today);
+        }, 1000);
+      }
+    };
+    
+    checkDailyReminder();
+  }, []);
+
+  // ★ リマインド送信状況を取得
+  const fetchReminderStatus = async () => {
+    try {
+      const res = await fetch('/api/reminder/tomorrow?statusOnly=true');
+      const data = await res.json();
+      if (data.success) {
+        setReminderStatus({
+          totalBookings: data.totalBookings || 0,
+          lineConnected: data.lineConnected || 0,
+          sentToday: data.sentToday || 0
+        });
+      }
+    } catch (error) {
+      console.error('リマインド状況取得エラー:', error);
+    }
+  };
+
+  useEffect(() => {
+    fetchReminderStatus();
+  }, []);
+
+  // モーダルが閉じた時にステータスを更新
+  const handleReminderModalClose = () => {
+    setShowReminderModal(false);
+    fetchReminderStatus();
+  };
 
   const fetchDataForDate = async () => {
     setIsLoading(true);
@@ -319,6 +367,19 @@ const SalonBoard = () => {
           </div>
 
           <div className="salon-board__header-controls">
+            {/* リマインドボタン */}
+            <button
+              className="salon-board__reminder-btn"
+              onClick={() => setShowReminderModal(true)}
+              title="明日の予約リマインド"
+            >
+              <MessageCircle />
+              {reminderStatus.lineConnected > 0 && (
+                <span className={`salon-board__reminder-badge ${reminderStatus.sentToday >= reminderStatus.lineConnected ? 'salon-board__reminder-badge--sent' : ''}`}>
+                  {reminderStatus.sentToday}/{reminderStatus.lineConnected}
+                </span>
+              )}
+            </button>
             <button
               className="salon-board__header-logo salon-board__calendar-btn"
               onClick={openCalendarModal}
@@ -632,6 +693,12 @@ const SalonBoard = () => {
         selectedDate={selectedDate}
         onDateSelect={handleDateSelect}
         onClose={closeModal}
+      />
+
+      {/* 翌日予約リマインドモーダル */}
+      <TomorrowReminderModal
+        isOpen={showReminderModal}
+        onClose={handleReminderModalClose}
       />
     </div>
   );

@@ -1695,3 +1695,47 @@
   color: #9ca3af;
   margin-left: 0.5rem;
 }
+
+/* リマインドボタン */
+.salon-board__reminder-btn {
+  position: relative;
+  background-color: rgba(255, 255, 255, 0.2);
+  color: white;
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.salon-board__reminder-btn:hover {
+  background-color: rgba(255, 255, 255, 0.3);
+  transform: translateY(-1px);
+}
+
+.salon-board__reminder-btn svg {
+  height: 1.75rem;
+  width: 1.75rem;
+}
+
+.salon-board__reminder-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  background: #ef4444;
+  color: white;
+  font-size: 0.65rem;
+  font-weight: 600;
+  padding: 2px 5px;
+  border-radius: 10px;
+  min-width: 28px;
+  text-align: center;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.salon-board__reminder-badge--sent {
+  background: #10b981;
+}
