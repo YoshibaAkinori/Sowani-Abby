@@ -18,7 +18,7 @@ const InitialDataImport = () => {
     birth_date: '',
     gender: 'not_specified',
     visit_count: 0,
-    is_existing: true,  // 既存顧客フラグ（デフォルトtrue）
+    is_existing: true,
     notes: '',
   });
 
@@ -234,7 +234,6 @@ const InitialDataImport = () => {
 
   // 登録処理
   const handleSubmit = async () => {
-    // バリデーション
     if (!customerData.last_name || !customerData.first_name) {
       setMessage({ type: 'error', text: '姓名は必須です' });
       return;
@@ -277,7 +276,6 @@ const InitialDataImport = () => {
       const result = await response.json();
 
       if (result.success) {
-        // 登録済みリストに追加
         setRegisteredList(prev => [{
           id: Date.now(),
           customer_name: `${customerData.last_name} ${customerData.first_name}`,
@@ -300,6 +298,49 @@ const InitialDataImport = () => {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // カテゴリ判定（新規/会員）
+  const getCategoryInfo = (item, type) => {
+    if (type === 'limited') {
+      const name = item.name || '';
+      if (name.includes('新規')) return { label: '新規', className: 'new-customer' };
+      if (name.includes('会員')) return { label: '会員', className: 'existing' };
+      return { label: 'その他', className: 'other' };
+    } else {
+      const category = item.service_category || '';
+      if (category === '新規') return { label: '新規', className: 'new-customer' };
+      if (category === '会員') return { label: '会員', className: 'existing' };
+      return { label: category || 'その他', className: 'other' };
+    }
+  };
+
+  // 時間判定（60分/90分）
+  const getDurationInfo = (item) => {
+    const name = item.name || '';
+    if (name.includes('90分')) return { label: '90分', className: 'long' };
+    if (name.includes('60分')) return { label: '60分', className: 'medium' };
+    return { label: '', className: '' };
+  };
+
+  // 性別フィルタ（福袋用）- gender_restriction または base_gender_restriction を使用
+  const filterOffersByGender = (offers) => {
+    return offers.filter(offer => {
+      const gender = offer.gender_restriction || offer.base_gender_restriction || 'all';
+      if (gender === 'all') return true;
+      if (!customerData.gender || customerData.gender === 'not_specified') return true;
+      return gender === customerData.gender;
+    });
+  };
+
+  // 性別フィルタ（通常回数券用）
+  const filterPlansByGender = (plans) => {
+    return plans.filter(plan => {
+      const planGender = plan.gender_restriction || 'all';
+      if (planGender === 'all') return true;
+      if (!customerData.gender || customerData.gender === 'not_specified') return true;
+      return planGender === customerData.gender;
+    });
   };
 
   return (
@@ -649,13 +690,6 @@ const InitialDataImport = () => {
           color: #991b1b;
         }
 
-        .no-ticket-notice {
-          text-align: center;
-          padding: 2rem;
-          color: #6b7280;
-          font-size: 0.875rem;
-        }
-
         .registered-header {
           display: flex;
           justify-content: space-between;
@@ -693,6 +727,116 @@ const InitialDataImport = () => {
           padding-left: 1rem;
           border-left: 2px solid #e5e7eb;
           margin-top: 0.25rem;
+        }
+
+        /* 回数券・福袋選択カード - 6個表示 */
+        .offer-select-list {
+          display: flex;
+          flex-direction: column;
+          gap: 0.5rem;
+          max-height: 330px;
+          overflow-y: auto;
+          border: 1px solid #e5e7eb;
+          border-radius: 8px;
+          padding: 0.5rem;
+        }
+
+        .offer-card {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 0.625rem 0.75rem;
+          border: 2px solid #e5e7eb;
+          border-radius: 8px;
+          cursor: pointer;
+          transition: all 0.2s;
+          min-height: 48px;
+        }
+
+        .offer-card:hover {
+          border-color: #93c5fd;
+          background: #f0f9ff;
+        }
+
+        .offer-card.selected {
+          border-color: #3b82f6;
+          background: #eff6ff;
+        }
+
+        .offer-card-left {
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+        }
+
+        .offer-badge {
+          font-size: 0.625rem;
+          font-weight: 600;
+          padding: 0.25rem 0.5rem;
+          border-radius: 4px;
+          white-space: nowrap;
+        }
+
+        .offer-badge.new-customer {
+          background: #dcfce7;
+          color: #166534;
+        }
+
+        .offer-badge.existing {
+          background: #dbeafe;
+          color: #1e40af;
+        }
+
+        .offer-badge.other {
+          background: #f3f4f6;
+          color: #4b5563;
+        }
+
+        .offer-name {
+          font-weight: 500;
+          color: #1f2937;
+          font-size: 0.875rem;
+        }
+
+        .offer-card-right {
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+        }
+
+        .offer-time {
+          font-size: 0.75rem;
+          padding: 0.25rem 0.5rem;
+          border-radius: 4px;
+          white-space: nowrap;
+        }
+
+        .offer-time.medium {
+          background: #fef3c7;
+          color: #92400e;
+        }
+
+        .offer-time.long {
+          background: #fed7aa;
+          color: #9a3412;
+        }
+
+        .offer-price {
+          font-weight: 600;
+          color: #1f2937;
+          min-width: 100px;
+          text-align: right;
+        }
+
+        .offer-sessions {
+          font-size: 0.75rem;
+          color: #6b7280;
+        }
+
+        .offer-empty {
+          padding: 1rem;
+          text-align: center;
+          color: #6b7280;
         }
       `}</style>
 
@@ -877,26 +1021,41 @@ const InitialDataImport = () => {
           {currentTicket.ticket_type === 'limited' && (
             <div className="form-group full-width">
               <label className="form-label">福袋を選択</label>
-              <select
-                className="form-select"
-                value={currentTicket.offer_id}
-                onChange={(e) => handleOfferSelect(e.target.value)}
-              >
-                <option value="">選択してください</option>
-                {limitedOffers
-                  .filter(offer => {
-                    // 性別フィルタ
-                    const gender = offer.base_gender_restriction || 'all';
-                    if (gender === 'all') return true;
-                    if (!customerData.gender || customerData.gender === 'not_specified') return true;
-                    return gender === customerData.gender;
-                  })
-                  .map(offer => (
-                  <option key={offer.offer_id} value={offer.offer_id}>
-                    {offer.name} - ¥{(offer.special_price || offer.original_price).toLocaleString()} ({offer.total_sessions}回)
-                  </option>
-                ))}
-              </select>
+              <div className="offer-select-list">
+                {filterOffersByGender(limitedOffers).map(offer => {
+                  const categoryInfo = getCategoryInfo(offer, 'limited');
+                  const durationInfo = getDurationInfo(offer);
+                  
+                  return (
+                    <div
+                      key={offer.offer_id}
+                      className={`offer-card ${currentTicket.offer_id === offer.offer_id ? 'selected' : ''}`}
+                      onClick={() => handleOfferSelect(offer.offer_id)}
+                    >
+                      <div className="offer-card-left">
+                        <span className={`offer-badge ${categoryInfo.className}`}>
+                          {categoryInfo.label}
+                        </span>
+                        <span className="offer-name">{offer.name}</span>
+                      </div>
+                      <div className="offer-card-right">
+                        {durationInfo.label && (
+                          <span className={`offer-time ${durationInfo.className}`}>
+                            {durationInfo.label}
+                          </span>
+                        )}
+                        <div className="offer-price">
+                          ¥{(offer.special_price || offer.original_price).toLocaleString()}
+                          <div className="offer-sessions">{offer.total_sessions}回</div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+                {filterOffersByGender(limitedOffers).length === 0 && (
+                  <div className="offer-empty">該当する福袋がありません</div>
+                )}
+              </div>
             </div>
           )}
 
@@ -904,26 +1063,41 @@ const InitialDataImport = () => {
           {currentTicket.ticket_type === 'regular' && (
             <div className="form-group full-width">
               <label className="form-label">回数券プランを選択</label>
-              <select
-                className="form-select"
-                value={currentTicket.plan_id}
-                onChange={(e) => handlePlanSelect(e.target.value)}
-              >
-                <option value="">選択してください</option>
-                {ticketPlans
-                  .filter(plan => {
-                    // 性別フィルタ（gender_restrictionカラムで判定）
-                    const planGender = plan.gender_restriction || 'all';
-                    if (planGender === 'all') return true;
-                    if (!customerData.gender || customerData.gender === 'not_specified') return true;
-                    return planGender === customerData.gender;
-                  })
-                  .map(plan => (
-                  <option key={plan.plan_id} value={plan.plan_id}>
-                    {plan.name} - ¥{plan.price.toLocaleString()} ({plan.total_sessions}回)
-                  </option>
-                ))}
-              </select>
+              <div className="offer-select-list">
+                {filterPlansByGender(ticketPlans).map(plan => {
+                  const categoryInfo = getCategoryInfo(plan, 'regular');
+                  const durationInfo = getDurationInfo(plan);
+                  
+                  return (
+                    <div
+                      key={plan.plan_id}
+                      className={`offer-card ${currentTicket.plan_id === plan.plan_id ? 'selected' : ''}`}
+                      onClick={() => handlePlanSelect(plan.plan_id)}
+                    >
+                      <div className="offer-card-left">
+                        <span className={`offer-badge ${categoryInfo.className}`}>
+                          {categoryInfo.label}
+                        </span>
+                        <span className="offer-name">{plan.name}</span>
+                      </div>
+                      <div className="offer-card-right">
+                        {durationInfo.label && (
+                          <span className={`offer-time ${durationInfo.className}`}>
+                            {durationInfo.label}
+                          </span>
+                        )}
+                        <div className="offer-price">
+                          ¥{plan.price.toLocaleString()}
+                          <div className="offer-sessions">{plan.total_sessions}回</div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+                {filterPlansByGender(ticketPlans).length === 0 && (
+                  <div className="offer-empty">該当する回数券プランがありません</div>
+                )}
+              </div>
             </div>
           )}
 
