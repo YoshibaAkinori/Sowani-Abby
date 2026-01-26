@@ -129,9 +129,9 @@ function generateReminderMessage(booking, menuTypeOverride = null) {
 いつもお世話になっております。
 明日${month}月${day}日(${dayOfWeek})${startTime}～　
 メニュー【${menuType}】
-上記にてご予約いただいています🍀
-明日はお気をつけてお越しください🦆
-ご来店心よりお待ちしております💕
+上記にてご予約いただいています😊
+明日はお気をつけてお越しください✨
+ご来店心よりお待ちしております🙇‍♀️
 美骨小顔サロンＡＢＢＹ`;
 
   return message;
