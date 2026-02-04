@@ -89,6 +89,7 @@ const RegisterPage = () => {
   // 予約詳細を保持する state
   const [pendingBookingDetail, setPendingBookingDetail] = useState(null);
   const [hasProcessedBooking, setHasProcessedBooking] = useState(false);
+  const [ticketsLoaded, setTicketsLoaded] = useState(false);  // 回数券ロード完了フラグ
 
   // 初期データ読み込み
   useEffect(() => {
@@ -117,7 +118,7 @@ const RegisterPage = () => {
       return;
     }
 
-    if (ownedTickets.length === 0) {
+    if (!ticketsLoaded) {  // ★ 変更: ロード完了を待つ
       return;
     }
 
@@ -320,7 +321,7 @@ const RegisterPage = () => {
 
     // 処理が完了したらクリア
     setPendingBookingDetail(null);
-  }, [ownedTickets, pendingBookingDetail, limitedOffers]);
+  }, [ownedTickets, pendingBookingDetail, limitedOffers, ticketsLoaded]);
 
   const fetchInitialData = async () => {
     setIsLoading(true);
@@ -504,12 +505,14 @@ const RegisterPage = () => {
           const hasLimitedOffers = (bookingDetail.limited_offers && bookingDetail.limited_offers.length > 0) || bookingDetail.limited_offer_id;
 
           if (hasTickets || hasLimitedOffers) {
-            // ★ 回数券または期間限定がある場合は必ず顧客の保有回数券を取得
+            // ★ 回数券または期間限定がある場合はpendingを設定
             setPendingBookingDetail(bookingDetail);
-            await fetchCustomerTickets(booking.customer_id);
-            await fetchAvailableCoupons(booking.customer_id);
           }
         }
+
+        // ★ 常に顧客の保有回数券とクーポンを取得
+        await fetchCustomerTickets(booking.customer_id);
+        await fetchAvailableCoupons(booking.customer_id);
       }
     } catch (err) {
       console.error('予約詳細取得エラー:', err);
@@ -535,6 +538,7 @@ const RegisterPage = () => {
     setUseMonitorPrice({});
     setPendingBookingDetail(null);
     setHasProcessedBooking(false);
+    setTicketsLoaded(false);  // ★ 追加：ロードフラグもリセット
     setOwnedTickets([]);  // ★ 追加：回数券リストもリセット
     setPaidBookingInfo(null);  // ★ 支払い済み情報もリセット
   };
@@ -585,6 +589,7 @@ const RegisterPage = () => {
 
   // 顧客の回数券を取得
   const fetchCustomerTickets = async (customerId) => {
+    setTicketsLoaded(false);  // ★ ロード開始
     try {
       const response = await fetch(`/api/customers/${customerId}/tickets`);
       const data = await response.json();
@@ -603,6 +608,8 @@ const RegisterPage = () => {
       }
     } catch (err) {
       console.error('回数券取得エラー:', err);
+    } finally {
+      setTicketsLoaded(true);  // ★ ロード完了（成功でも失敗でも）
     }
   };
 
