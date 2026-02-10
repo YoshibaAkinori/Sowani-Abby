@@ -181,6 +181,11 @@
   font-size: 1.0625rem;
 }
 
+.register-tab:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 /* ========== 顧客選択 ========== */
 .customer-quick-list {
   display: flex;
@@ -545,7 +550,32 @@
   gap: 1rem;
 }
 
-/* オプション選択エリア全体のスクロール */
+/* オプション個別スクロールエリア（無料/有料それぞれ） */
+.option-scroll-area {
+  max-height: 300px;
+  overflow-y: auto;
+  padding-right: 0.5rem;
+}
+
+.option-scroll-area::-webkit-scrollbar {
+  width: 8px;
+}
+
+.option-scroll-area::-webkit-scrollbar-track {
+  background: #f3f4f6;
+  border-radius: 4px;
+}
+
+.option-scroll-area::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 4px;
+}
+
+.option-scroll-area::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
+
+/* 旧: オプション選択エリア全体のスクロール（後方互換） */
 .option-section-scroll {
   max-height: 400px;
   overflow-y: auto;

@@ -836,11 +836,21 @@ const BookingModal = ({ activeModal, selectedSlot, onClose, onModalChange }) => 
                     <span className="completed-card-value">¥{paymentInfo.service_subtotal.toLocaleString()}</span>
                   </div>
                 )}
-                {paymentInfo.options_total > 0 && (
-                  <div className="completed-card-row">
-                    <span className="completed-card-label">オプション</span>
-                    <span className="completed-card-value">¥{paymentInfo.options_total.toLocaleString()}</span>
-                  </div>
+                {paymentInfo.options && paymentInfo.options.length > 0 && (
+                  <>
+                    <div className="completed-card-divider" />
+                    {paymentInfo.options.map((opt, idx) => (
+                      <div key={idx} className="completed-card-row completed-card-row--sub">
+                        <span className="completed-card-label">
+                          {opt.option_name}
+                          {opt.is_free ? <span className="completed-option-free-badge">無料</span> : ''}
+                        </span>
+                        <span className="completed-card-value">
+                          {opt.is_free ? '¥0' : `¥${(opt.price * (opt.quantity || 1)).toLocaleString()}`}
+                        </span>
+                      </div>
+                    ))}
+                  </>
                 )}
                 {paymentInfo.discount_amount > 0 && (
                   <div className="completed-card-row">
