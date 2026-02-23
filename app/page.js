@@ -53,7 +53,7 @@ const SalonBoard = () => {
     const checkDailyReminder = () => {
       const today = new Date().toISOString().split('T')[0];
       const lastShown = localStorage.getItem('reminderLastShown');
-      
+
       if (lastShown !== today) {
         // 今日まだ表示していない場合、少し遅延してモーダル表示
         setTimeout(() => {
@@ -62,7 +62,7 @@ const SalonBoard = () => {
         }, 1000);
       }
     };
-    
+
     checkDailyReminder();
   }, []);
 
@@ -196,7 +196,11 @@ const SalonBoard = () => {
   const timeSlots = [];
   for (let hour = 9; hour < 24; hour++) {
     timeSlots.push(`${hour.toString().padStart(2, '0')}:00`);
+    timeSlots.push(`${hour.toString().padStart(2, '0')}:10`);
+    timeSlots.push(`${hour.toString().padStart(2, '0')}:20`);
     timeSlots.push(`${hour.toString().padStart(2, '0')}:30`);
+    timeSlots.push(`${hour.toString().padStart(2, '0')}:40`);
+    timeSlots.push(`${hour.toString().padStart(2, '0')}:50`);
   }
 
   const headerRowData = {
@@ -296,10 +300,10 @@ const SalonBoard = () => {
       const data = await response.json();
       if (data.success && data.data) {
         const booking = Array.isArray(data.data) ? data.data[0] : data.data;
-        
+
         // 支払い済み（completed）かどうか判定
         const isCompleted = booking.status === 'completed';
-        
+
         setSelectedSlot({
           bookingId: booking.booking_id,
           isEdit: !isCompleted,  // completedの場合は編集モードではない
@@ -452,16 +456,17 @@ const SalonBoard = () => {
                         </div>
                         <div className="salon-board__timeline">
                           <div className="salon-board__grid-lines">
-                            {timeSlots.map(time => {
+                            {timeSlots.map((time, index) => {
                               const isInShiftTime = !isHeader && !isHoliday && isSlotInShiftTime(staff, time);
                               const isAvailable = isInShiftTime && isSlotAvailable(staff.staff_id, time);
                               const isOutOfShift = !isHeader && !isHoliday && !isInShiftTime;
+                              const isHourEnd = (index + 1) % 6 === 0;
                               return (
                                 <div
                                   key={`${staff.staff_id}-${time}`}
-                                  className={`salon-board__grid-line ${isAvailable ? 'salon-board__clickable-slot' : ''}`}
+                                  className={`salon-board__grid-line ${isAvailable ? 'salon-board__clickable-slot' : ''} ${isHourEnd ? 'salon-board__grid-line--hour-end' : ''}`}
                                   onClick={() => isAvailable && handleSlotClick(staff.staff_id, time)}
-                                  style={{ backgroundColor: isOutOfShift ? '#f8f9fa' : 'transparent' }}
+                                  style={isOutOfShift ? { backgroundColor: '#f8f9fa' } : undefined}
                                 />
                               );
                             })}
@@ -472,7 +477,7 @@ const SalonBoard = () => {
                               <div className="time-header__top-row">
                                 {timeSlots.map((time, index) => (
                                   <div key={`top-${time}`} className="time-header__cell time-header__cell--hour">
-                                    {index % 2 === 0 ? time : ''}
+                                    {index % 6 === 0 ? time : ''}
                                   </div>
                                 ))}
                               </div>
@@ -535,15 +540,15 @@ const SalonBoard = () => {
                         </div>
                         <div className="salon-board__timeline">
                           <div className="salon-board__grid-lines">
-                            {timeSlots.map((time, index) => (
-                              <div
-                                key={time}
-                                className={`salon-board__grid-line ${index % 2 === 0
-                                  ? 'salon-board__grid-line--even'
-                                  : 'salon-board__grid-line--odd'
-                                  }`}
-                              ></div>
-                            ))}
+                            {timeSlots.map((time, index) => {
+                              const isHourEnd = (index + 1) % 6 === 0;
+                              return (
+                                <div
+                                  key={time}
+                                  className={`salon-board__grid-line ${isHourEnd ? 'salon-board__grid-line--hour-end' : ''}`}
+                                ></div>
+                              );
+                            })}
                           </div>
                           {bookings
                             .filter(booking => booking.bed === bed)

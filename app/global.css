@@ -162,7 +162,7 @@
 }
 
 .salon-board__time-slot {
-  min-width: 60px;
+  min-width: 30px;
   padding: 0.5rem;
   text-align: center;
   font-size: 0.875rem;
@@ -224,7 +224,7 @@
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
-  min-width: 1800px;
+  min-width: 2900px;
 }
 
 .salon-board__row {
@@ -489,7 +489,10 @@
 }
 
 .time-header__cell {
-  flex: 1;
+  min-width: 30px;
+  width: 30px;
+  flex: none;
+  flex-shrink: 0;
   border-right: 1px solid transparent;
   box-sizing: border-box;
   padding: 0.25rem 0;
@@ -512,7 +515,7 @@
 }
 
 .salon-board__grid-line {
-  min-width: 60px;
+  min-width: 30px;
   border-right: 1px solid #e5e7eb;
   flex-shrink: 0;
   box-sizing: border-box;
@@ -577,7 +580,7 @@
 }
 
 .salon-board__scrollable-content {
-  min-width: 1800px;
+  min-width: 2900px;
   width: max-content;
 }
 
@@ -632,7 +635,7 @@
 }
 
 .salon-board__time-slot-hour {
-  min-width: 60px;
+  min-width: 30px;
   width: 60px;
   padding: 6px 8px;
   font-size: 0.9375rem;
@@ -646,7 +649,7 @@
 }
 
 .salon-board__time-slot-minute {
-  min-width: 60px;
+  min-width: 30px;
   width: 60px;
   padding: 2px;
   font-size: 0.8125rem;
@@ -726,7 +729,7 @@
 }
 
 .salon-board__grid-line-in-scroll {
-  min-width: 60px;
+  min-width: 30px;
   width: 60px;
   border-right: 1px solid #e5e7eb;
   flex-shrink: 0;
@@ -1668,7 +1671,7 @@
   }
 }
 
-@media (min-width: 2200px) {
+@media (min-width: 2900px) {
   .salon-board__scrollable-content {
     width: 100%;
   }
@@ -1738,4 +1741,8 @@
 
 .salon-board__reminder-badge--sent {
   background: #10b981;
+}
+/* 10分刻み用：1時間ごとの視覚的区切り */
+.salon-board__grid-line--hour-end {
+  border-right: 2px solid #9ca3af !important;
 }

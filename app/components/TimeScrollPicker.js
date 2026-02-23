@@ -19,7 +19,7 @@ const TimeScrollPicker = ({ isOpen, onClose, onConfirm, initialTime, showSeconds
   const hours = useMemo(() => Array.from({ length: 24 }, (_, i) => i), []);
   
   // 分（0-55、5分刻み）
-  const minutes = useMemo(() => Array.from({ length: 12 }, (_, i) => i * 5), []);
+  const minutes = Array.from({ length: 6 }, (_, i) => i * 10);
   
   // 秒（0-59）
   const seconds = useMemo(() => Array.from({ length: 60 }, (_, i) => i), []);
@@ -76,7 +76,7 @@ const TimeScrollPicker = ({ isOpen, onClose, onConfirm, initialTime, showSeconds
       const hour = parseInt(time[0]) || 12;
       // 分を5分単位に丸める
       const rawMinute = parseInt(time[1]) || 0;
-      const minute = Math.round(rawMinute / 5) * 5;
+      const minute = Math.round(rawMinute / 10) * 10;
       const second = parseInt(time[2]) || 0;
       
       setSelectedHour(hour);
@@ -86,7 +86,7 @@ const TimeScrollPicker = ({ isOpen, onClose, onConfirm, initialTime, showSeconds
       // スクロール位置を設定
       setTimeout(() => {
         scrollToSelected(hourRef, hour);
-        scrollToSelected(minuteRef, minute >= 60 ? 11 : minute / 5);
+        scrollToSelected(minuteRef, minute >= 60 ? 5 : minute / 10);
         if (showSeconds) {
           scrollToSelected(secondRef, second);
         }
@@ -141,7 +141,7 @@ const TimeScrollPicker = ({ isOpen, onClose, onConfirm, initialTime, showSeconds
     setSelectedSecond(now.getSeconds());
     setTimeout(() => {
       scrollToSelected(hourRef, now.getHours());
-      scrollToSelected(minuteRef, minute >= 60 ? 11 : minute / 5);
+      scrollToSelected(minuteRef, minute >= 60 ? 5 : minute / 10);
       if (showSeconds) {
         scrollToSelected(secondRef, now.getSeconds());
       }
