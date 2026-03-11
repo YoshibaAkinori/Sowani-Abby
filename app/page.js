@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Calendar, ChevronLeft, ChevronRight, Settings, User, Clock, Users, BarChart3, CreditCard, MessageCircle } from 'lucide-react';
 import { useStaff } from '../contexts/StaffContext';
@@ -28,6 +28,7 @@ const SalonBoard = () => {
   const [staffShifts, setStaffShifts] = useState([]);
   const [bookings, setBookings] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
+  const scrollerRef = useRef(null);
 
   // ★ activeStaffが変更されたら、即座にスタッフの骨組みを作成
   useEffect(() => {
@@ -92,6 +93,34 @@ const SalonBoard = () => {
     setShowReminderModal(false);
     fetchReminderStatus();
   };
+
+  // ★ データ読み込み完了後、現在時刻の位置にスクロール
+  useEffect(() => {
+    if (!scrollerRef.current || isLoading) return;
+
+    const now = new Date();
+    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+    const timelineStartMinutes = 9 * 60;  // 9:00開始
+    const timelineEndMinutes = 24 * 60;   // 24:00終了
+    const totalMinutes = timelineEndMinutes - timelineStartMinutes;
+
+    // 現在時刻がタイムライン範囲外なら先頭へ
+    if (currentMinutes < timelineStartMinutes || currentMinutes >= timelineEndMinutes) {
+      scrollerRef.current.scrollLeft = 0;
+      return;
+    }
+
+    const scroller = scrollerRef.current;
+    const labelWidth = 160; // row-labelの幅（10rem ≒ 160px）
+    const timelineWidth = scroller.scrollWidth - labelWidth;
+    const viewportWidth = scroller.clientWidth;
+
+    // 現在時刻の位置を計算
+    const currentPosition = labelWidth + ((currentMinutes - timelineStartMinutes) / totalMinutes) * timelineWidth;
+
+    // 現在時刻が画面中央に来るようにスクロール
+    scroller.scrollLeft = currentPosition - (viewportWidth / 2);
+  }, [isLoading, selectedDate]);
 
   const fetchDataForDate = async () => {
     setIsLoading(true);
@@ -427,7 +456,7 @@ const SalonBoard = () => {
           </div>
         </div>
 
-        <div className="shared-horizontal-scroller">
+        <div className="shared-horizontal-scroller" ref={scrollerRef}>
           <div className="wide-content-wrapper">
             <div className="salon-board__section">
               <h3 className="salon-board__section-title"><User />スタッフ別スケジュール</h3>

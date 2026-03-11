@@ -231,7 +231,6 @@
   background-color: white;
   border-radius: 0.5rem;
   box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-  overflow: hidden;
 }
 
 .salon-board__row-content {
@@ -240,11 +239,15 @@
 
 .salon-board__row-label {
   width: 10rem;
+  min-width: 10rem;
   padding: 1.25rem;
   background-color: #f9fafb;
   border-right: 1px solid #e5e7eb;
   display: flex;
   align-items: center;
+  position: sticky;
+  left: 0;
+  z-index: 10;
 }
 
 .salon-board__label-main {
@@ -529,6 +532,10 @@
 .salon-board__row--holiday {
   background-color: #f0f0f0;
   border-radius: 8px;
+}
+
+.salon-board__row--holiday .salon-board__row-label {
+  background-color: #f0f0f0;
 }
 
 .salon-board__row--holiday .salon-board__timeline {
