@@ -2,17 +2,21 @@ services:
   app:
     container_name: salon_app
     build:
-      context: ..            # 1つ上の階層(ルート)のDockerfileを見に行く設定
+      context: .. # 1つ上の階層(ルート)のDockerfileを見に行く設定
       dockerfile: Dockerfile
-    restart: always          # 落ちても自動再起動
+    restart: always # 落ちても自動再起動
     ports:
-      - "3000:3000"          # ブラウザでアクセスするポート
+      - "3000:3000" # ブラウザでアクセスするポート
     environment:
       # アプリがDBに接続するための情報
       DB_HOST: db
       DB_USER: ${DB_USER}
       DB_PASSWORD: ${DB_PASSWORD}
       DB_NAME: ${DB_NAME}
+      PROJECT_ROOT: /app
+    volumes:
+      - C:/Users/abby/ABBY-app/Sowani-Abby/public/downloads:/app/public/downloads
+      - C:/Users/abby/ABBY-app/Sowani-Abby/data/excel/templates:/app/data/excel/templates
     depends_on:
       db:
         condition: service_healthy
@@ -22,9 +26,9 @@ services:
     deploy:
       resources:
         limits:
-          memory: 1G         # 最大1GB
+          memory: 1G # 最大1GB
         reservations:
-          memory: 256M       # 最低保証256MB
+          memory: 256M # 最低保証256MB
     # ログが溜まりすぎてディスク100%になるのを防ぐ設定
     logging:
       driver: "json-file"
@@ -53,11 +57,11 @@ services:
     deploy:
       resources:
         limits:
-          memory: 1G         # 最大1GB
+          memory: 1G # 最大1GB
         reservations:
-          memory: 256M       # 最低保証256MB
+          memory: 256M # 最低保証256MB
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_ROOT_PASSWORD}"]
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_ROOT_PASSWORD}" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -78,9 +82,9 @@ services:
     deploy:
       resources:
         limits:
-          memory: 256M       # 最大256MB
+          memory: 256M # 最大256MB
         reservations:
-          memory: 64M        # 最低保証64MB
+          memory: 64M # 最低保証64MB
     depends_on:
       db:
         condition: service_healthy
@@ -90,7 +94,7 @@ services:
     image: cloudflare/cloudflared:latest
     container_name: salon_cloudflared
     profiles:
-      - production           # --profile production の時だけ起動
+      - production # --profile production の時だけ起動
     restart: unless-stopped
     command: tunnel run
     environment:
@@ -103,9 +107,9 @@ services:
     deploy:
       resources:
         limits:
-          memory: 128M       # 最大128MB
+          memory: 128M # 最大128MB
         reservations:
-          memory: 32M        # 最低保証32MB
+          memory: 32M # 最低保証32MB
     logging:
       driver: "json-file"
       options:

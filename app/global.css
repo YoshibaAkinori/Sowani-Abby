@@ -453,6 +453,18 @@
   border-left-color: #3b82f6;
 }
 
+/* 回数券 + 期間限定回数券（エメラルドグリーン） */
+.salon-board__booking--ticket-limited {
+  background-color: rgba(0, 206, 186, 0.2);
+  border-left-color: #00ceba;
+}
+
+/* 回数券複数（紫） */
+.salon-board__booking--ticket-multi {
+  background-color: rgba(217, 164, 6, 0.2);
+  border-left-color: #d9a406;
+}
+
 .salon-board__booking--other {
   background-color: rgba(147, 112, 219, 0.2);
   border-left-color: #9370db;
@@ -1749,6 +1761,7 @@
 .salon-board__reminder-badge--sent {
   background: #10b981;
 }
+
 /* 10分刻み用：1時間ごとの視覚的区切り */
 .salon-board__grid-line--hour-end {
   border-right: 2px solid #9ca3af !important;

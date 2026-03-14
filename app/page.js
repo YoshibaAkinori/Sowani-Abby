@@ -10,7 +10,12 @@ import './global.css';
 
 const SalonBoard = () => {
   const router = useRouter();
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [selectedDate, setSelectedDate] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return sessionStorage.getItem('salon_selectedDate') || new Date().toISOString().split('T')[0];
+    }
+    return new Date().toISOString().split('T')[0];
+  });
   const [activeModal, setActiveModal] = useState(null);
   const [selectedSlot, setSelectedSlot] = useState(null);
   const [showReminderModal, setShowReminderModal] = useState(false);
@@ -29,6 +34,9 @@ const SalonBoard = () => {
   const [bookings, setBookings] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const scrollerRef = useRef(null);
+  useEffect(() => {
+    sessionStorage.setItem('salon_selectedDate', selectedDate);
+  }, [selectedDate]);
 
   // ★ activeStaffが変更されたら、即座にスタッフの骨組みを作成
   useEffect(() => {
@@ -95,30 +103,32 @@ const SalonBoard = () => {
   };
 
   // ★ データ読み込み完了後、現在時刻の位置にスクロール
+  const hasScrolledRef = useRef(false);
+
   useEffect(() => {
     if (!scrollerRef.current || isLoading) return;
+    if (hasScrolledRef.current) return;  // 初回以降はスキップ
+    hasScrolledRef.current = true;
+
+    const today = new Date().toISOString().split('T')[0];
+    if (selectedDate !== today) return;  // 当日以外はスクロールしない
 
     const now = new Date();
     const currentMinutes = now.getHours() * 60 + now.getMinutes();
-    const timelineStartMinutes = 9 * 60;  // 9:00開始
-    const timelineEndMinutes = 24 * 60;   // 24:00終了
+    const timelineStartMinutes = 9 * 60;
+    const timelineEndMinutes = 24 * 60;
     const totalMinutes = timelineEndMinutes - timelineStartMinutes;
 
-    // 現在時刻がタイムライン範囲外なら先頭へ
     if (currentMinutes < timelineStartMinutes || currentMinutes >= timelineEndMinutes) {
       scrollerRef.current.scrollLeft = 0;
       return;
     }
 
     const scroller = scrollerRef.current;
-    const labelWidth = 160; // row-labelの幅（10rem ≒ 160px）
+    const labelWidth = 160;
     const timelineWidth = scroller.scrollWidth - labelWidth;
     const viewportWidth = scroller.clientWidth;
-
-    // 現在時刻の位置を計算
     const currentPosition = labelWidth + ((currentMinutes - timelineStartMinutes) / totalMinutes) * timelineWidth;
-
-    // 現在時刻が画面中央に来るようにスクロール
     scroller.scrollLeft = currentPosition - (viewportWidth / 2);
   }, [isLoading, selectedDate]);
 
@@ -183,11 +193,18 @@ const SalonBoard = () => {
 
           // サービスカテゴリの決定ロジック
           let serviceType = '予定';
-          if (b.service_category) {
+          const hasTickets = b.tickets && b.tickets.length > 0;
+          const hasLimited = (b.limited_purchases && b.limited_purchases.length > 0) || (b.limited_offers && b.limited_offers.length > 0);
+
+          if (hasTickets && hasLimited) {
+            serviceType = '回数券+期間限定';
+          } else if (hasTickets && b.tickets.length >= 2) {
+            serviceType = '回数券複数';
+          } else if (b.service_category) {
             serviceType = b.service_category;
-          } else if (b.limited_purchases && b.limited_purchases.length > 0) {
+          } else if (hasLimited) {
             serviceType = '期間限定';
-          } else if (b.tickets && b.tickets.length > 0) {
+          } else if (hasTickets) {
             serviceType = '回数券';
           }
 
@@ -268,6 +285,8 @@ const SalonBoard = () => {
       case 'ボディトリート': return 'salon-board__booking--body-treatment';
       case 'クーポン': return 'salon-board__booking--coupon';
       case '期間限定': return 'salon-board__booking--limited';
+      case '回数券+期間限定': return 'salon-board__booking--ticket-limited';
+      case '回数券複数': return 'salon-board__booking--ticket-multi';
       default: return 'salon-board__booking--other';
     }
   };

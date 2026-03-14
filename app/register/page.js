@@ -26,7 +26,7 @@ const RegisterPage = () => {
   // 既存のstate付近に追加
   const [bookingDate, setBookingDate] = useState(new Date().toISOString().split('T')[0]);
   const [showDatePicker, setShowDatePicker] = useState(false);
-  
+
   // 支払い済み予約の表示用
   const [paidBookingInfo, setPaidBookingInfo] = useState(null);
 
@@ -246,7 +246,7 @@ const RegisterPage = () => {
 
       pendingBookingDetail.limited_offers.forEach(offerData => {
         // ownedTicketsからis_limited: trueかつoffer_idが一致するものを探す
-        const ticket = ownedTickets.find(t => 
+        const ticket = ownedTickets.find(t =>
           t.is_limited && t.limited_offer_id === offerData.offer_id
         );
         if (ticket) {
@@ -288,7 +288,7 @@ const RegisterPage = () => {
     }
     else if (pendingBookingDetail.limited_offer_id) {
       // ownedTicketsからis_limited: trueかつoffer_idが一致するものを探す
-      const ticket = ownedTickets.find(t => 
+      const ticket = ownedTickets.find(t =>
         t.is_limited && t.limited_offer_id === pendingBookingDetail.limited_offer_id
       );
       if (ticket) {
@@ -416,7 +416,7 @@ const RegisterPage = () => {
       try {
         const paymentRes = await fetch(`/api/payments?booking_id=${booking.booking_id}`);
         const paymentData = await paymentRes.json();
-        
+
         if (paymentData.success && paymentData.data && paymentData.data.length > 0) {
           const payment = paymentData.data[0];
           setPaidBookingInfo({
@@ -616,7 +616,7 @@ const RegisterPage = () => {
   // 新規顧客登録
   const handleNewCustomerSubmit = async () => {
     setNewCustomerError('');
-    
+
     if (!newCustomer.lastName || !newCustomer.firstName || !newCustomer.phoneNumber) {
       setNewCustomerError('姓名と電話番号は必須です');
       return;
@@ -647,7 +647,7 @@ const RegisterPage = () => {
           last_name: newCustomer.lastName,
           first_name: newCustomer.firstName
         };
-        
+
         setShowNewCustomerModal(false);
         setNewCustomerError('');
         setNewCustomer({
@@ -662,7 +662,7 @@ const RegisterPage = () => {
         });
         setSuccess('新規顧客を登録しました');
         setTimeout(() => setSuccess(''), 3000);
-        
+
         // 新規登録した顧客を選択
         handleSelectCustomer(newCustomerData);
       } else {
@@ -962,8 +962,21 @@ const RegisterPage = () => {
 
     // 割引適用
     const discount = parseInt(discountAmount) || 0;
-    total = Math.max(0, total - discount);
-
+    if ((ticketUseList.length > 0 || limitedOfferUseList.length > 0) && !selectedMenu) {
+      // 回数券使用/期間限定使用時は、割引上限を追加購入分に制限（残金支払い分は除外）
+      const optionTotal = selectedPaidOptions.reduce((sum, id) => {
+        const opt = options.find(o => o.option_id === id);
+        return sum + (opt?.price || 0);
+      }, 0);
+      const purchaseTotal = ticketPurchaseList
+        .filter(t => !t.is_additional_payment)
+        .reduce((sum, t) => sum + (t.payment_amount || 0), 0);
+      const maxDiscount = optionTotal + purchaseTotal;
+      const cappedDiscount = Math.min(discount, maxDiscount);
+      total = Math.max(0, total - cappedDiscount);
+    } else {
+      total = Math.max(0, total - discount);
+    }
     return total;
   };
 
@@ -1163,16 +1176,16 @@ const RegisterPage = () => {
     // =====================================================
     // パターン2: メニュー、回数券使用、期間限定のいずれかがある場合
     // =====================================================
-    
+
     // ★ 残金支払いのみの場合は別処理
-    const hasOnlyAdditionalPayments = additionalPayments.length > 0 
+    const hasOnlyAdditionalPayments = additionalPayments.length > 0
       && !selectedMenu && ticketUseList.length === 0 && limitedOfferUseList.length === 0
       && newTicketPurchases.length === 0 && newLimitedOfferPurchases.length === 0;
 
     if (hasOnlyAdditionalPayments) {
       // 合計金額を計算
       const totalAdditionalPayment = additionalPayments.reduce((sum, t) => sum + (t.payment_amount || 0), 0);
-      
+
       // お預かり金額のバリデーション
       if (paymentMethod === 'cash') {
         const received = parseInt(receivedAmount) || 0;
@@ -1261,7 +1274,7 @@ const RegisterPage = () => {
       }
       return;
     }
-    
+
     if (!selectedMenu && ticketUseList.length === 0 && limitedOfferUseList.length === 0
       && newTicketPurchases.length === 0 && newLimitedOfferPurchases.length === 0) {
       setError('メニューまたは回数券・期間限定を選択してください');
@@ -1720,7 +1733,7 @@ const RegisterPage = () => {
                             const tomorrow = new Date(today);
                             tomorrow.setDate(tomorrow.getDate() + 1);
                             const isTomorrow = bookingDate === tomorrow.toISOString().split('T')[0];
-                            
+
                             const label = isToday ? '（今日）' : isYesterday ? '（昨日）' : isTomorrow ? '（明日）' : '';
                             return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日 ${label}`;
                           })()}
@@ -2192,8 +2205,8 @@ const RegisterPage = () => {
                       <span>支払方法</span>
                       <span>
                         {paidBookingInfo.payment_method === 'cash' ? '現金' :
-                         paidBookingInfo.payment_method === 'card' ? 'カード' :
-                         paidBookingInfo.payment_method === 'mixed' ? '現金+カード' : '-'}
+                          paidBookingInfo.payment_method === 'card' ? 'カード' :
+                            paidBookingInfo.payment_method === 'mixed' ? '現金+カード' : '-'}
                       </span>
                     </div>
                     {paidBookingInfo.payment_method === 'mixed' && (
@@ -2659,19 +2672,23 @@ const RegisterPage = () => {
                 )}
 
                 {/* 割引入力 */}
-                {selectedMenu && selectedMenuType !== 'ticket' && selectedMenuType !== 'limited' && (
-                  <div className="form-group" style={{ marginTop: '1rem' }}>
-                    <label>割引金額</label>
-                    <input
-                      type="number"
-                      className="form-input"
-                      value={discountAmount}
-                      onFocus={(e) => handleShowKeypad('discountAmount', e)}
-                      onChange={(e) => setDiscountAmount(e.target.value)}
-                      placeholder="0"
-                    />
-                  </div>
-                )}
+                {(
+                  selectedMenu ||
+                  ticketPurchaseList.length > 0 ||
+                  ((ticketUseList.length > 0 || limitedOfferUseList.length > 0) && selectedPaidOptions.length > 0)
+                ) && (
+                    <div className="form-group" style={{ marginTop: '1rem' }}>
+                      <label>割引金額</label>
+                      <input
+                        type="number"
+                        className="form-input"
+                        value={discountAmount}
+                        onFocus={(e) => handleShowKeypad('discountAmount', e)}
+                        onChange={(e) => setDiscountAmount(e.target.value)}
+                        placeholder="0"
+                      />
+                    </div>
+                  )}
 
                 {/* お預かり金額入力 */}
                 {(selectedMenu || ticketPurchaseList.length > 0 || ticketUseList.length > 0 || limitedOfferUseList.length > 0) && paymentMethod === 'cash' && (
@@ -2864,9 +2881,9 @@ const RegisterPage = () => {
                   <span style={{ color: newCustomer.birthDate ? '#111827' : '#9ca3af' }}>
                     {newCustomer.birthDate
                       ? (() => {
-                          const d = new Date(newCustomer.birthDate);
-                          return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`;
-                        })()
+                        const d = new Date(newCustomer.birthDate);
+                        return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`;
+                      })()
                       : '選択してください'
                     }
                   </span>
